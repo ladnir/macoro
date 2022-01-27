@@ -6,13 +6,16 @@
 #include "Optional.h"
 #include <cassert>
 
-#include <cstddef>
+#include "config.h"
+#include "coroutine_handle.h"
+
+#ifdef MACORO_CPP_20
+#include <coroutine>
+#include <variant>
+#endif
 
 namespace macoro
 {
-
-
-
 
 	// A location which can store a return value
 	template<typename T>
@@ -59,46 +62,115 @@ namespace macoro
 
 	enum class SuspensionPoint : std::size_t
 	{
-		// the initial suspend point
 		InitialSuspend = std::numeric_limits<std::size_t>::max(),
 		FinalSuspend = std::numeric_limits<std::size_t>::max() - 1
 	};
 
+	//std::coroutine_handle<void>;
 
-
-	template<typename Promise = void>
-	struct coroutine_handle;
+	//template<typename Promise = void>
+	//struct coroutine_handle;
 
 	template<typename PromiseType = void>
 	struct FrameBase;
 
-	template<>
-	struct coroutine_handle<void>
-	{
-		FrameBase<void>* _address = nullptr;
 
-		bool done() const;
+//
+//	template <>
+//	struct coroutine_handle<void> {
+//		constexpr coroutine_handle() noexcept = default;
+//		constexpr coroutine_handle(nullptr_t) noexcept {}
+//
+//#ifdef MACORO_CPP_20
+//		template<typename T>
+//		coroutine_handle(const std::coroutine_handle<T>& h) noexcept {
+//			_Ptr = h.address();
+//			assert(((std::size_t)_Ptr & 1) == 0);
+//		};
+//		template<typename T>
+//		coroutine_handle(std::coroutine_handle<T>&& h) noexcept {
+//			_Ptr = h.address();
+//			assert(((std::size_t)_Ptr & 1) == 0);
+//		};
+//#endif // MACORO_CPP_20
+//
+//		coroutine_handle& operator=(nullptr_t) noexcept {
+//			_Ptr = nullptr;
+//			return *this;
+//		}
+//
+//		MACORO_NODISCARD constexpr void* address() const noexcept {
+//			return _Ptr;
+//		}
+//
+//		MACORO_NODISCARD static constexpr coroutine_handle from_address(void* const _Addr) noexcept { // strengthened
+//			coroutine_handle _Result;
+//			_Result._Ptr = _Addr;
+//			return _Result;
+//		}
+//
+//		constexpr explicit operator bool() const noexcept {
+//			return _Ptr != nullptr;
+//		}
+//
+//		MACORO_NODISCARD bool done() const noexcept;
+//
+//		void operator()() const;
+//
+//		void resume() const;
+//
+//		void destroy() const noexcept;
+//
+//	private:
+//		void* _Ptr = nullptr;
+//	};
 
-		void resume();
 
-		void destroy();
+	//template<>
+	//struct coroutine_handle<void>
+	//{
+	//	void* _address = nullptr;
 
-		void* address() const;
-		static coroutine_handle from_address(void* address);;
-	};
+	//	constexpr coroutine_handle() noexcept = default;
+	//	constexpr coroutine_handle(coroutine_handle&) noexcept = default;
+	//	constexpr coroutine_handle(coroutine_handle&&) noexcept = default;
+	//	constexpr coroutine_handle(coroutine_handle&&) noexcept = default;
 
-	template<typename Promise>
-	struct coroutine_handle : coroutine_handle<void>
-	{
-		coroutine_handle() = default;
-		coroutine_handle(const coroutine_handle&) = default;
-		coroutine_handle(FrameBase<void>* p) : coroutine_handle<void>({ p }) {};
 
-		Promise& promise() const;
-		static coroutine_handle<Promise> from_promise(Promise& promise);
 
-		static coroutine_handle<Promise> from_address(void* address);
-	};
+	//	bool done() const noexcept;
+
+	//	void resume();
+
+	//	void destroy();
+
+	//	void* address() const noexcept;
+	//	static coroutine_handle from_address(void* address) noexcept;
+
+	//protected: 
+	//	coroutine_handle(void* p) noexcept { _address = p; }
+	//};
+
+//	template<typename Promise>
+//	struct coroutine_handle : coroutine_handle<void>
+//	{
+//		coroutine_handle() = default;
+//		coroutine_handle(const coroutine_handle&) = default;
+//
+//#ifdef MACORO_CPP_20
+//		coroutine_handle(const std::coroutine_handle<Promise>& h) noexcept : coroutine_handle<void>({ h }) {};
+//#endif // MACORO_CPP_20
+//
+//
+//		Promise& promise() const ;
+//		static coroutine_handle<Promise> from_promise(Promise& promise, coroutine_handle_type t = coroutine_handle_type::mocoro) noexcept;
+//
+//		static coroutine_handle<Promise> from_address(void* address) noexcept;
+//
+//
+//	private:
+//		coroutine_handle(void* p) :coroutine_handle<void>(p) { }
+//	};
 
 	template<typename Awaiter, typename T>
 	bool await_suspend(Awaiter& a, coroutine_handle<T> h,
@@ -140,7 +212,7 @@ namespace macoro
 		}
 
 		void (*resume)(FrameBase<void>* ptr) = nullptr;
-		void (*destroy)(FrameBase<void>* ptr) = nullptr;
+		void (*destroy)(FrameBase<void>* ptr) noexcept = nullptr;
 	};
 
 
@@ -293,7 +365,7 @@ namespace macoro
 			(*self)(static_cast<FrameBase<Promise>*>(self));
 		}
 
-		static void destroy_impl(FrameBase<void>* ptr)
+		static void destroy_impl(FrameBase<void>* ptr) noexcept
 		{
 			auto self = static_cast<Frame<LambdaType, Promise>*>(ptr);
 			delete self;
@@ -316,29 +388,133 @@ namespace macoro
 	}
 
 
-	inline bool coroutine_handle<void>::done() const { return _address->done(); }
-	inline void coroutine_handle<void>::resume() { _address->resume(_address); }
-	inline void coroutine_handle<void>::destroy() { _address->destroy(_address); }
-	inline void* coroutine_handle<void>::address() const { return _address; }
-	inline coroutine_handle<void> coroutine_handle<void>::from_address(void* address) { return { (FrameBase<void>*)address }; }
+	
 	template<typename Promise>
-	inline Promise& coroutine_handle<Promise>::promise() const
+	Promise* _macoro_coro_promise(void* _address) noexcept
 	{
-		auto ptr = reinterpret_cast<FrameBase<Promise>*>(_address);
+#ifdef MACORO_CPP_20
+		if ((std::size_t)_address & 1)
+		{
+			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
+			auto ptrV = reinterpret_cast<FrameBase<void>*>(realAddr);
+			auto ptr = static_cast<FrameBase<Promise>*>(ptrV);
+			return ptr->promise;
+		}
+		else
+		{
+			return &std::coroutine_handle<Promise>::from_address(_address).promise();
+		}
+#else
+		auto ptrV = reinterpret_cast<FrameBase<void>*>(_address);
+		auto ptr = static_cast<FrameBase<Promise>*>(ptrV);
 		return ptr->promise;
+#endif
 	}
+	
 	template<typename Promise>
-	inline coroutine_handle<Promise> coroutine_handle<Promise>::from_promise(Promise& promise)
+	void* _macoro_coro_frame(Promise* promise, coroutine_handle_type te)noexcept
 	{
+#ifdef MACORO_CPP_20
+		if (te == coroutine_handle_type::mocoro)
+		{
+			std::size_t offset = ((std::size_t) & reinterpret_cast<char const volatile&>((((FrameBase<Promise>*)0)->promise)));
+			auto frame = (FrameBase<Promise>*)((char*)promise - offset);
+			auto base = static_cast<FrameBase<void>*>(frame);
+			auto tag = (std::size_t)base;
+			assert((tag & 1) == 0);
+			tag ^= 1;
+			base = reinterpret_cast<FrameBase<void>*>(tag);
+			return base;
+		}
+		else
+		{
+			auto ret = std::coroutine_handle<Promise>::from_promise(*promise).address();
+			assert(((std::size_t)ret & 1) == 0);
+			return ret;
+		}
+#else
 		std::size_t offset = ((std::size_t) & reinterpret_cast<char const volatile&>((((FrameBase<Promise>*)0)->promise)));
-		auto frame = (FrameBase<Promise>*)((char*)&promise - offset);
+		auto frame = (FrameBase<Promise>*)((char*)promise - offset);
 		auto base = static_cast<FrameBase<void>*>(frame);
-		return from_address(base);
+		return base;
+#endif
+
 	}
 
-	template<typename Promise>
-	inline coroutine_handle<Promise> coroutine_handle<Promise>::from_address(void* address)
+	inline bool _macoro_coro_done(void* _address)noexcept
 	{
-		return { (FrameBase<void>*)address };
+#ifdef MACORO_CPP_20
+		if ((std::size_t)_address & 1)
+		{
+			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
+			return realAddr->done();
+		}
+		return std::coroutine_handle<void>::from_address(_address).done();
+#else
+		return _address->done();
+#endif
 	}
+
+	inline void _macoro_coro_resume(void* _address)
+	{
+#ifdef MACORO_CPP_20
+		if ((std::size_t)_address & 1)
+		{
+			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
+			return realAddr->resume(realAddr);
+		}
+		else
+		{
+			std::coroutine_handle<void>::from_address(_address).resume();
+		}
+#else
+		_address->resume(_address);
+#endif
+	}
+
+	inline void _macoro_coro_destroy(void* _address)noexcept
+	{
+#ifdef MACORO_CPP_20
+		if ((std::size_t)_address & 1)
+		{
+			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
+			return realAddr->destroy(realAddr);
+		}
+		else
+		{
+			std::coroutine_handle<void>::from_address(_address).destroy();
+		}
+#else
+		_address->destroy(_address);
+#endif
+	}
+
+	//inline bool coroutine_handle<void>::done() const noexcept {
+
+	//}
+	//inline void coroutine_handle<void>::resume() {
+
+	//}
+	//inline void coroutine_handle<void>::destroy() { 
+
+	//}
+	//inline void* coroutine_handle<void>::address() const noexcept { return _address; }
+	//inline coroutine_handle<void> coroutine_handle<void>::from_address(void* address)noexcept { return {  address }; }
+
+	//template<typename Promise>
+	//inline Promise& coroutine_handle<Promise>::promise() const
+	//{
+
+	//}
+	//template<typename Promise>
+	//inline coroutine_handle<Promise> coroutine_handle<Promise>::from_promise(Promise& promise, coroutine_handle_type te) noexcept
+	//{
+
+	//}
+
+	//template<typename Promise>
+	//inline coroutine_handle<Promise> coroutine_handle<Promise>::from_address(void* address) noexcept
+	//{
+	//	return { address };
+	//}
 }

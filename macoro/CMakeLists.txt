@@ -16,12 +16,12 @@ target_include_directories( macoro PUBLIC
 
 if(APPLE)
     target_compile_options( macoro PUBLIC
-        "-std=c++14"
+        "-std=c++20"
     )
 else()
     set_target_properties( macoro
         PROPERTIES
-            CXX_STANDARD 14
+            CXX_STANDARD 20
             CXX_STANDARD_REQUIRED YES
             CXX_EXTENSIONS NO
     )

@@ -3,14 +3,6 @@
 //#include "macoro/Context.h"
 #include "CoroFrame.h"
 
-#ifdef MACORO_CPP20
-#define MACORO_FALLTHROUGH [[fallthrough]]
-#else
-#define MACORO_FALLTHROUGH
-#endif
-
-#define MACORO_LOCATION __FILE__
-
 
 // Begin a lambda based coroutine which returns the given type.
 #define MC_BEGIN(ReturnType, ...)																				\
@@ -43,7 +35,7 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ReturnType::promise_type
 					using Handle = coroutine_handle<promise_type>;												\
 					{																							\
 						auto& promise = _macoro_frame_->promise;												\
-						auto handle = Handle::from_promise(promise);											\
+						auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);											\
 						auto& awaiter = _macoro_frame_->constructAwaiter(EXPRESSION);							\
 						if (!awaiter.await_ready())																\
 						{																						\
@@ -73,20 +65,17 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ReturnType::promise_type
 
 #define MC_RETURN_VOID()																						\
 				_macoro_frame_->promise.return_void();															\
-				break;
+				goto MACORO_FINAL_SUSPEND_BEGIN;
 
 #define MC_RETURN(X)																							\
 				_macoro_frame_->promise.return_value(X);														\
-				break;
+				goto MACORO_FINAL_SUSPEND_BEGIN;
 
 
 
-#define MC_AWAIT(X)                  IMPL_MC_AWAIT(X, , )
-#define MC_AWAIT_VAL(RETURN_SLOT, X) IMPL_MC_AWAIT(X, RETURN_SLOT = , )
-#define MC_AWAIT_RETURN(X)           IMPL_MC_AWAIT(X, auto&& temp = , MC_RETURN(static_cast<decltype(temp)>(temp)))
-#define MC_AWAIT_RETURN_VOID(X)      IMPL_MC_AWAIT(X, , MC_RETURN_VOID())
-
-
+#define MC_AWAIT(X)                IMPL_MC_AWAIT(X, , )
+#define MC_AWAIT_VAL(RETURN_SLOT, X)   IMPL_MC_AWAIT(X, RETURN_SLOT = , )
+#define MC_AWAIT_RETURN(X)         IMPL_MC_AWAIT(X, auto&& temp = , MC_RETURN(static_cast<decltype(temp)>(temp)))
 
 #define MC_END()																								\
 			} break; 																							\
@@ -99,12 +88,13 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ReturnType::promise_type
 			_macoro_frame_->promise.unhandled_exception();														\
 		}																										\
 		/*final suspend*/																						\
+MACORO_FINAL_SUSPEND_BEGIN:	\
 		using promise_type = decltype(_macoro_frame_->promise);													\
 		promise_type& promise = _macoro_frame_->promise;														\
 		using AwaiterFor = typename ::macoro::awaiter_for<promise_type, decltype(promise.final_suspend())>;		\
 		using Handle = coroutine_handle<promise_type>;															\
 		auto& awaiter = _macoro_frame_->constructAwaiter(promise.final_suspend());								\
-		auto handle = Handle::from_promise(promise);															\
+		auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);															\
 		if (!awaiter.await_ready())																				\
 		{																										\
 			/*<suspend-coroutine>*/																				\
@@ -129,7 +119,7 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ReturnType::promise_type
 	using AwaiterFor = typename ::macoro::awaiter_for<promise_type, decltype(promise.initial_suspend())>;		\
 	using Handle = coroutine_handle<promise_type>;																\
 	auto& awaiter = _macoro_frame_->constructAwaiter(promise.initial_suspend());								\
-	auto handle = Handle::from_promise(promise);																\
+	auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);																\
 	if (!awaiter.await_ready())																					\
 	{																											\
 		/*<suspend-coroutine>*/																					\

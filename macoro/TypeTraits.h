@@ -94,15 +94,24 @@ namespace macoro
 		: true_type{};
 
 
+	template<typename Awaiter, typename T, typename = void>
+	struct has_bool_await_suspend : false_type
+	{};
 
-	//template<typename P, typename T>
-	//decltype(auto) get_awaitable(P& promise, T&& expr)
-	//{
-	//	if constexpr (has_any_await_transform_member_v<P>)
-	//		return promise.await_transform(static_cast<T&&>(expr));
-	//	else
-	//		return static_cast<T&&>(expr);
-	//}
+	template <typename Awaiter, typename T>
+	struct has_bool_await_suspend <Awaiter, T, void_t<
+
+		// must have a await_suspend(...) member fn
+		decltype(std::declval<Awaiter>().await_suspend(std::declval<T>())),
+
+		// must return bool
+		enable_if_t<std::is_same<
+		decltype(std::declval<Awaiter>().await_suspend(std::declval<T>())),
+		bool
+		>::value, void>
+
+		>>
+		: true_type{};
 
 	struct monostate {};
 

@@ -16,185 +16,154 @@
 
 namespace macoro
 {
-
-	// A location which can store a return value
-	template<typename T>
-	struct ReturnStorage;
-
-	// void specializzation.
-	template<>
-	struct ReturnStorage<void>
-	{
-		// required by coroutine.
-		void return_void() {}
-		void* getValue() { return nullptr; }
-	};
-
-	// Stores a T inside and will give
-	// back a void* to it.
-	template<typename T>
-	struct ReturnStorage
-	{
-		optional<T> mVal;
-
-		// set/store the return value.
-		void return_value(T&& t)
-		{
-			mVal = std::forward<T>(t);
-		}
-
-		// set/store the return value.
-		void return_value(const T& t)
-		{
-			mVal = t;
-		}
-
-		// get a pointer the return value if it has one. 
-		// Otherwise return null.
-		void* getValue()
-		{
-			if (mVal)
-				return &mVal.value();
-			else
-				return nullptr;
-		}
-	};
-
 	enum class SuspensionPoint : std::size_t
 	{
+		Init = 0,
 		InitialSuspend = std::numeric_limits<std::size_t>::max(),
 		FinalSuspend = std::numeric_limits<std::size_t>::max() - 1
 	};
 
-	//std::coroutine_handle<void>;
-
-	//template<typename Promise = void>
-	//struct coroutine_handle;
-
 	template<typename PromiseType = void>
 	struct FrameBase;
 
+	template<typename nested_promise>
+	struct std_handle_adapter
+	{
+		struct final_awaiter
+		{
+			std::coroutine_handle<void> continuation;
 
-//
-//	template <>
-//	struct coroutine_handle<void> {
-//		constexpr coroutine_handle() noexcept = default;
-//		constexpr coroutine_handle(nullptr_t) noexcept {}
-//
-//#ifdef MACORO_CPP_20
-//		template<typename T>
-//		coroutine_handle(const std::coroutine_handle<T>& h) noexcept {
-//			_Ptr = h.address();
-//			assert(((std::size_t)_Ptr & 1) == 0);
-//		};
-//		template<typename T>
-//		coroutine_handle(std::coroutine_handle<T>&& h) noexcept {
-//			_Ptr = h.address();
-//			assert(((std::size_t)_Ptr & 1) == 0);
-//		};
-//#endif // MACORO_CPP_20
-//
-//		coroutine_handle& operator=(nullptr_t) noexcept {
-//			_Ptr = nullptr;
-//			return *this;
-//		}
-//
-//		MACORO_NODISCARD constexpr void* address() const noexcept {
-//			return _Ptr;
-//		}
-//
-//		MACORO_NODISCARD static constexpr coroutine_handle from_address(void* const _Addr) noexcept { // strengthened
-//			coroutine_handle _Result;
-//			_Result._Ptr = _Addr;
-//			return _Result;
-//		}
-//
-//		constexpr explicit operator bool() const noexcept {
-//			return _Ptr != nullptr;
-//		}
-//
-//		MACORO_NODISCARD bool done() const noexcept;
-//
-//		void operator()() const;
-//
-//		void resume() const;
-//
-//		void destroy() const noexcept;
-//
-//	private:
-//		void* _Ptr = nullptr;
-//	};
+			bool await_ready() noexcept { return false; }
+			std::coroutine_handle<void> await_suspend(std::coroutine_handle<void> v) noexcept { return continuation; }
+			void await_resume() noexcept {}
+
+		};
+
+		struct promise_type
+		{
+			suspend_always initial_suspend() noexcept { return {}; }
+			final_awaiter final_suspend() const noexcept { return { continuation }; }
+
+			void unhandled_exception()
+			{
+				std::cout << "not impl. " << __FILE__ << ":" << __LINE__ << std::endl;
+				std::terminate();
+			}
+
+			coroutine_handle<nested_promise> handle;
+			std::coroutine_handle<void> continuation;
 
 
-	//template<>
-	//struct coroutine_handle<void>
-	//{
-	//	void* _address = nullptr;
+			std_handle_adapter get_return_object() { return { this }; }
 
-	//	constexpr coroutine_handle() noexcept = default;
-	//	constexpr coroutine_handle(coroutine_handle&) noexcept = default;
-	//	constexpr coroutine_handle(coroutine_handle&&) noexcept = default;
-	//	constexpr coroutine_handle(coroutine_handle&&) noexcept = default;
+			~promise_type()
+			{
+				if (handle)
+					handle.destroy();
+			}
+
+			suspend_always yield_value(std::coroutine_handle<void> cont)
+			{
+				continuation = cont;
+				return {};
+			}
+
+			void return_value(std::coroutine_handle<void> cont) {
+				continuation = cont;
+			}
+		};
+
+		using nested_promise_type = nested_promise;
+
+		promise_type* promise;
+	};
 
 
+	template<typename T>
+	struct coroutine_handle_traits
+	{
+	};
 
-	//	bool done() const noexcept;
+	template<typename T>
+	struct coroutine_handle_traits<std::coroutine_handle<T>>
+	{
+		using promise_type = T;
+	};
 
-	//	void resume();
+	template<typename T>
+	struct coroutine_handle_traits<coroutine_handle<T>>
+	{
+		using promise_type = T;
+	};
 
-	//	void destroy();
+	template<typename handle>
+	struct await_suspend_t
+	{
+		handle value;
 
-	//	void* address() const noexcept;
-	//	static coroutine_handle from_address(void* address) noexcept;
+		explicit operator bool() const
+		{
+			return true;
+		}
 
-	//protected: 
-	//	coroutine_handle(void* p) noexcept { _address = p; }
-	//};
+		auto get_handle()
+		{
+			return value;
+		}
+	};
 
-//	template<typename Promise>
-//	struct coroutine_handle : coroutine_handle<void>
-//	{
-//		coroutine_handle() = default;
-//		coroutine_handle(const coroutine_handle&) = default;
-//
-//#ifdef MACORO_CPP_20
-//		coroutine_handle(const std::coroutine_handle<Promise>& h) noexcept : coroutine_handle<void>({ h }) {};
-//#endif // MACORO_CPP_20
-//
-//
-//		Promise& promise() const ;
-//		static coroutine_handle<Promise> from_promise(Promise& promise, coroutine_handle_type t = coroutine_handle_type::mocoro) noexcept;
-//
-//		static coroutine_handle<Promise> from_address(void* address) noexcept;
-//
-//
-//	private:
-//		coroutine_handle(void* p) :coroutine_handle<void>(p) { }
-//	};
+	template<>
+	struct await_suspend_t<bool>
+	{
+		bool value;
+
+		explicit operator bool() const
+		{
+			return value;
+		}
+		coroutine_handle<> get_handle()
+		{
+			return noop_coroutine();
+		}
+	};
 
 	template<typename Awaiter, typename T>
-	bool await_suspend(Awaiter& a, coroutine_handle<T> h,
+	await_suspend_t<bool> await_suspend(Awaiter& a, coroutine_handle<T> h,
 		enable_if_t<
 		has_void_await_suspend<Awaiter, coroutine_handle<T>>::value
 		, monostate> = {})
 	{
 		a.await_suspend(h);
-		return true;
+		return { true };
 	}
+
+	template<typename Awaiter, typename T>
+	await_suspend_t<bool> await_suspend(Awaiter& a, coroutine_handle<T> h,
+		enable_if_t<
+		has_bool_await_suspend<Awaiter, coroutine_handle<T>>::value
+		, monostate> = {})
+	{
+		return { a.await_suspend(h) };
+	}
+
 
 	template<typename Awaiter, typename T>
 	auto await_suspend(Awaiter& a, coroutine_handle<T> h,
 		enable_if_t<
-		!has_void_await_suspend<Awaiter, coroutine_handle<T>>::value
+		!has_void_await_suspend<Awaiter, coroutine_handle<T>>::value &&
+		!has_bool_await_suspend<Awaiter, coroutine_handle<T>>::value
 		, monostate> = {})
 	{
+
 		static_assert(
-			std::is_same_v<decltype(a.await_suspend(h)), bool>,
-			"await_suspend() must return 'void' or 'bool'.");
+			std::is_same<decltype(a.await_suspend(h)), bool>::value ||
+			std::is_convertible<decltype(a.await_suspend(h)), macoro::coroutine_handle<>>::value,
+			"await_suspend() must return 'void', 'bool', or convertible to macoro::coroutine_handle<>.");
 
-		return a.await_suspend(h);
+		using promise_type = typename coroutine_handle_traits<decltype(a.await_suspend(h))>::promise_type;
+
+		return await_suspend_t<coroutine_handle<promise_type>>{ a.await_suspend(h) };
 	}
-
 
 	template<>
 	struct FrameBase<void>
@@ -204,14 +173,15 @@ namespace macoro
 		FrameBase(FrameBase<void>&&) = delete;
 
 		// The current suspend location of the coroutines
-		SuspensionPoint _suspension_idx_ = SuspensionPoint::InitialSuspend;
+		SuspensionPoint _suspension_idx_ = SuspensionPoint::Init;
 
 		bool done() const
 		{
 			return _suspension_idx_ == SuspensionPoint::FinalSuspend;
 		}
 
-		void (*resume)(FrameBase<void>* ptr) = nullptr;
+		std::coroutine_handle<void>(*get_std_handle)(FrameBase<void>* ptr) = nullptr;
+		coroutine_handle<void>(*resume)(FrameBase<void>* ptr) = nullptr;
 		void (*destroy)(FrameBase<void>* ptr) noexcept = nullptr;
 	};
 
@@ -236,7 +206,9 @@ namespace macoro
 		bool _suspension_idx_set_ = false;
 
 		// Return the current suspend location of the coroutines.
-		SuspensionPoint getSuspendPoint() const { return _suspension_idx_; }
+		SuspensionPoint getSuspendPoint() const {
+			return _suspension_idx_;
+		}
 
 		// set the current suspend location of the coroutines. 
 		// Must be called if the coroutines does not complete.
@@ -255,6 +227,7 @@ namespace macoro
 
 		FrameBase()
 		{
+			FrameBase<void>::get_std_handle = &FrameBase::get_std_handle_void;
 		}
 
 		~FrameBase()
@@ -340,6 +313,63 @@ namespace macoro
 			return *ptr;
 		}
 
+#ifdef MACORO_CPP_20
+
+		using adapter = std_handle_adapter<promise_type>;
+		adapter make_adapter()
+		{
+			auto h = resume(this);
+			while (true)
+			{
+				assert(h);
+				bool noop = h == noop_coroutine();
+				if (!noop && h.is_std() == false)
+				{
+					auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)h.address() ^ 1);
+					auto _address = realAddr->resume(realAddr).address();
+					h = coroutine_handle<void>::from_address(_address);
+					//h.resume();
+				}
+				else
+				{
+					std::coroutine_handle<void> r;
+					r = h.std_cast();
+
+					if (done())
+					{
+						co_return r;
+					}
+					else
+					{
+						co_yield r;
+					}
+				}
+			}
+		}
+
+		adapter std_adapter;
+		std::coroutine_handle<typename adapter::promise_type> std_handle;
+
+		std::coroutine_handle<typename adapter::promise_type> get_std_handle()
+		{
+			if (!std_handle)
+			{
+				auto handle = coroutine_handle<promise_type>::from_promise(promise, coroutine_handle_type::mocoro);
+				std_adapter = make_adapter();
+				std_adapter.promise->handle = handle;
+				std_handle = std::coroutine_handle<typename adapter::promise_type>::from_promise(*std_adapter.promise);
+			}
+
+			return std_handle;
+		}
+
+		static std::coroutine_handle<void> get_std_handle_void(FrameBase<void>* basev)
+		{
+			auto base = reinterpret_cast<FrameBase<promise_type>*>(basev);
+			return base->get_std_handle();
+		}
+#endif
+
 	};
 
 	// Frame is a Resumable which invokes a lambda each
@@ -359,10 +389,10 @@ namespace macoro
 		using LambdaType::operator();
 		using lambda_type = LambdaType;
 
-		static void resume_impl(FrameBase<void>* ptr)
+		static coroutine_handle<void> resume_impl(FrameBase<void>* ptr)
 		{
-			auto self = static_cast<Frame<LambdaType,Promise>*>(ptr);
-			(*self)(static_cast<FrameBase<Promise>*>(self));
+			auto self = static_cast<Frame<LambdaType, Promise>*>(ptr);
+			return (*self)(static_cast<FrameBase<Promise>*>(self));
 		}
 
 		static void destroy_impl(FrameBase<void>* ptr) noexcept
@@ -387,18 +417,22 @@ namespace macoro
 		return new Frame<LambdaType, Promise>(std::forward<LambdaType>(l));
 	}
 
-
-	
+#ifdef MACORO_CPP_20
+	inline bool _macoro_coro_is_std(void* _address) noexcept
+	{
+		return !bool((std::size_t)_address & 1);
+	}
+#endif
 	template<typename Promise>
 	Promise* _macoro_coro_promise(void* _address) noexcept
 	{
 #ifdef MACORO_CPP_20
-		if ((std::size_t)_address & 1)
+		if (!_macoro_coro_is_std(_address))
 		{
 			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
 			auto ptrV = reinterpret_cast<FrameBase<void>*>(realAddr);
 			auto ptr = static_cast<FrameBase<Promise>*>(ptrV);
-			return ptr->promise;
+			return &ptr->promise;
 		}
 		else
 		{
@@ -407,10 +441,10 @@ namespace macoro
 #else
 		auto ptrV = reinterpret_cast<FrameBase<void>*>(_address);
 		auto ptr = static_cast<FrameBase<Promise>*>(ptrV);
-		return ptr->promise;
+		return &ptr->promise;
 #endif
 	}
-	
+
 	template<typename Promise>
 	void* _macoro_coro_frame(Promise* promise, coroutine_handle_type te)noexcept
 	{
@@ -438,13 +472,12 @@ namespace macoro
 		auto base = static_cast<FrameBase<void>*>(frame);
 		return base;
 #endif
-
 	}
 
 	inline bool _macoro_coro_done(void* _address)noexcept
 	{
 #ifdef MACORO_CPP_20
-		if ((std::size_t)_address & 1)
+		if (!_macoro_coro_is_std(_address))
 		{
 			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
 			return realAddr->done();
@@ -457,25 +490,35 @@ namespace macoro
 
 	inline void _macoro_coro_resume(void* _address)
 	{
+		while (true)
+		{
 #ifdef MACORO_CPP_20
-		if ((std::size_t)_address & 1)
-		{
-			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
-			return realAddr->resume(realAddr);
-		}
-		else
-		{
-			std::coroutine_handle<void>::from_address(_address).resume();
-		}
+
+			if (!_macoro_coro_is_std(_address))
+			{
+				auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
+				_address = realAddr->resume(realAddr).address();
+				assert(_address);
+				if (_address == noop_coroutine().address())
+					return;
+			}
+			else
+			{
+				std::coroutine_handle<void>::from_address(_address).resume();
+				return;
+			}
 #else
-		_address->resume(_address);
+			auto symTransfer = _address->resume(_address);
+			if (_address == nullptr)
+				return;
 #endif
+		}
 	}
 
 	inline void _macoro_coro_destroy(void* _address)noexcept
 	{
 #ifdef MACORO_CPP_20
-		if ((std::size_t)_address & 1)
+		if (!_macoro_coro_is_std(_address))
 		{
 			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
 			return realAddr->destroy(realAddr);
@@ -488,6 +531,44 @@ namespace macoro
 		_address->destroy(_address);
 #endif
 	}
+
+	inline std::coroutine_handle<void> coroutine_handle<void>::std_cast() const
+	{
+		if (*this == noop_coroutine())
+		{
+			return std::noop_coroutine();
+		}
+		if (!is_std())
+		{
+			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_Ptr ^ 1);
+			return realAddr->get_std_handle(realAddr);
+		}
+		else
+		{
+			return std::coroutine_handle<void>::from_address(_Ptr);
+		}
+	}
+
+	template<class _Promise>
+	inline std::coroutine_handle<void> coroutine_handle<_Promise>::std_cast() const
+	{
+
+		if (*this == noop_coroutine())
+		{
+			return std::noop_coroutine();
+		}
+		if (!_macoro_coro_is_std(_Ptr))
+		{
+			auto realAddr = reinterpret_cast<FrameBase<_Promise>*>((std::size_t)_Ptr ^ 1);
+			return realAddr->get_std_handle();
+		}
+		else
+		{
+			return std::coroutine_handle<_Promise>::from_address(_Ptr);
+		}
+	}
+
+
 
 	//inline bool coroutine_handle<void>::done() const noexcept {
 

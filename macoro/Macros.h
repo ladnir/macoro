@@ -7,7 +7,7 @@
 // Begin a lambda based coroutine which returns the given type.
 #define MC_BEGIN(ReturnType, ...)																				\
 do { auto _macoro_frame_ = ::macoro::makeFrame<typename ReturnType::promise_type>(								\
-	[__VA_ARGS__](::macoro::FrameBase<typename ReturnType::promise_type>* _macoro_frame_) mutable ->void		\
+	[__VA_ARGS__](::macoro::FrameBase<typename ReturnType::promise_type>* _macoro_frame_) mutable ->coroutine_handle<void>		\
 	{																											\
 		try {																									\
 																												\
@@ -21,7 +21,7 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ReturnType::promise_type
 					decltype(promise.initial_suspend())>;														\
 				_macoro_frame_->getAwaiter<AwaiterFor>().await_resume();										\
 				_macoro_frame_->destroyAwaiter<AwaiterFor>();													\
-			} { do{}while(0)
+			} do{}while(0)
 
 //              User code goes here
 //              User code goes here
@@ -46,7 +46,7 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ReturnType::promise_type
 							if (::macoro::await_suspend(awaiter, handle))										\
 							{																					\
 								/*<return-to-caller-or-resumer>*/												\
-								return;																			\
+								return std::nullptr_t{};																			\
 							}																					\
 						}																						\
 					}																							\
@@ -55,8 +55,7 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ReturnType::promise_type
 					{ RETURN_SLOT _macoro_frame_->getAwaiter<AwaiterFor>().await_resume();						\
 					_macoro_frame_->destroyAwaiter<AwaiterFor>();												\
 					OPTIONAL_BREAK;	}																			\
-				} 																								\
-			} { do{}while(0)
+				} do{}while(0)
 
 //              User code goes here
 //              User code goes here
@@ -78,8 +77,12 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ReturnType::promise_type
 #define MC_AWAIT_RETURN(X)         IMPL_MC_AWAIT(X, auto&& temp = , MC_RETURN(static_cast<decltype(temp)>(temp)))
 
 #define MC_END()																								\
-			} break; 																							\
+			break; 																							\
 			default:																							\
+				if(_macoro_frame_->getSuspendPoint() == ::macoro::SuspensionPoint::FinalSuspend)					\
+					std::cout << "coroutine was resumed after it finished. " <<__FILE__ <<":" <<__LINE__ << std::endl;			\
+				else																							\
+					std::cout << "coroutine frame corrupted. " <<__FILE__ <<":" <<__LINE__ << std::endl;			\
 				std::terminate();																				\
 				break;																							\
 			}																									\
@@ -101,17 +104,19 @@ MACORO_FINAL_SUSPEND_BEGIN:	\
 			_macoro_frame_->setSuspendPoint(::macoro::SuspensionPoint::FinalSuspend);							\
 																												\
 			/*<call awaiter.await_suspend(). If it's void return, then return true.>*/							\
-			if (::macoro::await_suspend(awaiter, handle))														\
+			auto s = ::macoro::await_suspend(awaiter, handle);													\
+			if (s)																								\
 			{																									\
-				return;																							\
+				return s.get_handle();																							\
 			}																									\
 		}																										\
 		_macoro_frame_->getAwaiter<AwaiterFor>().await_resume();												\
 		_macoro_frame_->destroyAwaiter<AwaiterFor>();															\
 		handle.destroy();																						\
+		return {};																								\
 	});																											\
 																												\
-	auto _macoro_ret_ = _macoro_frame_->promise.get_return_object();											\
+	auto _macoro_ret_ = _macoro_frame_->promise.macoro_get_return_object();											\
 																												\
 	/*initial suspend*/																							\
 	using promise_type = decltype(_macoro_frame_->promise);														\

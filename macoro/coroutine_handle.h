@@ -12,12 +12,18 @@ namespace macoro
     template<typename Promise = void>
     struct coroutine_handle;
 
+    template<typename nested_promise>
+    struct std_handle_adapter;
+
     enum class coroutine_handle_type
     {
         std,
         mocoro
     };
 
+#ifdef MACORO_CPP_20
+    inline bool _macoro_coro_is_std(void* _address) noexcept;
+#endif
 
     template<typename Promise>
     Promise* _macoro_coro_promise(void* address)noexcept;
@@ -83,6 +89,15 @@ namespace macoro
             _macoro_coro_destroy(_Ptr);
         }
 
+#ifdef MACORO_CPP_20
+        bool is_std() const
+        {
+            return _macoro_coro_is_std(_Ptr);
+        }
+
+        std::coroutine_handle<void> std_cast() const;
+#endif // MACORO_CPP_20
+
     private:
         void* _Ptr = nullptr;
     };
@@ -136,10 +151,11 @@ namespace macoro
         }
 
 #ifdef MACORO_CPP_20
-        MACORO_NODISCARD static coroutine_handle from_promise(_Promise& _Prom)
-        {
-            return from_promise(_Prom, coroutine_handle_type::std);
-        }
+        std::coroutine_handle<void> std_cast() const;
+        //MACORO_NODISCARD static coroutine_handle from_promise(_Promise& _Prom)
+        //{
+        //    return from_promise(_Prom, coroutine_handle_type::std);
+        //}
 #endif // MACORO_CPP_20
 
 
@@ -186,52 +202,55 @@ namespace macoro
     //    }
     //};
 
-    //// STRUCT noop_coroutine_promise
-    //struct noop_coroutine_promise {};
+    // STRUCT noop_coroutine_promise
+    struct noop_coroutine_promise {};
+    extern noop_coroutine_promise _noop_coroutine_promise;
 
-    //// STRUCT coroutine_handle<noop_coroutine_promise>
-    //template <>
-    //struct coroutine_handle<noop_coroutine_promise> {
-    //    friend coroutine_handle noop_coroutine() noexcept;
+    // STRUCT coroutine_handle<noop_coroutine_promise>
+    template <>
+    struct coroutine_handle<noop_coroutine_promise> {
+        friend coroutine_handle noop_coroutine() noexcept;
 
-    //    constexpr operator coroutine_handle<>() const noexcept {
-    //        return coroutine_handle<>::from_address(_Ptr);
-    //    }
+        constexpr operator coroutine_handle<>() const noexcept {
+            //throw std::runtime_error("not implemented");
+            //std::terminate();
+            return coroutine_handle<>::from_address(_Ptr);
+        }
 
-    //    constexpr explicit operator bool() const noexcept {
-    //        return true;
-    //    }
-    //    MACORO_NODISCARD constexpr bool done() const noexcept {
-    //        return false;
-    //    }
+        constexpr explicit operator bool() const noexcept {
+            return true;
+        }
+        MACORO_NODISCARD constexpr bool done() const noexcept {
+            return false;
+        }
 
-    //    constexpr void operator()() const noexcept {}
-    //    constexpr void resume() const noexcept {}
-    //    constexpr void destroy() const noexcept {}
+        constexpr void operator()() const noexcept {}
+        constexpr void resume() const noexcept {}
+        constexpr void destroy() const noexcept {}
 
-    //    MACORO_NODISCARD noop_coroutine_promise& promise() const noexcept {
-    //        // Returns a reference to the associated promise
-    //        return *reinterpret_cast<noop_coroutine_promise*>(__builtin_coro_promise(_Ptr, 0, false));
-    //    }
+        MACORO_NODISCARD noop_coroutine_promise& promise() const noexcept {
+            // Returns a reference to the associated promise
+            return _noop_coroutine_promise;
+        }
 
-    //    MACORO_NODISCARD constexpr void* address() const noexcept {
-    //        return _Ptr;
-    //    }
+        MACORO_NODISCARD constexpr void* address() const noexcept {
+            return _Ptr;
+        }
 
-    //private:
-    //    coroutine_handle() noexcept = default;
+    private:
+        coroutine_handle() noexcept = default;
 
-    //    void* _Ptr = __builtin_coro_noop();
-    //};
+        void * const _Ptr = (void*)43;
+    };
 
-    //// ALIAS noop_coroutine_handle
-    //using noop_coroutine_handle = coroutine_handle<noop_coroutine_promise>;
+    // ALIAS noop_coroutine_handle
+    using noop_coroutine_handle = coroutine_handle<noop_coroutine_promise>;
 
-    //// FUNCTION noop_coroutine
-    //MACORO_NODISCARD inline noop_coroutine_handle noop_coroutine() noexcept {
-    //    // Returns a handle to a coroutine that has no observable effects when resumed or destroyed.
-    //    return noop_coroutine_handle{};
-    //}
+    // FUNCTION noop_coroutine
+    MACORO_NODISCARD inline noop_coroutine_handle noop_coroutine() noexcept {
+        // Returns a handle to a coroutine that has no observable effects when resumed or destroyed.
+        return noop_coroutine_handle{};
+    }
 
     // STRUCT suspend_never
     struct suspend_never {

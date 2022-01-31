@@ -2,4 +2,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(macoro)
 
+include(cmake/macoroBuildOptions.cmake)
+include(cmake/macoroFindDeps.cmake)
+
 add_subdirectory(macoro)
+add_subdirectory(tests)
+add_subdirectory(frontend)

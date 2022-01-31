@@ -1,3 +1,6 @@
 out/
 ~/
 .vs/
+
+thirdparty/log*.txt
+thirdparty/*/

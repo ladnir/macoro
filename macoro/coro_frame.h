@@ -3,22 +3,22 @@
 #include <type_traits>
 #include <typeinfo>
 
-#include "Optional.h"
+#include "optional.h"
 #include <cassert>
 
-#include "config.h"
-#include "coroutine_handle.h"
+#include "macoro/config.h"
+#include "macoro/coroutine_handle.h"
 
 #ifdef MACORO_CPP_20
 #include <coroutine>
-#include <variant>
 #endif
+#include <iostream>
 
 namespace macoro
 {
 	enum class SuspensionPoint : std::size_t
 	{
-		Init = 0,
+		InitialSuspendBegin = 0,
 		InitialSuspend = std::numeric_limits<std::size_t>::max(),
 		FinalSuspend = std::numeric_limits<std::size_t>::max() - 1
 	};
@@ -26,6 +26,7 @@ namespace macoro
 	template<typename PromiseType = void>
 	struct FrameBase;
 
+#ifdef MACORO_CPP_20
 	template<typename nested_promise>
 	struct std_handle_adapter
 	{
@@ -77,18 +78,20 @@ namespace macoro
 
 		promise_type* promise;
 	};
-
+#endif
 
 	template<typename T>
 	struct coroutine_handle_traits
 	{
 	};
 
+#ifdef MACORO_CPP_20
 	template<typename T>
 	struct coroutine_handle_traits<std::coroutine_handle<T>>
 	{
 		using promise_type = T;
 	};
+#endif
 
 	template<typename T>
 	struct coroutine_handle_traits<coroutine_handle<T>>
@@ -131,7 +134,7 @@ namespace macoro
 	await_suspend_t<bool> await_suspend(Awaiter& a, coroutine_handle<T> h,
 		enable_if_t<
 		has_void_await_suspend<Awaiter, coroutine_handle<T>>::value
-		, monostate> = {})
+		, monostate> = {}) noexcept(noexcept(a.await_suspend(h)))
 	{
 		a.await_suspend(h);
 		return { true };
@@ -141,7 +144,7 @@ namespace macoro
 	await_suspend_t<bool> await_suspend(Awaiter& a, coroutine_handle<T> h,
 		enable_if_t<
 		has_bool_await_suspend<Awaiter, coroutine_handle<T>>::value
-		, monostate> = {})
+		, monostate> = {}) noexcept(noexcept(await_suspend_t<bool>{ a.await_suspend(h) }))
 	{
 		return { a.await_suspend(h) };
 	}
@@ -152,7 +155,7 @@ namespace macoro
 		enable_if_t<
 		!has_void_await_suspend<Awaiter, coroutine_handle<T>>::value &&
 		!has_bool_await_suspend<Awaiter, coroutine_handle<T>>::value
-		, monostate> = {})
+		, monostate> = {}) noexcept(noexcept(await_suspend_t<coroutine_handle<typename coroutine_handle_traits<decltype(a.await_suspend(h))>::promise_type>>{ a.await_suspend(h) }))
 	{
 
 		static_assert(
@@ -173,14 +176,15 @@ namespace macoro
 		FrameBase(FrameBase<void>&&) = delete;
 
 		// The current suspend location of the coroutines
-		SuspensionPoint _suspension_idx_ = SuspensionPoint::Init;
+		SuspensionPoint _suspension_idx_ = SuspensionPoint::InitialSuspendBegin;
 
 		bool done() const
 		{
 			return _suspension_idx_ == SuspensionPoint::FinalSuspend;
 		}
-
+#ifdef MACORO_CPP_20
 		std::coroutine_handle<void>(*get_std_handle)(FrameBase<void>* ptr) = nullptr;
+#endif
 		coroutine_handle<void>(*resume)(FrameBase<void>* ptr) = nullptr;
 		void (*destroy)(FrameBase<void>* ptr) noexcept = nullptr;
 	};
@@ -201,6 +205,9 @@ namespace macoro
 #endif
 
 		promise_type promise;
+
+
+		bool _initial_suspend_await_resumed_called_ = false;
 
 		// a flag to make sure the suspend index is set.
 		bool _suspension_idx_set_ = false;
@@ -224,11 +231,12 @@ namespace macoro
 		void* _awaiter_ptr = nullptr;
 		void* _storage_ptr = nullptr;
 
-
+#ifdef MACORO_CPP_20
 		FrameBase()
 		{
 			FrameBase<void>::get_std_handle = &FrameBase::get_std_handle_void;
 		}
+#endif
 
 		~FrameBase()
 		{
@@ -282,34 +290,51 @@ namespace macoro
 		}
 
 		template<typename AwaiterFor>
+		struct DestroyAwaiterRaii
+		{
+			FrameBase<promise_type>* frame;
+
+			~DestroyAwaiterRaii()
+			{
+#ifndef NDEBUG
+				if (!frame->_awaiter_ptr)
+					std::terminate();
+
+				if (frame->_awaiter_typeid_ != &typeid(AwaiterFor))
+					std::terminate();
+#endif
+				auto a = (AwaiterStorage<AwaiterFor>*)(frame->_storage_ptr);
+				delete a;
+
+				frame->_awaiter_ptr = nullptr;
+				frame->_storage_ptr = nullptr;
+			}
+		};
+
+		template<typename AwaiterFor>
+		auto destroyAwaiterRaii()
+		{
+			return DestroyAwaiterRaii<AwaiterFor>{ this };
+		}
+		
+		template<typename AwaiterFor>
 		void destroyAwaiter()
 		{
-#ifndef NDEBUG
-			if (!_awaiter_ptr)
-				std::terminate();
-
-			if (_awaiter_typeid_ != &typeid(AwaiterFor))
-				terminate();
-#endif
-			auto a = (AwaiterStorage<AwaiterFor>*)(_storage_ptr);
-			delete a;
-
-			_awaiter_ptr = nullptr;
-			_storage_ptr = nullptr;
+			destroyAwaiterRaii<AwaiterFor>();
 		}
+
 
 		// Return the current awaiter. We assumer the caller
 		// is providing the correct awaiter type. This is validated
 		// in debug builds.
 		template<typename AwaiterFor>
-		typename AwaiterFor::reference getAwaiter()
+		typename AwaiterFor::reference getAwaiter() noexcept
 		{
-			assert(_awaiter_ptr);
-			auto ptr = (typename AwaiterFor::pointer)_awaiter_ptr;
 #ifndef NDEBUG
-			if (_awaiter_typeid_ != &typeid(AwaiterFor))
+			if (!_awaiter_ptr || _awaiter_typeid_ != &typeid(AwaiterFor))
 				terminate();
 #endif
+			auto ptr = (typename AwaiterFor::pointer)_awaiter_ptr;
 			return *ptr;
 		}
 
@@ -407,6 +432,8 @@ namespace macoro
 			FrameBase<void>::resume = &Frame::resume_impl;
 			FrameBase<void>::destroy = &Frame::destroy_impl;
 		}
+
+
 	};
 
 	// makes a Proto from the given lambda. The lambda
@@ -484,7 +511,8 @@ namespace macoro
 		}
 		return std::coroutine_handle<void>::from_address(_address).done();
 #else
-		return _address->done();
+		auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address);
+		return realAddr->done();
 #endif
 	}
 
@@ -508,8 +536,9 @@ namespace macoro
 				return;
 			}
 #else
-			auto symTransfer = _address->resume(_address);
-			if (_address == nullptr)
+			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address);
+			_address = realAddr->resume(realAddr).address();
+			if (_address == noop_coroutine().address())
 				return;
 #endif
 		}
@@ -528,10 +557,12 @@ namespace macoro
 			std::coroutine_handle<void>::from_address(_address).destroy();
 		}
 #else
-		_address->destroy(_address);
+		auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address);
+		return realAddr->destroy(realAddr);
 #endif
 	}
 
+#ifdef MACORO_CPP_20
 	inline std::coroutine_handle<void> coroutine_handle<void>::std_cast() const
 	{
 		if (*this == noop_coroutine())
@@ -568,34 +599,5 @@ namespace macoro
 		}
 	}
 
-
-
-	//inline bool coroutine_handle<void>::done() const noexcept {
-
-	//}
-	//inline void coroutine_handle<void>::resume() {
-
-	//}
-	//inline void coroutine_handle<void>::destroy() { 
-
-	//}
-	//inline void* coroutine_handle<void>::address() const noexcept { return _address; }
-	//inline coroutine_handle<void> coroutine_handle<void>::from_address(void* address)noexcept { return {  address }; }
-
-	//template<typename Promise>
-	//inline Promise& coroutine_handle<Promise>::promise() const
-	//{
-
-	//}
-	//template<typename Promise>
-	//inline coroutine_handle<Promise> coroutine_handle<Promise>::from_promise(Promise& promise, coroutine_handle_type te) noexcept
-	//{
-
-	//}
-
-	//template<typename Promise>
-	//inline coroutine_handle<Promise> coroutine_handle<Promise>::from_address(void* address) noexcept
-	//{
-	//	return { address };
-	//}
+#endif
 }

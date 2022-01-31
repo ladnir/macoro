@@ -1,4 +1,4 @@
-#include "config.h"
+#include "macoro/config.h"
 
 #include <functional>
 #include <cassert>
@@ -8,6 +8,24 @@
 
 namespace macoro
 {
+    // STRUCT TEMPLATE coroutine_traits
+    template <class _Ret, class = void>
+    struct _Coroutine_traits {};
+
+
+#ifdef MACORO_CPP_20
+    template <class _Ret>
+    struct _Coroutine_traits<_Ret, void_t<typename std::coroutine_traits<_Ret>::promise_type>> {
+        using promise_type = typename std::coroutine_traits<_Ret>::promise_type;
+    };
+#else
+    template <class _Ret>
+    struct _Coroutine_traits<_Ret, void_t<typename _Ret::promise_type>> {
+        using promise_type = typename _Ret::promise_type;
+    };
+#endif
+    template <class _Ret, class...>
+    struct coroutine_traits : _Coroutine_traits<_Ret> {};
 
     template<typename Promise = void>
     struct coroutine_handle;
@@ -204,7 +222,6 @@ namespace macoro
 
     // STRUCT noop_coroutine_promise
     struct noop_coroutine_promise {};
-    extern noop_coroutine_promise _noop_coroutine_promise;
 
     // STRUCT coroutine_handle<noop_coroutine_promise>
     template <>
@@ -230,7 +247,8 @@ namespace macoro
 
         MACORO_NODISCARD noop_coroutine_promise& promise() const noexcept {
             // Returns a reference to the associated promise
-            return _noop_coroutine_promise;
+            static noop_coroutine_promise prom;
+            return prom;
         }
 
         MACORO_NODISCARD constexpr void* address() const noexcept {

@@ -1,37 +1,49 @@
 
-file(GLOB_RECURSE SRCS *.cpp)
+set(SRC dummy.cpp)
 
-message("srcs ${SRCS}")
+add_library(macoro STATIC ${SRC})
 
-add_executable( macoro ${SRCS})
 
-target_include_directories( macoro PUBLIC 
+
+target_include_directories( macoro INTERFACE 
                     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
                     $<INSTALL_INTERFACE:include>) 
-target_include_directories( macoro PUBLIC 
+target_include_directories( macoro INTERFACE 
                     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
-                    $<INSTALL_INTERFACE:include>) 
+                    $<INSTALL_INTERFACE:>) 
+                
+configure_file(config.h.in config.h)
                     
-#target_link_libraries( macoro Threads::Threads)
+
+if(MACORO_OPTIONAL_LITE_V)
+    target_link_Libraries(macoro PUBLIC nonstd::optional-lite)
+endif()
+
+if(MACORO_VARIANT_LITE_V)
+    target_link_Libraries(macoro PUBLIC nonstd::variant-lite)
+endif()
+
+if(MACORO_CPP_20)
+    set(MACORO_STD_VAL 20)
+else()
+    set(MACORO_STD_VAL 14)
+endif()
+
+message("MACORO_STD_VAL ${MACORO_STD_VAL}")
 
 if(APPLE)
     target_compile_options( macoro PUBLIC
-        "-std=c++20"
+        "-std=c++${MACORO_STD_VAL}"
+    )
+elseif(MSVC)
+    target_compile_options( macoro PUBLIC
+        "/std:c++${MACORO_STD_VAL}"
     )
 else()
-    set_target_properties( macoro
+    set_target_properties( macoro 
         PROPERTIES
             CXX_STANDARD 20
             CXX_STANDARD_REQUIRED YES
             CXX_EXTENSIONS NO
     )
 endif()
-#target_link_libraries( macoro nonstd::span-lite)
-#target_link_libraries( macoro nonstd::optional-lite)
-#target_link_libraries( macoro nonstd::variant-lite)
-## Get the include directories for the target.
-#    
-#
-#
-#target_link_libraries( macoro function2::function2)
-

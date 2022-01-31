@@ -1,6 +1,10 @@
 
 
-#define MACORO_CPP_20
+#cmakedefine MACORO_CPP_20 @MACORO_CPP_20@
+#cmakedefine MACORO_VARIANT_LITE_V @MACORO_VARIANT_LITE_V@
+#cmakedefine MACORO_OPTIONAL_LITE_V @MACORO_OPTIONAL_LITE_V@
+
+
 
 #ifdef MACORO_CPP_20
 #define MACORO_NODISCARD [[nodiscard]]

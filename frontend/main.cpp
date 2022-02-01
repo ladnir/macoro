@@ -58,8 +58,15 @@ struct my_future {
 
 	my_future() = default;
 	my_future(const my_future& prom) = delete;
-	my_future(my_future&& prom) = default;
+	my_future(my_future&& prom)
+		: handle(std::exchange(prom.handle, std::nullptr_t{}))
+	{}
 
+	~my_future()
+	{
+		if (handle)
+			handle.destroy();
+	}
 	T& get()
 	{
 		if (handle.promise().storage.has_value() == false)
@@ -75,7 +82,10 @@ struct my_future {
 	template<typename T>
 	std::coroutine_handle<void> await_suspend(std::coroutine_handle<T> h) {
 		handle.promise().continuation = h;
-		return handle.std_cast();
+		auto hh = handle.std_cast();
+		std::cout << "std " << hh.address() << std::endl;
+		//hh.resume();
+		return hh;
 	}
 #endif // MACORO_CPP_20
 	coroutine_handle<promise_type> await_suspend(coroutine_handle<> h) {
@@ -104,13 +114,107 @@ my_future<int>::promise_type pp;
 
 
 my_future<int> h() {
-	MC_BEGIN(my_future<int>);
+	//MC_BEGIN(my_future<int>);
+#define __VA_ARGS_
+	using ReturnType = my_future<int>;
+	do {
+		auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnType>::promise_type>(
+			[__VA_ARGS_](::macoro::FrameBase<typename coroutine_traits<ReturnType>::promise_type>* _macoro_frame_) mutable->MACORO_HANDLE_TYPE<void>
+			{
+				try {
 
 
-	MC_RETURN(42);
+					switch (_macoro_frame_->getSuspendPoint())
+					{
+					case ::macoro::SuspensionPoint::InitialSuspendBegin:
+					{
+						/*initial suspend*/
+						using promise_type = decltype(_macoro_frame_->promise);
+						using AwaiterFor = typename ::macoro::awaiter_for<promise_type,
+							decltype(_macoro_frame_->promise.initial_suspend())>;
+						using Handle = MACORO_HANDLE_TYPE<promise_type>;
+						{
+							promise_type& promise = _macoro_frame_->promise;
+							auto& awaiter = _macoro_frame_->constructAwaiter(promise.initial_suspend());
+							auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);
+							if (!awaiter.await_ready())
+							{
+								/*<suspend-coroutine>*/
+								_macoro_frame_->setSuspendPoint(::macoro::SuspensionPoint::InitialSuspend);
+
+								/*<call awaiter.await_suspend(). If it's void return, then return true.>*/
+								auto s = ::macoro::await_suspend(awaiter, handle);
+								if (s)
+								{
+									/*perform symmetric transfer or return to caller (for noop_coroutine) */
+									return s.get_handle();
+								}
+							}
+						}
+					MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint::InitialSuspend:
+						_macoro_frame_->_initial_suspend_await_resumed_called_ = true;
+						auto raii = _macoro_frame_->destroyAwaiterRaii<AwaiterFor>();
+						_macoro_frame_->getAwaiter<AwaiterFor>().await_resume();
+					} do {} while (0);
+
+						MC_RETURN(42);
 
 
-	MC_END();
+					//MC_END();
+
+					break;
+					case ::macoro::SuspensionPoint::FinalSuspend:
+						goto MACORO_FINAL_SUSPEND_RESUME;
+					default:
+						std::cout << "coroutine frame corrupted. " << __FILE__ << ":" << __LINE__ << std::endl;
+						std::terminate();
+						break;
+					}
+				}
+				catch (...) {
+
+					if (!_macoro_frame_->_initial_suspend_await_resumed_called_)
+						throw;
+					_macoro_frame_->promise.unhandled_exception();
+				}
+				/*final suspend*/
+			MACORO_FINAL_SUSPEND_BEGIN:
+				using promise_type = decltype(_macoro_frame_->promise);
+				using AwaiterFor = typename ::macoro::awaiter_for<promise_type, decltype(_macoro_frame_->promise.final_suspend())>;
+				using Handle = MACORO_HANDLE_TYPE<promise_type>;
+				{
+					promise_type& promise = _macoro_frame_->promise;
+					auto& awaiter = _macoro_frame_->constructAwaiter(promise.final_suspend());
+					auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);
+					if (!awaiter.await_ready())
+					{
+						/*<suspend-coroutine>*/
+						_macoro_frame_->setSuspendPoint(::macoro::SuspensionPoint::FinalSuspend);
+
+						/*<call awaiter.await_suspend(). If it's void return, then return true.>*/
+						auto s = ::macoro::await_suspend(awaiter, handle);
+						if (s)
+						{
+							/*perform symmetric transfer or return to caller (for noop_coroutine) */
+							return s.get_handle();
+						}
+					}
+				}
+			MACORO_FINAL_SUSPEND_RESUME:
+				_macoro_frame_->getAwaiter<AwaiterFor>().await_resume();
+				_macoro_frame_->destroyAwaiter<AwaiterFor>();
+				_macoro_frame_->destroy(_macoro_frame_);
+				return noop_coroutine();
+			});
+
+		auto _macoro_ret_ = _macoro_frame_->promise.macoro_get_return_object();
+		using promise_type = decltype(_macoro_frame_->promise);
+		using Handle = MACORO_HANDLE_TYPE<promise_type>;
+		promise_type& promise = _macoro_frame_->promise;
+		auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);
+		handle.resume();
+		return _macoro_ret_;
+	} while (0);
 }
 
 #ifdef MACORO_CPP_20
@@ -197,11 +301,11 @@ my_future<int> g2() {
 					}
 					/*<resume-point>*/
 				MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint(241):
-					{
-						auto raii = _macoro_frame_->destroyAwaiterRaii<AwaiterFor>();
-						RETURN_SLOT _macoro_frame_->getAwaiter<AwaiterFor>().await_resume();
-						OPTIONAL_BREAK;
-					}
+				{
+					auto raii = _macoro_frame_->destroyAwaiterRaii<AwaiterFor>();
+					RETURN_SLOT _macoro_frame_->getAwaiter<AwaiterFor>().await_resume();
+					OPTIONAL_BREAK;
+				}
 				}
 
 				if (i == 42)
@@ -210,7 +314,7 @@ my_future<int> g2() {
 				MC_RETURN(i);
 
 				//MC_END();
-					break;
+				break;
 				case ::macoro::SuspensionPoint::FinalSuspend:
 					goto MACORO_FINAL_SUSPEND_RESUME;
 				default:

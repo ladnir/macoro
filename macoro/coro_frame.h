@@ -8,11 +8,12 @@
 
 #include "macoro/config.h"
 #include "macoro/coroutine_handle.h"
+#include <iostream>
+#include <array>
 
 #ifdef MACORO_CPP_20
 #include <coroutine>
 #endif
-#include <iostream>
 
 namespace macoro
 {
@@ -26,59 +27,9 @@ namespace macoro
 	template<typename PromiseType = void>
 	struct FrameBase;
 
-#ifdef MACORO_CPP_20
-	template<typename nested_promise>
-	struct std_handle_adapter
-	{
-		struct final_awaiter
-		{
-			std::coroutine_handle<void> continuation;
-
-			bool await_ready() noexcept { return false; }
-			std::coroutine_handle<void> await_suspend(std::coroutine_handle<void> v) noexcept { return continuation; }
-			void await_resume() noexcept {}
-
-		};
-
-		struct promise_type
-		{
-			suspend_always initial_suspend() noexcept { return {}; }
-			final_awaiter final_suspend() const noexcept { return { continuation }; }
-
-			void unhandled_exception()
-			{
-				std::cout << "not impl. " << __FILE__ << ":" << __LINE__ << std::endl;
-				std::terminate();
-			}
-
-			coroutine_handle<nested_promise> handle;
-			std::coroutine_handle<void> continuation;
-
-
-			std_handle_adapter get_return_object() { return { this }; }
-
-			~promise_type()
-			{
-				if (handle)
-					handle.destroy();
-			}
-
-			suspend_always yield_value(std::coroutine_handle<void> cont)
-			{
-				continuation = cont;
-				return {};
-			}
-
-			void return_value(std::coroutine_handle<void> cont) {
-				continuation = cont;
-			}
-		};
-
-		using nested_promise_type = nested_promise;
-
-		promise_type* promise;
-	};
-#endif
+//#ifdef MACORO_CPP_20
+//
+//#endif
 
 	template<typename T>
 	struct coroutine_handle_traits
@@ -231,13 +182,6 @@ namespace macoro
 		void* _awaiter_ptr = nullptr;
 		void* _storage_ptr = nullptr;
 
-#ifdef MACORO_CPP_20
-		FrameBase()
-		{
-			FrameBase<void>::get_std_handle = &FrameBase::get_std_handle_void;
-		}
-#endif
-
 		~FrameBase()
 		{
 			if (_storage_ptr)
@@ -340,51 +284,102 @@ namespace macoro
 
 #ifdef MACORO_CPP_20
 
-		using adapter = std_handle_adapter<promise_type>;
-		adapter make_adapter()
-		{
-			auto h = resume(this);
-			while (true)
-			{
-				assert(h);
-				bool noop = h == noop_coroutine();
-				if (!noop && h.is_std() == false)
-				{
-					auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)h.address() ^ 1);
-					auto _address = realAddr->resume(realAddr).address();
-					h = coroutine_handle<void>::from_address(_address);
-					//h.resume();
-				}
-				else
-				{
-					std::coroutine_handle<void> r;
-					r = h.std_cast();
+		using inline_storage_adapter = std::aligned_storage_t<400, alignof(std::max_align_t)>;
+		inline_storage_adapter frame_adapter_storage;
 
-					if (done())
+		using outter_promise_type = promise_type;
+		struct std_handle_adapter
+		{
+			struct yield_awaiter
+			{
+				std::coroutine_handle<void> continuation;
+
+				bool await_ready() noexcept { return false; }
+				std::coroutine_handle<void> await_suspend(std::coroutine_handle<void> v) noexcept { return continuation; }
+				void await_resume() noexcept {}
+
+			};
+
+			struct promise_type
+			{
+				suspend_always initial_suspend() noexcept { return {}; }
+				yield_awaiter final_suspend() const noexcept { return { continuation }; }
+
+				void unhandled_exception()
+				{
+					std::rethrow_exception(std::current_exception());
+				}
+
+				coroutine_handle<outter_promise_type> outer_handle;
+				std::coroutine_handle<void> continuation;
+
+
+				std_handle_adapter get_return_object() { return { this }; }
+
+				~promise_type()
+				{
+					if (outer_handle)
+						outer_handle.destroy();
+				}
+
+				yield_awaiter yield_value(std::coroutine_handle<void> cont)
+				{
+					return { cont };
+				}
+
+				void return_value(std::coroutine_handle<void> c) { continuation = c; }
+
+
+				void* operator new(std::size_t size)
+				{
+					void* ptr = new char[size];
+					if (!ptr) throw std::bad_alloc{};
+					return ptr;
+				}
+
+				template<typename TT>
+				void* operator new(std::size_t size, TT& base)
+				{
+					if (size <= sizeof(inline_storage_adapter))
 					{
-						co_return r;
+						return &base.frame_adapter_storage;
 					}
 					else
 					{
-						co_yield r;
+						void* ptr = new char[size];
+						if (!ptr) throw std::bad_alloc{};
+						return ptr;
 					}
 				}
-			}
-		}
 
-		adapter std_adapter;
-		std::coroutine_handle<typename adapter::promise_type> std_handle;
+				void operator delete(void* ptr, std::size_t size)
+				{
 
-		std::coroutine_handle<typename adapter::promise_type> get_std_handle()
-		{
-			if (!std_handle)
+					if (size <= sizeof(inline_storage_adapter))
+					{
+						//delete base.frame_adapter_storage;
+					}
+					else
+					{
+						delete[](char*)ptr;
+					}
+				}
+
+
+			};
+
+
+			~std_handle_adapter()
 			{
-				auto handle = coroutine_handle<promise_type>::from_promise(promise, coroutine_handle_type::mocoro);
-				std_adapter = make_adapter();
-				std_adapter.promise->handle = handle;
-				std_handle = std::coroutine_handle<typename adapter::promise_type>::from_promise(*std_adapter.promise);
+				std::coroutine_handle<promise_type>::from_promise(*promise).destroy();
 			}
 
+			promise_type* promise;
+		};
+
+		std::coroutine_handle<typename std_handle_adapter::promise_type> std_handle;
+		std::coroutine_handle<typename std_handle_adapter::promise_type> get_std_handle()
+		{
 			return std_handle;
 		}
 
@@ -394,8 +389,8 @@ namespace macoro
 			return base->get_std_handle();
 		}
 #endif
-
 	};
+
 
 	// Frame is a Resumable which invokes a lambda each
 	// time it is resumed. This lambda takes as input a  
@@ -413,11 +408,17 @@ namespace macoro
 	{
 		using LambdaType::operator();
 		using lambda_type = LambdaType;
+		using promise_type = Promise;
+
+		using FrameBase<Promise>::std_handle;
+		using FrameBase<Promise>::promise;
+		using FrameBase<Promise>::done;
+		using std_handle_adapter = FrameBase<Promise>::std_handle_adapter;
 
 		static coroutine_handle<void> resume_impl(FrameBase<void>* ptr)
 		{
-			auto self = static_cast<Frame<LambdaType, Promise>*>(ptr);
-			return (*self)(static_cast<FrameBase<Promise>*>(self));
+			auto This = static_cast<Frame<LambdaType, Promise>*>(ptr);
+			return (*This)(static_cast<FrameBase<Promise>*>(This));
 		}
 
 		static void destroy_impl(FrameBase<void>* ptr) noexcept
@@ -426,14 +427,77 @@ namespace macoro
 			delete self;
 		}
 
+
+#ifdef MACORO_CPP_20
+		std_handle_adapter std_adapter;
+#endif
+		Frame(const Frame&) = delete;
+		Frame(Frame&&) = delete;
+
 		Frame(LambdaType&& l)
 			: LambdaType(std::forward<LambdaType>(l))
+			, std_adapter(adapter())
 		{
 			FrameBase<void>::resume = &Frame::resume_impl;
 			FrameBase<void>::destroy = &Frame::destroy_impl;
+#ifdef MACORO_CPP_20
+
+			FrameBase<void>::get_std_handle = &FrameBase<promise_type>::get_std_handle_void;
+			;
+			auto outer_handle = coroutine_handle<promise_type>::from_promise(promise, coroutine_handle_type::mocoro);
+			std_adapter.promise->outer_handle = outer_handle;
+			std_handle = std::coroutine_handle<std_handle_adapter::promise_type>::from_promise(*std_adapter.promise);
+			std::cout << "std " << std_handle.address() << std::endl;
+			//std_handle.resume();
+#endif
 		}
 
+#ifdef MACORO_CPP_20
+		~Frame()
+		{
+			std::cout << "~Frame " << std::endl;
 
+			// For when std_adapter isn't the one who called our destructor,
+			// prevent it from calling it recursively by setting the handle
+			// back to this frame to null.
+			std_adapter.promise->outer_handle = std::nullptr_t{};
+		}
+#endif
+		private:
+
+			std_handle_adapter adapter()
+			{
+				// we have to perform the symmetric transfer loop here for
+				// macoro coroutines since we can only return std::coroutine_handle<>.
+				while (true)
+				{
+
+					auto h = (*this)(static_cast<FrameBase<promise_type>*>(this));
+
+					assert(h);
+					bool noop = h == noop_coroutine();
+					if (!noop && h.is_std() == false)
+					{
+						auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)h.address() ^ 1);
+						auto _address = realAddr->resume(realAddr).address();
+						h = coroutine_handle<void>::from_address(_address);
+					}
+					else
+					{
+						std::coroutine_handle<void> r;
+						r = h.std_cast();
+
+						if (done())
+						{
+							co_return r;
+						}
+						else
+						{
+							co_yield r;
+						}
+					}
+				}
+			};
 	};
 
 	// makes a Proto from the given lambda. The lambda

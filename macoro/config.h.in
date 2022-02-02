@@ -14,3 +14,10 @@
 #define MACORO_FALLTHROUGH
 #endif
 
+
+
+
+#define MACORO_STRINGIZE_DETAIL(x) #x
+#define MACORO_STRINGIZE(x) MACORO_STRINGIZE_DETAIL(x)
+#define MACORO_LOCATION __FILE__ ":" MACORO_STRINGIZE(__LINE__)
+#define MACORO_RTE_LOC std::runtime_error(LOCATION)

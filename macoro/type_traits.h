@@ -1,5 +1,6 @@
 #pragma once
 #include <type_traits>
+#include "macoro/config.h"
 
 namespace macoro
 {
@@ -43,7 +44,6 @@ namespace macoro
 		>>
 		: true_type{};
 
-
 	template<typename T, typename = void>
 	struct has_member_operator_co_await : false_type
 	{};
@@ -51,9 +51,13 @@ namespace macoro
 	template <typename T>
 	struct has_member_operator_co_await <T, void_t<
 
+#ifdef MACORO_CPP_20
+		// must have a operator co_await() member fn
+		decltype(std::declval<T>().operator co_await())
+#else
 		// must have a operator_co_await() member fn
-		decltype(std::declval<T>().operator_co_await)
-
+		decltype(std::declval<T>().operator_co_await())
+#endif
 		>>
 		: true_type{};
 
@@ -65,13 +69,15 @@ namespace macoro
 
 	template <typename T>
 	struct has_free_operator_co_await <T, void_t<
-
+#ifdef MACORO_CPP_20
+		// must have a operator_co_await() member fn
+		decltype(operator co_await(std::declval<T>()))
+#else
 		// must have a operator_co_await() member fn
 		decltype(operator_co_await(std::declval<T>()))
-
+#endif
 		>>
 		: true_type{};
-
 
 
 	template<typename Awaiter, typename T, typename = void>
@@ -113,40 +119,33 @@ namespace macoro
 		>>
 		: true_type{};
 
-	struct monostate {};
+	struct empty_state {};
 
 	template<typename P, typename T>
 	inline decltype(auto) get_awaitable(
-		P& promise, T&& expr, typename enable_if_t<has_any_await_transform_member<P>::value, monostate> = {})
+		P& promise, T&& expr, typename enable_if_t<has_any_await_transform_member<P>::value, empty_state> = {})
 	{
 		return promise.await_transform(static_cast<T&&>(expr));
 	}
 
 	template<typename P, typename T>
 	inline decltype(auto) get_awaitable(
-		P& promise, T&& expr, typename enable_if_t<!has_any_await_transform_member<P>::value, monostate> = {})
+		P& promise, T&& expr, typename enable_if_t<!has_any_await_transform_member<P>::value, empty_state> = {})
 	{
 		return static_cast<T&&>(expr);
 	}
-
-	//template<typename Awaitable>
-	//decltype(auto) get_awaiter(Awaitable&& awaitable)
-	//{
-	//	if constexpr (has_member_operator_co_await_v<Awaitable>)
-	//		return static_cast<Awaitable&&>(awaitable).operator co_await();
-	//	else if constexpr (has_non_member_operator_co_await_v<Awaitable&&>)
-	//		return operator co_await(static_cast<Awaitable&&>(awaitable));
-	//	else
-	//		return static_cast<Awaitable&&>(awaitable);
-	//}
 
 	template<typename Awaitable>
 	inline decltype(auto) get_awaiter(
 		Awaitable&& awaitable, 
 		typename enable_if_t<
-			has_member_operator_co_await<Awaitable>::value, monostate> = {})
+			has_member_operator_co_await<Awaitable>::value, empty_state> = {})
 	{
+#ifdef MACORO_CPP_20
+		return static_cast<Awaitable&&>(awaitable).operator co_await();
+#else
 		return static_cast<Awaitable&&>(awaitable).operator_co_await();
+#endif
 	}
 
 	template<typename Awaitable>
@@ -154,9 +153,13 @@ namespace macoro
 		Awaitable&& awaitable, 
 		typename enable_if_t<
 			!has_member_operator_co_await<Awaitable>::value&&
-			has_free_operator_co_await<Awaitable>::value, monostate> = {})
+			has_free_operator_co_await<Awaitable>::value, empty_state> = {})
 	{
+#ifdef MACORO_CPP_20
+		return operator co_await(static_cast<Awaitable&&>(awaitable));
+#else
 		return operator_co_await(static_cast<Awaitable&&>(awaitable));
+#endif
 	}
 
 	template<typename Awaitable>
@@ -164,7 +167,7 @@ namespace macoro
 		Awaitable&& awaitable,
 		typename enable_if_t<
 			!has_member_operator_co_await<Awaitable>::value &&
-			!has_free_operator_co_await<Awaitable>::value, monostate> = {})
+			!has_free_operator_co_await<Awaitable>::value, empty_state> = {})
 	{
 		return static_cast<Awaitable&&>(awaitable);
 	}
@@ -182,21 +185,27 @@ namespace macoro
 		using reference = value_type&;
 	};
 
-	//template<typename Expr>
-	//using awaitable_from_expr_t = decltype(get_awaitable(std::declval<promise_type>(), std::declval<Expr&&>()));
 
-	//template<typename Awaitable>
-	//using awaiter_from_awaitable_t = decltype(get_awaiter(std::declval<Awaitable&&>()));
 
-	//template<typename Expr>
-	//using awaiter_from_expr_t = awaiter_from_awaitable<awaitable_from_expr<Expr>>;
 
-	// for a Promise and an expression <expr> is an Awaitable if
-	// 
-	// 	   Awaiter = Promise::await_transform(<expr>);
-	// 
-	// 	   Awaiter::await_ready() -> bool;
-	// 	   Awaiter::await_suspend() -> bool;
-	// 	   Awaiter::await_resume() -> bool;
-	//
+	template<typename awaitable>
+	struct awaitable_traits
+	{
+		using awaiter = decltype(get_awaiter(std::declval<awaitable>()));
+		using await_result = decltype(std::declval<awaiter>().await_resume());
+	};
+
+	template<typename C, typename T, typename = void>
+	struct has_set_coninuation_member : false_type
+	{};
+
+	template <typename C, typename T>
+	struct has_set_coninuation_member <C, T, void_t<
+
+		// must have a promise().set_continuation(T) member fn
+		decltype(std::declval<C>().promise().set_continuation(std::declval<T>()))
+
+		>>
+		: true_type{};
+
 }

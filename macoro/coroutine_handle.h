@@ -1,3 +1,5 @@
+#pragma once
+
 #include "macoro/config.h"
 
 #include <functional>
@@ -8,30 +10,61 @@
 
 namespace macoro
 {
+
+#ifdef MACORO_CPP_20
+
+    template<typename T>
+    using coroutine_traits = std::coroutine_traits<T>;
+#else
     // STRUCT TEMPLATE coroutine_traits
     template <class _Ret, class = void>
     struct _Coroutine_traits {};
 
-
-#ifdef MACORO_CPP_20
-    template <class _Ret>
-    struct _Coroutine_traits<_Ret, void_t<typename std::coroutine_traits<_Ret>::promise_type>> {
-        using promise_type = typename std::coroutine_traits<_Ret>::promise_type;
-    };
-#else
     template <class _Ret>
     struct _Coroutine_traits<_Ret, void_t<typename _Ret::promise_type>> {
         using promise_type = typename _Ret::promise_type;
     };
-#endif
     template <class _Ret, class...>
     struct coroutine_traits : _Coroutine_traits<_Ret> {};
+#endif
+
 
     template<typename Promise = void>
     struct coroutine_handle;
 
     template<typename nested_promise>
     struct std_handle_adapter;
+
+
+    template<typename T>
+    struct coroutine_handle_traits
+    {
+    };
+
+#ifdef MACORO_CPP_20
+    template<typename T>
+    struct coroutine_handle_traits<std::coroutine_handle<T>>
+    {
+        using promise_type = T;
+        template<typename P = void>
+        using coroutine_handle = std::coroutine_handle<P>;
+    };
+#endif
+
+    template<typename T>
+    struct coroutine_handle_traits<coroutine_handle<T>>
+    {
+        using promise_type = T;
+        template<typename P = void>
+        using coroutine_handle = coroutine_handle<P>;
+    };
+
+
+    static_assert(std::is_same<coroutine_handle_traits<std::coroutine_handle<int>>::promise_type, int>::value);
+    static_assert(std::is_same<coroutine_handle_traits<std::coroutine_handle<int>>::template coroutine_handle<char>, std::coroutine_handle<char>>::value);
+    static_assert(std::is_same<coroutine_handle_traits<coroutine_handle<int>>::promise_type, int>::value);
+    static_assert(std::is_same<coroutine_handle_traits<coroutine_handle<int>>::template coroutine_handle<char>, coroutine_handle<char>>::value);
+
 
     enum class coroutine_handle_type
     {
@@ -114,6 +147,8 @@ namespace macoro
         }
 
         std::coroutine_handle<void> std_cast() const;
+
+        explicit operator std::coroutine_handle<void>() const { return std_cast(); }
 #endif // MACORO_CPP_20
 
     private:
@@ -170,10 +205,7 @@ namespace macoro
 
 #ifdef MACORO_CPP_20
         std::coroutine_handle<void> std_cast() const;
-        //MACORO_NODISCARD static coroutine_handle from_promise(_Promise& _Prom)
-        //{
-        //    return from_promise(_Prom, coroutine_handle_type::std);
-        //}
+        explicit operator std::coroutine_handle<void>() const { return std_cast(); }
 #endif // MACORO_CPP_20
 
 

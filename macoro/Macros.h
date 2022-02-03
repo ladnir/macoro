@@ -17,7 +17,7 @@
 #define MC_BEGIN(ReturnType, ...)																				\
 do { auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnType>::promise_type>(			\
 	[__VA_ARGS__](::macoro::FrameBase<typename coroutine_traits<ReturnType>::promise_type>* _macoro_frame_) mutable ->::macoro::coroutine_handle<void>\
-	{																											\
+	{	using _macoro_frame_t_ = ::macoro::FrameBase<typename coroutine_traits<ReturnType>::promise_type>;		\
 		try {																									\
 																												\
 			switch (_macoro_frame_->getSuspendPoint())															\
@@ -50,7 +50,8 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnT
 					}																							\
 			MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint::InitialSuspend:									\
 					_macoro_frame_->_initial_suspend_await_resumed_called_ = true;								\
-					auto raii = _macoro_frame_->destroyAwaiterRaii<AwaiterFor>((size_t)::macoro::SuspensionPoint::InitialSuspend);								\
+					typename _macoro_frame_t_::template DestroyAwaiterRaii<AwaiterFor>							\
+						raii	(_macoro_frame_, (size_t)::macoro::SuspensionPoint::InitialSuspend);			\
 					_macoro_frame_->getAwaiter<AwaiterFor>((size_t)::macoro::SuspensionPoint::InitialSuspend).await_resume();									\
 				} do {} while(0)
 
@@ -62,17 +63,17 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnT
 #define IMPL_MC_AWAIT(EXPRESSION, RETURN_SLOT, OPTIONAL_BREAK, SUSPEND_IDX)													\
 				{																								\
 					using promise_type = decltype(_macoro_frame_->promise);										\
-					using  MACORO_CAT(AwaiterFor,SUSPEND_IDX) = decltype(_macoro_frame_->constructAwaiter2(EXPRESSION));		\
-					/*using AwaiterFor = typename ::macoro::awaiter_for<promise_type, decltype(EXPRESSION)>;*/		\
-					using Handle = ::macoro::coroutine_handle<promise_type>;												\
+					using  MACORO_CAT(AwaiterFor,SUSPEND_IDX) = decltype(_macoro_frame_->constructAwaiter2(EXPRESSION));\
+					/*using AwaiterFor = typename ::macoro::awaiter_for<promise_type, decltype(EXPRESSION)>;*/	\
+					using Handle = ::macoro::coroutine_handle<promise_type>;									\
 					{																							\
 						auto& promise = _macoro_frame_->promise;												\
 						auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);				\
-						auto& awaiter = _macoro_frame_->constructAwaiter(EXPRESSION,SUSPEND_IDX);							\
+						auto& awaiter = _macoro_frame_->constructAwaiter(EXPRESSION,SUSPEND_IDX);				\
 						if (!awaiter.await_ready())																\
 						{																						\
 							/*<suspend-coroutine>*/																\
-							_macoro_frame_->setSuspendPoint((::macoro::SuspensionPoint)SUSPEND_IDX);				\
+							_macoro_frame_->setSuspendPoint((::macoro::SuspensionPoint)SUSPEND_IDX);			\
 																												\
 							/*<call awaiter.await_suspend(). If it's void return, then return true.>*/			\
 							auto s = ::macoro::await_suspend(awaiter, handle);									\
@@ -84,8 +85,9 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnT
 						}																						\
 					}																							\
 					/*<resume-point>*/																			\
-			MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint(SUSPEND_IDX):										\
-					auto raii = _macoro_frame_->destroyAwaiterRaii<MACORO_CAT(AwaiterFor,SUSPEND_IDX)>(SUSPEND_IDX);								\
+			MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint(SUSPEND_IDX):									\
+					typename _macoro_frame_t_::template DestroyAwaiterRaii<MACORO_CAT(AwaiterFor,SUSPEND_IDX)>	\
+						raii(_macoro_frame_, SUSPEND_IDX);														\
 					RETURN_SLOT _macoro_frame_->getAwaiter<MACORO_CAT(AwaiterFor,SUSPEND_IDX)>(SUSPEND_IDX).await_resume();						\
 					OPTIONAL_BREAK;																				\
 				} do{}while(0)
@@ -116,8 +118,9 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnT
 					}																							\
 					/*<resume-point>*/																			\
 			MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint(__LINE__):										\
-					auto raii = _macoro_frame_->destroyAwaiterRaii<AwaiterFor>(__LINE__);								\
-					FN_SLOT(_macoro_frame_->getAwaiter<AwaiterFor>(__LINE__).await_resume());							\
+					typename _macoro_frame_t_::template DestroyAwaiterRaii<MACORO_CAT(AwaiterFor,SUSPEND_IDX)>	\
+						raii(_macoro_frame_, __LINE__);															\
+					FN_SLOT(_macoro_frame_->getAwaiter<AwaiterFor>(__LINE__).await_resume());					\
 				} do{}while(0)
 
 
@@ -126,15 +129,15 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnT
 				{																								\
 					using promise_type = decltype(_macoro_frame_->promise);										\
 					using MACORO_CAT(AwaiterFor,SUSPEND_IDX) = decltype(_macoro_frame_->constructAwaiter2(EXPRESSION));		\
-					using Handle = ::macoro::coroutine_handle<promise_type>;												\
+					using Handle = ::macoro::coroutine_handle<promise_type>;									\
 					{																							\
 						auto& promise = _macoro_frame_->promise;												\
 						auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);				\
-						auto& awaiter = _macoro_frame_->constructAwaiter(EXPRESSION, SUSPEND_IDX);							\
+						auto& awaiter = _macoro_frame_->constructAwaiter(EXPRESSION, SUSPEND_IDX);				\
 						if (!awaiter.await_ready())																\
 						{																						\
 							/*<suspend-coroutine>*/																\
-							_macoro_frame_->setSuspendPoint((::macoro::SuspensionPoint)SUSPEND_IDX);				\
+							_macoro_frame_->setSuspendPoint((::macoro::SuspensionPoint)SUSPEND_IDX);			\
 																												\
 							/*<call awaiter.await_suspend(). If it's void return, then return true.>*/			\
 							auto s = ::macoro::await_suspend(awaiter, handle);									\
@@ -147,7 +150,7 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnT
 					}																							\
 					/*<resume-point>*/																			\
 			MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint(SUSPEND_IDX):										\
-					auto raii = _macoro_frame_->destroyAwaiterRaii<MACORO_CAT(AwaiterFor,SUSPEND_IDX)>(SUSPEND_IDX);								\
+					/*_macoro_frame_t_::DestroyAwaiterRaii<MACORO_CAT(AwaiterFor,SUSPEND_IDX)> raii(_macoro_frame_, SUSPEND_IDX);*/	\
 					IMPL_MC_AWAIT(_macoro_frame_->promise.yield_value(_macoro_frame_->getAwaiter<MACORO_CAT(AwaiterFor,SUSPEND_IDX)>(SUSPEND_IDX).await_resume()), ,,__COUNTER__);\
 				} do{}while(0)
 

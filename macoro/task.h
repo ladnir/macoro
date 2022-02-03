@@ -159,7 +159,10 @@ namespace macoro
 		using reference_type = typename impl::task_promise<T>::reference_type;
 		using exception_type = typename impl::task_promise<T>::exception_type;
 		using handle_type = typename impl::task_promise<T>::handle_type;
+
+#ifdef MACORO_CPP_20
 		static_assert(has_set_coninuation_member<handle_type, std::coroutine_handle<>>::value, "pomise_type must has a set_continuation method");
+#endif
 		static_assert(has_set_coninuation_member<handle_type, coroutine_handle<>>::value, "pomise_type must has a set_continuation method");
 		static_assert(has_set_coninuation_member<handle_type, coroutine_handle<noop_coroutine_handle>>::value, "pomise_type must has a set_continuation method");
 
@@ -167,22 +170,22 @@ namespace macoro
 
 		task()
 		{
-			std::cout << "new t  " << this  << std::endl;
+			//std::cout << "new t  " << this  << std::endl;
 		}
 		task(const task&) = delete;
 		task(task&& t) : handle(std::exchange(t.handle, std::nullptr_t{})) {
 		
-			std::cout << "move t " << this  << std::endl;
+			//std::cout << "move t " << this  << std::endl;
 		}
 		task& operator=(const task&) = delete;
 		task& operator=(task&& t) { 
-			std::cout << "move= t " << this  << std::endl;
+			//std::cout << "move= t " << this  << std::endl;
 			~task();
 			handle = std::exchange(t.handle, std::nullptr_t{});
 		};
 		~task()
 		{
-			std::cout << "destroy t " << this  << std::endl;
+			//std::cout << "destroy t " << this  << std::endl;
 			if (handle)
 				handle.destroy();
 		}
@@ -195,18 +198,18 @@ namespace macoro
 		struct awaitable : impl::continuation_awaiter<handle_type, true>
 		{
 			awaitable() { 
-				std::cout << "new a  " << this << " " << move::value << std::endl;
+				//std::cout << "new a  " << this << " " << move::value << std::endl;
 			}
 
-			awaitable(handle_type h) : impl::continuation_awaiter<handle_type, true>(h) {
-				std::cout << "new' a " << this << " " << move::value << std::endl;
+			awaitable(handle_type h) : impl::continuation_awaiter<handle_type, true>{ h } {
+				//std::cout << "new' a " << this << " " << move::value << std::endl;
 			}
-			awaitable(awaitable&& h) : impl::continuation_awaiter<handle_type, true>(h) {
-				std::cout << "move a " << this << " " << move::value << std::endl;
+			awaitable(awaitable&& h) : impl::continuation_awaiter<handle_type, true>(h.cont) {
+				//std::cout << "move a " << this << " " << move::value << std::endl;
 			}
 
 			~awaitable()  {
-				std::cout << "destroy a " << this << " " << move::value << std::endl;
+				//std::cout << "destroy a " << this << " " << move::value << std::endl;
 			}
 
 
@@ -222,6 +225,16 @@ namespace macoro
 			}
 		};
 
+		auto operator_co_await() const& noexcept
+		{
+			return awaitable<std::false_type>{ handle };
+		}
+
+		auto operator_co_await() const&& noexcept
+		{
+			return awaitable<std::true_type>{ handle };
+		}
+#ifdef MACORO_CPP_20
 		auto operator co_await() const& noexcept
 		{
 			return awaitable<std::false_type>{ handle };
@@ -231,14 +244,14 @@ namespace macoro
 		{
 			return awaitable<std::true_type>{ handle };
 		}
-
+#endif
 	private:
 		friend class promise_type;
 
 		task(handle_type h)
 			:handle(h)
 		{
-			std::cout << "new' t  " << this << std::endl;
+			//std::cout << "new' t  " << this << std::endl;
 
 		}
 

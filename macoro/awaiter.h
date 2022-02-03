@@ -25,6 +25,7 @@ namespace macoro
 		template<typename T, typename continuation>
 		auto convert_handle(const continuation& c)
 		{
+#ifdef MACORO_CPP_20
 			using traits_T = coroutine_handle_traits<typename std::remove_reference<T>::type>;
 			using traits_C = coroutine_handle_traits<continuation>;
 			using promise_type = typename traits_C::promise_type;
@@ -40,6 +41,9 @@ namespace macoro
 			>::type;
 
 			return static_cast<handle>(c);
+#else
+			return c;
+#endif
 		}
 
 		// a basic awaiter that will get the caller to 

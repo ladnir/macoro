@@ -10,6 +10,7 @@
 #include "macoro/coroutine_handle.h"
 #include <iostream>
 #include <array>
+#include <vector>
 
 #ifdef MACORO_CPP_20
 #include <coroutine>
@@ -248,6 +249,14 @@ namespace macoro
 			FrameBase<promise_type>* frame;
 			size_t idx;
 
+			DestroyAwaiterRaii(FrameBase<promise_type>* f, size_t i)
+				: frame(f)
+				, idx(i)
+			{}
+
+			DestroyAwaiterRaii(const DestroyAwaiterRaii&) = delete;
+
+
 			~DestroyAwaiterRaii()
 			{
 #ifndef NDEBUG
@@ -285,16 +294,16 @@ namespace macoro
 			}
 		};
 
-		template<typename AwaiterFor>
-		auto destroyAwaiterRaii(size_t idx)
-		{
-			return DestroyAwaiterRaii<AwaiterFor>{ this, idx };
-		}
+		//template<typename AwaiterFor>
+		//DestroyAwaiterRaii<AwaiterFor>&& destroyAwaiterRaii(size_t idx)
+		//{
+		//	return DestroyAwaiterRaii<AwaiterFor>{ this, idx };
+		//}
 
 		template<typename AwaiterFor>
 		void destroyAwaiter(size_t idx)
 		{
-			destroyAwaiterRaii<AwaiterFor>(idx);
+			DestroyAwaiterRaii<AwaiterFor>(this, idx);
 		}
 
 
@@ -449,10 +458,8 @@ namespace macoro
 		using lambda_type = LambdaType;
 		using promise_type = Promise;
 
-		using FrameBase<Promise>::std_handle;
 		using FrameBase<Promise>::promise;
 		using FrameBase<Promise>::done;
-		using std_handle_adapter = FrameBase<Promise>::std_handle_adapter;
 
 		static coroutine_handle<void> resume_impl(FrameBase<void>* ptr)
 		{
@@ -468,6 +475,8 @@ namespace macoro
 
 
 #ifdef MACORO_CPP_20
+		using FrameBase<Promise>::std_handle;
+		using std_handle_adapter = FrameBase<Promise>::std_handle_adapter;
 		std_handle_adapter std_adapter;
 #endif
 		Frame(const Frame&) = delete;
@@ -475,7 +484,9 @@ namespace macoro
 
 		Frame(LambdaType&& l)
 			: LambdaType(std::forward<LambdaType>(l))
+#ifdef MACORO_CPP_20
 			, std_adapter(adapter())
+#endif
 		{
 			FrameBase<void>::resume = &Frame::resume_impl;
 			FrameBase<void>::destroy = &Frame::destroy_impl;
@@ -499,7 +510,6 @@ namespace macoro
 			// back to this frame to null.
 			std_adapter.promise->outer_handle = std::nullptr_t{};
 		}
-#endif
 	private:
 
 		std_handle_adapter adapter()
@@ -535,6 +545,8 @@ namespace macoro
 				}
 			}
 		};
+#endif
+
 	};
 
 	// makes a Proto from the given lambda. The lambda

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "macoro/config.h"
-
+#include "macoro/type_traits.h"
 #include <functional>
 #include <cassert>
 #ifdef MACORO_CPP_20
@@ -59,11 +59,12 @@ namespace macoro
         using coroutine_handle = coroutine_handle<P>;
     };
 
-
+#ifdef MACORO_CPP_20
     static_assert(std::is_same<coroutine_handle_traits<std::coroutine_handle<int>>::promise_type, int>::value);
     static_assert(std::is_same<coroutine_handle_traits<std::coroutine_handle<int>>::template coroutine_handle<char>, std::coroutine_handle<char>>::value);
-    static_assert(std::is_same<coroutine_handle_traits<coroutine_handle<int>>::promise_type, int>::value);
-    static_assert(std::is_same<coroutine_handle_traits<coroutine_handle<int>>::template coroutine_handle<char>, coroutine_handle<char>>::value);
+#endif
+    static_assert(std::is_same<coroutine_handle_traits<coroutine_handle<int>>::promise_type, int>::value, "");
+    static_assert(std::is_same<coroutine_handle_traits<coroutine_handle<int>>::template coroutine_handle<char>, coroutine_handle<char>>::value, "");
 
 
     enum class coroutine_handle_type

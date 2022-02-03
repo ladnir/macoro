@@ -123,7 +123,7 @@ my_future<int> h() {
 	do {
 		auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnType>::promise_type>(
 			[__VA_ARGS_](::macoro::FrameBase<typename coroutine_traits<ReturnType>::promise_type>* _macoro_frame_) mutable->::macoro::coroutine_handle<void>
-			{
+			{using _macoro_frame_t_ = ::macoro::FrameBase<typename coroutine_traits<ReturnType>::promise_type>;
 				try {
 
 
@@ -156,7 +156,7 @@ my_future<int> h() {
 						}
 					MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint::InitialSuspend:
 						_macoro_frame_->_initial_suspend_await_resumed_called_ = true;
-						auto raii = _macoro_frame_->destroyAwaiterRaii<AwaiterFor>((size_t)::macoro::SuspensionPoint::InitialSuspend);
+						_macoro_frame_t_::DestroyAwaiterRaii<AwaiterFor> raii(_macoro_frame_, (size_t)::macoro::SuspensionPoint::InitialSuspend);	\
 						_macoro_frame_->getAwaiter<AwaiterFor>((size_t)::macoro::SuspensionPoint::InitialSuspend).await_resume();
 					} do {} while (0);
 
@@ -239,7 +239,7 @@ my_future<int> g2() {
 	//std::coroutine_traits
 	auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnType>::promise_type>(
 		[__VA_ARGS_](::macoro::FrameBase<typename coroutine_traits<ReturnType>::promise_type>* _macoro_frame_) mutable -> ::macoro::coroutine_handle<void>
-		{
+		{using _macoro_frame_t_ = ::macoro::FrameBase<typename coroutine_traits<ReturnType>::promise_type>;
 			try {
 				switch (_macoro_frame_->getSuspendPoint())
 				{
@@ -269,7 +269,7 @@ my_future<int> g2() {
 					}
 				MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint::InitialSuspend:
 					_macoro_frame_->_initial_suspend_await_resumed_called_ = true;
-					auto raii = _macoro_frame_->destroyAwaiterRaii<AwaiterFor>((size_t)::macoro::SuspensionPoint::InitialSuspend);
+					_macoro_frame_t_::DestroyAwaiterRaii<AwaiterFor> raii(_macoro_frame_, (size_t)::macoro::SuspensionPoint::InitialSuspend);	
 					_macoro_frame_->getAwaiter<AwaiterFor>((size_t)::macoro::SuspensionPoint::InitialSuspend).await_resume();
 				}
 
@@ -305,7 +305,8 @@ my_future<int> g2() {
 					/*<resume-point>*/
 				MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint(241):
 				{
-					auto raii = _macoro_frame_->destroyAwaiterRaii<AwaiterFor>(241);
+					_macoro_frame_t_::DestroyAwaiterRaii<AwaiterFor> raii(_macoro_frame_, 241);
+					//auto raii = _macoro_frame_->destroyAwaiterRaii<AwaiterFor>(241);
 					RETURN_SLOT _macoro_frame_->getAwaiter<AwaiterFor>(241).await_resume();
 					OPTIONAL_BREAK;
 				}

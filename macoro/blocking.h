@@ -10,90 +10,6 @@ namespace macoro
 
 	namespace impl
 	{
-		//// A location which can store a return value
-		//template<typename T>
-		//struct return_storage;
-
-		//// void specialization.
-		//template<>
-		//struct return_storage<void>
-		//{
-		//	using value_type = void;
-		//	using reference_type = void;
-
-		//	// required by coroutine.
-		//	void return_void() {}
-
-		//	void value() {}
-		//};
-
-
-		//template<typename T>
-		//struct return_storage<T&>
-		//{
-		//	using value_type = T&;
-		//	using reference_type = T&;
-
-		//	T* mVal = nullptr;
-
-		//	// set/store the return value.
-		//	void return_value(T& t)
-		//	{
-		//		mVal = &t;
-		//	}
-
-		//	// get a pointer the return value if it has one. 
-		//	// Otherwise return null.
-		//	T& value()
-		//	{
-		//		return *mVal;
-		//	}
-		//};
-
-
-		//// Stores a T inside and optional<T> and will give
-		//// back a void* to it.
-		//template<typename T>
-		//struct return_storage
-		//{
-		//	using value_type = T;
-		//	using reference_type = T&;
-
-		//	optional<T> mVal;
-
-		//	// set/store the return value.
-		//	template<typename TT>
-		//	void return_value(TT&& t)
-		//	{
-		//		mVal = std::forward<TT>(t);
-		//	}
-
-		//	// get a pointer the return value if it has one. 
-		//	// Otherwise return null.
-		//	T& value()
-		//	{
-		//		return mVal.value();
-		//	}
-		//};
-
-
-
-		//	// A location which can store a return value
-		//template<typename T>
-		//struct blocking_promise_storage;
-
-		//template<>
-		//struct blocking_promise_storage<void>
-		//{
-		//	void value() {}
-		//};
-
-		//template<typename T>
-		//struct blocking_promise_storage
-		//{
-		//
-		//};
-
 		template<typename T>
 		struct blocking_task;
 
@@ -209,15 +125,13 @@ namespace macoro
 			{}
 
 			blocking_task() = delete;
-			blocking_task(blocking_task&& h) :handle(std::exchange(h.handle, std::nullptr_t{})) {}
+			blocking_task(blocking_task&& h) noexcept :handle(std::exchange(h.handle, std::nullptr_t{})) {}
 			blocking_task& operator=(blocking_task&& h) { handle = std::exchange(h.handle, std::nullptr_t{}); }
 
 			~blocking_task()
 			{
-				std::cout << "~blocking_task begin " << static_cast<bool>(handle) << std::endl;
 				if (handle)
 					handle.destroy();
-				std::cout << "~blocking_task end" << std::endl;
 			}
 
 			void start()
@@ -271,7 +185,13 @@ namespace macoro
 			>
 			make_blocking_task(Awaitable&& awaitable)
 		{
+#if 0
 			co_await std::forward<Awaitable>(awaitable);
+#else
+			MC_BEGIN(blocking_task<ResultType>, &awaitable);
+			MC_AWAIT(static_cast<Awaitable&&>(awaitable));
+			MC_END();
+#endif
 		}
 
 	}

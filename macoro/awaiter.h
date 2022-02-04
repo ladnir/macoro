@@ -11,14 +11,14 @@ namespace macoro
 	{
 
 		template<typename continuation, typename T>
-		enable_if_t<has_set_coninuation_member<continuation, T>::value>
+		enable_if_t<has_set_continuation_member<continuation, T>::value>
 			set_continuation(continuation&& c, T&& t)
 		{
 			c.promise().set_continuation(t);
 		}
 
 		template<typename continuation, typename T>
-		enable_if_t<!has_set_coninuation_member<continuation, T>::value>
+		enable_if_t<!has_set_continuation_member<continuation, T>::value>
 			set_continuation(continuation&& c, T&& t)
 		{}
 

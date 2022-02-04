@@ -8,7 +8,6 @@
 
 #include "macoro/config.h"
 #include "macoro/coroutine_handle.h"
-#include <iostream>
 #include <array>
 #include <vector>
 
@@ -18,11 +17,15 @@
 
 namespace macoro
 {
+#define MACORO_INITIAL_SUSPEND_BEGIN_IDX 4294967295
+#define MACORO_INITIAL_SUSPEND_IDX 4294967294
+#define MACORO_FINAL_SUSPEND_IDX 4294967293
+
 	enum class SuspensionPoint : std::size_t
 	{
-		InitialSuspendBegin = std::numeric_limits<std::size_t>::max(),
-		InitialSuspend = std::numeric_limits<std::size_t>::max() -1,
-		FinalSuspend = std::numeric_limits<std::size_t>::max() - 2
+		InitialSuspendBegin = MACORO_INITIAL_SUSPEND_BEGIN_IDX,
+		InitialSuspend = MACORO_INITIAL_SUSPEND_IDX,
+		FinalSuspend = MACORO_FINAL_SUSPEND_IDX
 	};
 
 	template<typename PromiseType = void>
@@ -166,14 +169,10 @@ namespace macoro
 		};
 		std::vector<awaiters> awaiters;
 
-		
+
 		~FrameBase()
 		{
-			while (awaiters.size())
-			{
-				awaiters.back()._awaiter_deleter(awaiters.back()._storage_ptr);
-				awaiters.pop_back();
-			}
+			destroyAwaiters();
 		}
 
 		template<typename AwaiterFor>
@@ -186,12 +185,20 @@ namespace macoro
 
 			Expr value;
 			Awaitable awaitable;
-			value_type awaiter;
+			//value_type awaiter;
+			typename AwaiterFor::awaiter awaiter;
 
-			AwaiterStorage(promise_type& promise, Expr&& val)
-				: value(std::forward<Expr>(val))
-				, awaitable(get_awaitable(promise, std::forward<Expr>(value)))
-				, awaiter(get_awaiter(static_cast<Awaitable>(awaitable)))
+			//AwaiterStorage(promise_type& promise, Expr&& val)
+			//	: value(std::forward<Expr>(val))
+			//	, awaitable(get_awaitable(promise, std::forward<Expr>(value)))
+			//	, awaiter(get_awaiter(static_cast<Awaitable>(awaitable)))
+			//{}
+
+			template<typename E>
+			AwaiterStorage(promise_type& promise, E&& val)
+				: value(static_cast<decltype(val)>(val))
+				, awaitable(get_awaitable(promise, static_cast<decltype(value)>(value)))
+				, awaiter(get_awaiter(static_cast<decltype(awaitable)>(awaitable)))
 			{}
 		};
 
@@ -229,7 +236,7 @@ namespace macoro
 
 			// get the awaiter and allocate it on the heap.
 			//auto ret = new Storage(this->await_transform(std::forward<Awaitable>(c)));
-			auto storage_ptr = new AwaiterStorage<AwaiterFor>(promise, std::forward<Expr>(value));
+			auto storage_ptr = new AwaiterStorage<AwaiterFor>(promise, static_cast<decltype(value)>(value));
 			d._storage_ptr = storage_ptr;
 
 			// construct the that is used if our destructor is called.
@@ -244,66 +251,39 @@ namespace macoro
 		}
 
 		template<typename AwaiterFor>
-		struct DestroyAwaiterRaii
-		{
-			FrameBase<promise_type>* frame;
-			size_t idx;
-
-			DestroyAwaiterRaii(FrameBase<promise_type>* f, size_t i)
-				: frame(f)
-				, idx(i)
-			{}
-
-			DestroyAwaiterRaii(const DestroyAwaiterRaii&) = delete;
-
-
-			~DestroyAwaiterRaii()
-			{
-#ifndef NDEBUG
-				//std::cout << "is_rvalue_reference_v * " << std::is_rvalue_reference_v<AwaiterFor::expr> << std::endl;
-
-				//auto d = frame->awaiters.end();
-				//while (--d->awaiter_idx != idx)
-				//	assert(d != frame->awaiters.begin());
-				assert(frame->awaiters.size());
-				auto d = --frame->awaiters.end();
-				while (d->awaiter_idx != idx)
-				{
-					assert(d != frame->awaiters.begin());
-					--d;
-				}
-
-
-				if (!d->_awaiter_ptr)
-					std::terminate();
-
-				if (d->_awaiter_typeid_ != &typeid(AwaiterFor))
-					std::terminate();
-#endif
-				//if (!std::is_rvalue_reference_v<AwaiterFor::expr>)
-				{
-
-					auto a = (AwaiterStorage<AwaiterFor>*)(d->_storage_ptr);
-					delete a;
-
-					auto& v = frame->awaiters;
-					std::swap(*d, *--v.end());
-					v.pop_back();
-					//v.erase(std::remove(v.begin(), v.end(), d), v.end());
-				}
-			}
-		};
-
-		//template<typename AwaiterFor>
-		//DestroyAwaiterRaii<AwaiterFor>&& destroyAwaiterRaii(size_t idx)
-		//{
-		//	return DestroyAwaiterRaii<AwaiterFor>{ this, idx };
-		//}
-
-		template<typename AwaiterFor>
 		void destroyAwaiter(size_t idx)
 		{
-			DestroyAwaiterRaii<AwaiterFor>(this, idx);
+			assert(awaiters.size());
+			auto d = --awaiters.end();
+			while (d->awaiter_idx != idx)
+			{
+				assert(d != awaiters.begin());
+				--d;
+			}
+
+#ifndef NDEBUG
+			if (!d->_awaiter_ptr)
+				std::terminate();
+
+			if (d->_awaiter_typeid_ != &typeid(AwaiterFor))
+				std::terminate();
+#endif
+
+			auto a = (AwaiterStorage<AwaiterFor>*)(d->_storage_ptr);
+			delete a;
+
+			auto& v = awaiters;
+			std::swap(*d, *--v.end());
+			v.pop_back();
+		}
+
+		void destroyAwaiters()
+		{
+			while (awaiters.size())
+			{
+				awaiters.back()._awaiter_deleter(awaiters.back()._storage_ptr);
+				awaiters.pop_back();
+			}
 		}
 
 
@@ -503,8 +483,6 @@ namespace macoro
 #ifdef MACORO_CPP_20
 		~Frame()
 		{
-			std::cout << "~Frame " << std::endl;
-
 			// For when std_adapter isn't the one who called our destructor,
 			// prevent it from calling it recursively by setting the handle
 			// back to this frame to null.

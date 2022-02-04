@@ -196,11 +196,11 @@ namespace macoro
 	};
 
 	template<typename C, typename T, typename = void>
-	struct has_set_coninuation_member : false_type
+	struct has_set_continuation_member : false_type
 	{};
 
 	template <typename C, typename T>
-	struct has_set_coninuation_member <C, T, void_t<
+	struct has_set_continuation_member <C, T, void_t<
 
 		// must have a promise().set_continuation(T) member fn
 		decltype(std::declval<C>().promise().set_continuation(std::declval<T>()))

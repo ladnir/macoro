@@ -1,6 +1,7 @@
 
 set(SRC
 	task_tests.cpp
+	yield_await_tests.cpp
 )
 
 

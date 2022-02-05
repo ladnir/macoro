@@ -4,6 +4,7 @@
 #include "macoro/Macros.h"
 #include "macoro/task.h"
 #include <iostream>
+#include <unordered_map>
 namespace macoro
 {
 
@@ -73,7 +74,7 @@ namespace macoro
 		void print(std::vector<Rec>& l)
 		{
 			for (size_t i = 0; i < l.size(); ++i)
-				std::cout << "{\"" << l[i].str << "\", " << l[i].i << ", " << l[i].o << "}," << std::endl;
+				std::cout << "{"" << l[i].str << "", " << l[i].i << ", " << l[i].o << "}," << std::endl;
 		}
 
 		void print(std::vector<Rec>& l, std::vector<Rec>& r)
@@ -124,12 +125,14 @@ namespace macoro
 
 
 			bool await_ready() { return false; }
-
+#ifdef MACORO_CPP_20
 			template<typename T>
 			std::coroutine_handle<void> await_suspend(const std::coroutine_handle<T>& c)
 			{
 				return std::noop_coroutine();
 			}
+#endif
+
 			coroutine_handle<> await_suspend(coroutine_handle<> c)
 			{
 				return noop_coroutine();
@@ -143,26 +146,18 @@ namespace macoro
 		struct Awaiter
 		{
 			bool await_ready() { return true; }
+
+#ifdef MACORO_CPP_20
 			template<typename T>
 			void await_suspend(const std::coroutine_handle<T>& c) { }
-			void await_suspend(coroutine_handle<> c) { }
+#endif
+			template<typename T>
+			void await_suspend(const coroutine_handle<T>& c) { }
+
 			void await_resume() { }
 		};
 
 
-		struct NoCopyMove
-		{
-			NoCopyMove()
-			{
-				log.emplace_back("new NoCopyMove", this);
-			}
-			NoCopyMove(const NoCopyMove&) = delete;
-			NoCopyMove(NoCopyMove&&) = delete;
-			~NoCopyMove()
-			{
-				log.emplace_back("del NoCopyMove", this);
-			}
-		};
 
 		struct RefOnlyAwaiter : public Awaiter
 		{
@@ -181,10 +176,16 @@ namespace macoro
 
 			RefOnlyAwaiter r;
 
+#ifdef MACORO_CPP_20
 			RefOnlyAwaiter& operator co_await()
+#else
+			RefOnlyAwaiter& operator_co_await()
+#endif
 			{
 				return r;
 			}
+
+
 		};
 
 
@@ -245,8 +246,11 @@ namespace macoro
 			}
 
 			MovOnlyAwaiter r;
-
+#ifdef MACORO_CPP_20
 			MovOnlyAwaiter&& operator co_await()
+#else
+			MovOnlyAwaiter&& operator_co_await()
+#endif
 			{
 				return std::move(r);
 			}
@@ -275,6 +279,19 @@ namespace macoro
 
 
 
+		struct NoCopyMove
+		{
+			NoCopyMove()
+			{
+				log.emplace_back("new NoCopyMove", this);
+			}
+			NoCopyMove(const NoCopyMove&) = delete;
+			NoCopyMove(NoCopyMove&&) = delete;
+			~NoCopyMove()
+			{
+				log.emplace_back("del NoCopyMove", this);
+			}
+		};
 		struct NoCopyMoveAwaiter : public Awaiter
 		{
 			NoCopyMoveAwaiter(const NoCopyMoveAwaiter&) = delete;
@@ -308,7 +325,12 @@ namespace macoro
 				log.emplace_back("del NoCopyMoveAwaitable", this);
 			}
 
+
+#ifdef MACORO_CPP_20
 			NoCopyMoveAwaiter operator co_await()
+#else
+			NoCopyMoveAwaiter operator_co_await()
+#endif
 			{
 				return {};
 			}
@@ -334,7 +356,8 @@ namespace macoro
 				}
 
 				suspend_always initial_suspend() { return {}; }
-				impl::continuation_awaiter<> final_suspend() noexcept { return { cont ? cont : std::noop_coroutine() }; }
+
+				impl::continuation_awaiter<> final_suspend() noexcept { return { cont ? cont : noop_coroutine() }; }
 
 
 				yield_awaitable yield_value(T&& v)
@@ -421,12 +444,14 @@ namespace macoro
 					return h.promise().s.has_value() || h.promise().e;
 				}
 
+#ifdef MACORO_CPP_20
 				template<typename T>
 				std::coroutine_handle<void> await_suspend(const std::coroutine_handle<T>& c)
 				{
 					h.promise().cont = c;
 					return h.std_cast();
 				}
+#endif
 
 
 				coroutine_handle<promise_type> await_suspend(coroutine_handle<> c)
@@ -443,13 +468,21 @@ namespace macoro
 				}
 
 			};
-			task_awaitable operator co_await()&&
+
+#ifdef MACORO_CPP_20
+			task_awaitable operator co_await() &&
+#else
+			task_awaitable operator_co_await() &&
+#endif
 			{
 				return { h };
 			}
 		};
 
 	}
+
+
+#ifdef MACORO_CPP_20
 	test_task<test_value> yield_await20(test_task<test_value>&& awaitable) {
 		log.emplace_back("outter start", nullptr);
 
@@ -533,7 +566,7 @@ namespace macoro
 					{"del promise_type", 1, 0},
 					{"del promise_type", 0, 0}
 				};
-				//std::cout << "\n";
+				//std::cout << "n";
 				//print(log);
 				assert(log == exp);
 			}
@@ -541,6 +574,7 @@ namespace macoro
 
 		std::cout << "      passed " << std::endl;;
 	}
+#endif
 
 
 	test_task<test_value> yield_await14(test_task<test_value>&& awaitable) {
@@ -659,12 +693,7 @@ namespace macoro
 			MC_END();
 		};
 
-		auto g = [&]() ->test_task<test_value>
-		{
-			co_await ref;
-			done = true;
-			co_return test_value{};
-		};
+
 
 		std::vector<Rec> exp{
 			{"new promise_type",  0 } ,
@@ -677,6 +706,13 @@ namespace macoro
 
 		getLog();
 		done = false;
+#ifdef MACORO_CPP_20
+		auto g = [&]() ->test_task<test_value>
+		{
+			co_await ref;
+			done = true;
+			co_return test_value{};
+		};
 		{
 			auto gg = g();
 			gg.h.resume();
@@ -685,6 +721,13 @@ namespace macoro
 		assert(done);
 
 		auto log1 = getLog();
+		if (!(log1 == exp))
+		{
+			print(log1, exp);
+		}
+
+		assert(log1 == exp);
+#endif
 		counter = 0;
 		done = false;
 
@@ -695,12 +738,6 @@ namespace macoro
 		assert(done);
 		auto log2 = getLog();
 
-		if (!(log1 == exp))
-		{
-			print(log1, exp);
-		}
-
-		assert(log1 == exp);
 
 
 		if (!(log2 == exp))
@@ -716,27 +753,25 @@ namespace macoro
 
 	void await_lifetime_NoCopyMove_test()
 	{
+		// requires mandatory elision 
+#if MACORO_CPP_20
 
 		std::cout << "await_lifetime_NoCopyMove_test    ";
 
 
-		//#define EXPRESSION NoCopyMove{}
+
 		//#define EXPRESSION MovOnly{}
 		//#define EXPRESSION mov()
 		bool done = false;
 		auto f = [&]() -> test_task<test_value> {
 			MC_BEGIN(test_task<test_value>, &);
+
+
 			MC_AWAIT(NoCopyMove{});
+
 			done = true;
 			MC_RETURN(test_value{});
 			MC_END();
-		};
-
-		auto g = [&]() ->test_task<test_value>
-		{
-			co_await NoCopyMove{};
-			done = true;
-			co_return test_value{};
 		};
 
 		std::vector<Rec> exp{
@@ -756,6 +791,15 @@ namespace macoro
 
 		getLog();
 		done = false;
+
+#ifdef MACORO_CPP_20
+		auto g = [&]() ->test_task<test_value>
+		{
+			co_await NoCopyMove{};
+			done = true;
+			co_return test_value{};
+		};
+
 		{
 			auto gg = g();
 			gg.h.resume();
@@ -764,6 +808,14 @@ namespace macoro
 		assert(done);
 
 		auto log1 = getLog();
+
+		if (!(log1 == exp))
+		{
+			print(log1, exp);
+		}
+
+		assert(log1 == exp);
+#endif
 		done = false;
 		{
 			auto r = f();
@@ -772,13 +824,6 @@ namespace macoro
 		assert(done);
 		auto log2 = getLog();
 
-		if (!(log1 == exp))
-		{
-			print(log1, exp);
-		}
-
-		assert(log1 == exp);
-
 
 		if (!(log2 == exp))
 		{
@@ -786,6 +831,8 @@ namespace macoro
 		}
 		assert(log2 == exp);
 		std::cout << "  passed " << std::endl;;
+
+#endif
 	}
 
 
@@ -806,14 +853,6 @@ namespace macoro
 			MC_RETURN(test_value{});
 			MC_END();
 		};
-
-		auto g = [&]() ->test_task<test_value>
-		{
-			co_await MovOnly{};
-			done = true;
-			co_return test_value{};
-		};
-
 		std::vector<Rec> exp{
 			{"new promise_type", 0, 0},
 			{"new MovOnlyAwaiter", 1, 0},
@@ -831,6 +870,15 @@ namespace macoro
 
 		getLog();
 		done = false;
+
+#ifdef MACORO_CPP_20
+		auto g = [&]() ->test_task<test_value>
+		{
+			co_await MovOnly{};
+			done = true;
+			co_return test_value{};
+		};
+
 		{
 			auto gg = g();
 			gg.h.resume();
@@ -839,7 +887,15 @@ namespace macoro
 		assert(done);
 
 		auto log1 = getLog();
+		if (!(log1 == exp))
+		{
+			print(log1, exp);
+		}
+
+		assert(log1 == exp);
+
 		//print(log1);
+#endif
 		done = false;
 		{
 			auto r = f();
@@ -847,13 +903,6 @@ namespace macoro
 		}
 		assert(done);
 		auto log2 = getLog();
-
-		if (!(log1 == exp))
-		{
-			print(log1, exp);
-		}
-
-		assert(log1 == exp);
 
 
 		if (!(log2 == exp))
@@ -882,12 +931,6 @@ namespace macoro
 			MC_END();
 		};
 
-		auto g = [&]() ->test_task<test_value>
-		{
-			co_await fn();
-			done = true;
-			co_return test_value{};
-		};
 
 		std::vector<Rec> exp{
 			{"new promise_type", 0, 0},
@@ -906,6 +949,14 @@ namespace macoro
 
 		getLog();
 		done = false;
+
+#ifdef MACORO_CPP_20
+		auto g = [&]() ->test_task<test_value>
+		{
+			co_await fn();
+			done = true;
+			co_return test_value{};
+		};
 		{
 			auto gg = g();
 			gg.h.resume();
@@ -914,6 +965,13 @@ namespace macoro
 		assert(done);
 
 		auto log1 = getLog();
+		if (!(log1 == exp))
+		{
+			print(log1, exp);
+		}
+
+		assert(log1 == exp);
+#endif
 		done = false;
 		{
 			auto r = f();
@@ -922,12 +980,6 @@ namespace macoro
 		assert(done);
 		auto log2 = getLog();
 
-		if (!(log1 == exp))
-		{
-			print(log1, exp);
-		}
-
-		assert(log1 == exp);
 
 
 		if (!(log2 == exp))
@@ -945,7 +997,9 @@ namespace macoro
 		await_lifetime_NoCopyMove_test();
 		await_lifetime_MovOnly_test();
 		await_lifetime_fn_test();
+#ifdef MACORO_CPP_20
 		yield_await_lifetime_test20();
+#endif
 		yield_await_lifetime_test14();
 
 	}

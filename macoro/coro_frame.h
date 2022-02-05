@@ -184,7 +184,7 @@ namespace macoro
 		using promise_type = Promise;
 		using expression_type = Expr;
 		static const size_t suspend_index = idx;
-		using awaitable_type = decltype(get_awaitable(std::declval<promise_type&>(), std::declval<expression_type>()));
+		using awaitable_type = decltype(get_awaitable(std::declval<promise_type&>(), std::declval<ExpressionStorage<expression_type>>().get()));
 		using awaiter_type = decltype(get_awaiter(std::declval<awaitable_type>()));
 
 		ExpressionStorage<expression_type> expr;

@@ -3,7 +3,7 @@
 namespace macoro
 {
 
-	void yield_await_tests();
+	void await_lifetime_tests();
 
 
 

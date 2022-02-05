@@ -6,7 +6,7 @@ namespace macoro
 {
 	inline void tests()
 	{
-		//task_tests();
+		task_tests();
 		yield_await_tests();
 	}
 

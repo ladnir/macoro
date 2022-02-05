@@ -350,11 +350,11 @@ namespace macoro
 
 			assert(awaiters.size());
 			auto d = --awaiters.end();
-			//while (d->suspend_index != CTX::suspend_index)
-			//{
-			//	assert(d != awaiters.begin());
-			//	--d;
-			//}
+			while (d->suspend_index != CTX::suspend_index)
+			{
+				assert(d != awaiters.begin());
+				--d;
+			}
 			assert(d->suspend_index == CTX::suspend_index);
 			assert(d->_awaiter_ptr);
 			assert(d->_awaiter_typeid_ == &typeid(CTX));

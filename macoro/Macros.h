@@ -28,32 +28,32 @@
 // 
 // Then we have the awaiter, we call await_ready and await_suspend.
 #define IMPL_MC_AWAIT_CORE_NS(EXPRESSION, SUSPEND_IDX)															\
-					using promise_type = decltype(_macoro_frame_->promise);										\
-					using isl = decltype(is_lvalue(EXPRESSION));												\
-					using MACORO_CAT(AwaitContext, SUSPEND_IDX) = AwaitContext<promise_type, SUSPEND_IDX,		\
-						std::conditional_t<isl::value, decltype(EXPRESSION)&, decltype(EXPRESSION)>>;			\
-					using Handle = ::macoro::coroutine_handle<promise_type>;									\
-					{																							\
-						auto& promise = _macoro_frame_->promise;												\
-						auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);				\
-						auto& ctx = _macoro_frame_->makeAwaitContext<MACORO_CAT(AwaitContext, SUSPEND_IDX)>();	\
-						ctx.expr.ptr = new (ctx.expr.v()) decltype(ctx.expr)::Constructor(EXPRESSION);			\
-						ctx.awaitable.ptr = new (ctx.awaitable.v()) decltype(ctx.awaitable)::Constructor(get_awaitable(promise, ctx.expr.get()));\
-						ctx.awaiter.ptr = new (ctx.awaiter.v()) decltype(ctx.awaiter)::Constructor(get_awaiter(ctx.awaitable.get()));\
-						auto& awaiter = ctx.awaiter.getRef();													\
-						*ctx.awaiter_ptr = &awaiter;															\
-						if (!awaiter.await_ready())																\
-						{																						\
-							/*<suspend-coroutine>*/																\
-							_macoro_frame_->setSuspendPoint((::macoro::SuspensionPoint)SUSPEND_IDX);			\
+	using promise_type = decltype(_macoro_frame_->promise);														\
+	using isl = decltype(is_lvalue(EXPRESSION));																\
+	using MACORO_CAT(AwaitContext, SUSPEND_IDX) = AwaitContext<promise_type, SUSPEND_IDX,						\
+		std::conditional_t<isl::value, decltype(EXPRESSION)&, decltype(EXPRESSION)>>;							\
+	using Handle = ::macoro::coroutine_handle<promise_type>;													\
+	{																											\
+		auto& promise = _macoro_frame_->promise;																\
+		auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);								\
+		auto& ctx = _macoro_frame_->makeAwaitContext<MACORO_CAT(AwaitContext, SUSPEND_IDX)>();					\
+		ctx.expr.ptr = new (ctx.expr.v()) decltype(ctx.expr)::Constructor(EXPRESSION);							\
+		ctx.awaitable.ptr = new (ctx.awaitable.v()) decltype(ctx.awaitable)::Constructor(get_awaitable(promise, ctx.expr.get()));\
+		ctx.awaiter.ptr = new (ctx.awaiter.v()) decltype(ctx.awaiter)::Constructor(get_awaiter(ctx.awaitable.get()));\
+		auto& awaiter = ctx.awaiter.getRef();																	\
+		*ctx.awaiter_ptr = &awaiter;																			\
+		if (!awaiter.await_ready())																				\
+		{																										\
+			/*<suspend-coroutine>*/																				\
+			_macoro_frame_->setSuspendPoint((::macoro::SuspensionPoint)SUSPEND_IDX);							\
 																												\
-							/*<call awaiter.await_suspend(). If it's void return, then return true.>*/			\
-							auto s = ::macoro::await_suspend(awaiter, handle);									\
-							if (s)																				\
-							{																					\
-								/*perform symmetric transfer or return to caller (for noop_coroutine) */		\
-								return s.get_handle();															\
-					}	}	}																					
+			/*<call awaiter.await_suspend(). If it's void return, then return true.>*/							\
+			auto s = ::macoro::await_suspend(awaiter, handle);													\
+			if (s)																								\
+			{																									\
+				/*perform symmetric transfer or return to caller (for noop_coroutine) */						\
+				return s.get_handle();																			\
+	}	}	}																					
 
 // This macro expands out to generated the await_ready and await_suspend calls.
 // It defines a suspension point but does not call await_resume. This should be

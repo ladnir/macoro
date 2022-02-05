@@ -31,15 +31,15 @@ namespace macoro
 	using true_type = std::true_type;
 
 
-	template<typename T, typename = void>
-	struct has_any_await_transform_member : false_type
+	template<typename Promise, typename Expression, typename = void>
+	struct has_await_transform_member : false_type
 	{};
 
-	template <typename T>
-	struct has_any_await_transform_member <T, void_t<
+	template <typename Promise, typename Expression>
+	struct has_await_transform_member <Promise, Expression, void_t<
 
 		// must have a await_transform(...) member fn
-		decltype(T::await_transform)
+		decltype(std::declval<Promise>().await_transform(std::declval<Expression>()))
 
 		>>
 		: true_type{};
@@ -123,14 +123,14 @@ namespace macoro
 
 	template<typename P, typename T>
 	inline decltype(auto) get_awaitable(
-		P& promise, T&& expr, typename enable_if_t<has_any_await_transform_member<P>::value, empty_state> = {})
+		P& promise, T&& expr, typename enable_if_t<has_await_transform_member<P,T&&>::value, empty_state> = {})
 	{
 		return promise.await_transform(static_cast<T&&>(expr));
 	}
 
 	template<typename P, typename T>
 	inline decltype(auto) get_awaitable(
-		P& promise, T&& expr, typename enable_if_t<!has_any_await_transform_member<P>::value, empty_state> = {})
+		P& promise, T&& expr, typename enable_if_t<!has_await_transform_member<P,T&&>::value, empty_state> = {})
 	{
 		return static_cast<T&&>(expr);
 	}

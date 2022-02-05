@@ -100,6 +100,136 @@ namespace macoro
 		return await_suspend_t<coroutine_handle<promise_type>>{ a.await_suspend(h) };
 	}
 
+	// Intended to be equivalent to auto&&. When given
+	// an lvalue it works as a reference. For an xvalue
+	// (i.e. a non-reference return from a function (T) 
+	// or a move type(T&&)), then it will store the actual
+	// expression result.
+	template<typename T>
+	struct ExpressionStorage
+	{
+		static_assert(std::is_reference<T>::value == false, "");
+		using type = T;
+		using ST = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
+		using PT = typename std::remove_reference<T>::type;
+		using Constructor = T;
+
+		// the storage location of the T
+		ST st;
+
+		// a pointer to where the T was inplace-new'ed at.
+		void* ptr = nullptr;
+
+		// return the start of our inline storage.
+		void* v() { return &st; }
+
+		// get the constructed object.
+		T&& get() { 
+			assert(ptr);
+			return (T&&)*(T*)ptr; 
+		}
+
+		// get a reference to the constructed object.
+		typename std::remove_reference<T>::type& getRef()
+		{
+			assert(ptr);
+			return *(T*)ptr;
+		}
+
+		// destroy the object
+		void destroy()
+		{
+			if(ptr)
+				((type*)ptr)->~type();
+		}
+	};
+
+
+	template<typename T>
+	struct ExpressionStorage<T&>
+	{
+		template<typename T>
+		struct reference_wrapper
+		{
+			T* p;
+			reference_wrapper() = default;
+			reference_wrapper(T& r) : p(&r) {}
+			reference_wrapper(T&& r) : p(&r) {}
+		};
+
+
+		using type = T;
+		using PT = typename std::remove_reference<T>::type;
+		using Constructor = typename reference_wrapper<T>;
+
+		Constructor st;
+		void* ptr = nullptr;
+		void* v() { return &st; }
+		T& get() { return (T&)*st.p; }
+		T& getRef() { return (T&)*st.p; }
+		void destroy() { }
+	};
+
+	template<typename T>
+	struct ExpressionStorage<T&&> : public ExpressionStorage<T&>
+	{
+		T&& get() { return (T&&)*this->st.p; }
+	};
+
+
+
+	template<typename Promise, size_t idx, typename Expr>
+	struct AwaitContext
+	{
+		using promise_type = Promise;
+		using expression_type = Expr;
+		static const size_t suspend_index = idx;
+		using awaitable_type = decltype(get_awaitable(std::declval<promise_type&>(), std::declval<expression_type>()));
+		using awaiter_type = decltype(get_awaiter(std::declval<awaitable_type>()));
+
+		ExpressionStorage<expression_type> expr;
+		ExpressionStorage<awaitable_type> awaitable;
+		ExpressionStorage<awaiter_type> awaiter;
+
+		void** awaiter_ptr;
+	};
+
+
+	template<typename T>
+	std::true_type is_lvalue(T&) { return {}; }
+	template<typename T>
+	std::false_type is_lvalue(T&&) { return {}; }
+
+
+
+	//template<typename AwaiterFor>
+	//struct AwaiterStorage
+	//{
+
+	//	using Expr = typename  AwaiterFor::expr;
+	//	using Awaitable = typename  AwaiterFor::awaitable;
+	//	using value_type = typename AwaiterFor::value_type;
+	//	using Awaiter = typename AwaiterFor::awaiter;
+
+	//	Expr value;
+	//	Awaitable awaitable;
+	//	//value_type awaiter;
+	//	Awaiter awaiter;
+
+	//	//AwaiterStorage(promise_type& promise, Expr&& val)
+	//	//	: value(std::forward<Expr>(val))
+	//	//	, awaitable(get_awaitable(promise, std::forward<Expr>(value)))
+	//	//	, awaiter(get_awaiter(static_cast<Awaitable>(awaitable)))
+	//	//{}
+
+	//	template<typename P, typename E>
+	//	AwaiterStorage(P& promise, E&& val)
+	//		: value(static_cast<decltype(val)>(val))
+	//		, awaitable(get_awaitable(promise, static_cast<decltype(value)>(value)))
+	//		, awaiter(get_awaiter(static_cast<decltype(awaitable)>(awaitable)))
+	//	{}
+	//};
+
 	template<>
 	struct FrameBase<void>
 	{
@@ -139,9 +269,6 @@ namespace macoro
 
 		bool _initial_suspend_await_resumed_called_ = false;
 
-		// a flag to make sure the suspend index is set.
-		bool _suspension_idx_set_ = false;
-
 		// Return the current suspend location of the coroutines.
 		SuspensionPoint getSuspendPoint() const {
 			return _suspension_idx_;
@@ -151,20 +278,19 @@ namespace macoro
 		// Must be called if the coroutines does not complete.
 		void setSuspendPoint(SuspensionPoint idx) {
 			_suspension_idx_ = idx;
-			_suspension_idx_set_ = true;
 		}
 
 		struct awaiters
 		{
-			size_t awaiter_idx;
+			size_t suspend_index;
 #ifndef NDEBUG
 			const std::type_info* _awaiter_typeid_ = nullptr;
 #endif
 			// The deleter for the current awaitable.
 			void (*_awaiter_deleter)(void* ptr) = nullptr;
-			void* _storage_ptr = nullptr;
+			void* _ctx_ptr = nullptr;
 
-			// The storage of the current co_await. 
+			// A pointer to a pointer that points to the awaiter
 			void* _awaiter_ptr = nullptr;
 		};
 		std::vector<awaiters> awaiters;
@@ -175,140 +301,184 @@ namespace macoro
 			destroyAwaiters();
 		}
 
-		template<typename AwaiterFor>
-		struct AwaiterStorage
-		{
-
-			using Expr = typename  AwaiterFor::expr;
-			using Awaitable = typename  AwaiterFor::awaitable;
-			using value_type = typename AwaiterFor::value_type;
-
-			Expr value;
-			Awaitable awaitable;
-			//value_type awaiter;
-			typename AwaiterFor::awaiter awaiter;
-
-			//AwaiterStorage(promise_type& promise, Expr&& val)
-			//	: value(std::forward<Expr>(val))
-			//	, awaitable(get_awaitable(promise, std::forward<Expr>(value)))
-			//	, awaiter(get_awaiter(static_cast<Awaitable>(awaitable)))
-			//{}
-
-			template<typename E>
-			AwaiterStorage(promise_type& promise, E&& val)
-				: value(static_cast<decltype(val)>(val))
-				, awaitable(get_awaitable(promise, static_cast<decltype(value)>(value)))
-				, awaiter(get_awaiter(static_cast<decltype(awaitable)>(awaitable)))
-			{}
-		};
-
-
-		template<typename Expr>
-		typename awaiter_for<promise_type, Expr&&> constructAwaiter2(Expr&& value)
-		{
-			return {};
-		}
-
-		template<typename Expr>
-		typename awaiter_for<promise_type, Expr&&>::reference constructAwaiter(Expr&& value, size_t awaiterIdx)
-		{
-			//if (_awaiter_ptr)
-			//{
-			//	_awaiter_deleter(_storage_ptr);
-			//	//std::terminate();
-			//}
-
-			//std::cout << "is_lvalue_reference_v   " << std::is_lvalue_reference_v<Expr&&> << std::endl;
-			//std::cout << "is_rvalue_reference_v   " << std::is_rvalue_reference_v<Expr&&> << std::endl;
-
-
-			using AwaiterFor = awaiter_for<promise_type, Expr&&>;
-
-			for (auto& aa : awaiters)
-				assert(aa.awaiter_idx != awaiterIdx);
-
-			awaiters.emplace_back();
-			auto& d = awaiters.back();
-#ifndef NDEBUG
-			d._awaiter_typeid_ = &typeid(AwaiterFor);
-#endif
-			d.awaiter_idx = awaiterIdx;
-
-			// get the awaiter and allocate it on the heap.
-			//auto ret = new Storage(this->await_transform(std::forward<Awaitable>(c)));
-			auto storage_ptr = new AwaiterStorage<AwaiterFor>(promise, static_cast<decltype(value)>(value));
-			d._storage_ptr = storage_ptr;
-
-			// construct the that is used if our destructor is called.
-			d._awaiter_deleter = [](void* ptr)
-			{
-				auto a = (AwaiterStorage<AwaiterFor>*)(ptr);
-				delete a;
-			};
-
-			d._awaiter_ptr = &storage_ptr->awaiter;
-			return storage_ptr->awaiter;
-		}
-
-		template<typename AwaiterFor>
-		void destroyAwaiter(size_t idx)
-		{
-			assert(awaiters.size());
-			auto d = --awaiters.end();
-			while (d->awaiter_idx != idx)
-			{
-				assert(d != awaiters.begin());
-				--d;
-			}
-
-#ifndef NDEBUG
-			if (!d->_awaiter_ptr)
-				std::terminate();
-
-			if (d->_awaiter_typeid_ != &typeid(AwaiterFor))
-				std::terminate();
-#endif
-
-			auto a = (AwaiterStorage<AwaiterFor>*)(d->_storage_ptr);
-			delete a;
-
-			auto& v = awaiters;
-			std::swap(*d, *--v.end());
-			v.pop_back();
-		}
-
 		void destroyAwaiters()
 		{
 			while (awaiters.size())
 			{
-				awaiters.back()._awaiter_deleter(awaiters.back()._storage_ptr);
+				awaiters.back()._awaiter_deleter(awaiters.back()._ctx_ptr);
 				awaiters.pop_back();
 			}
 		}
 
 
-		// Return the current awaiter. We assumer the caller
-		// is providing the correct awaiter type. This is validated
-		// in debug builds.
-		template<typename AwaiterFor>
-		typename AwaiterFor::reference getAwaiter(size_t idx) noexcept
+		template<typename CTX>
+		auto& makeAwaitContext()
+		{
+
+			for (auto& aa : awaiters)
+				assert(aa.suspend_index != CTX::suspend_index);
+
+			awaiters.emplace_back();
+			auto& d = awaiters.back();
+#ifndef NDEBUG
+			d._awaiter_typeid_ = &typeid(CTX);
+#endif
+			d.suspend_index = CTX::suspend_index;
+
+			auto ctx = new CTX;
+			d._ctx_ptr = ctx;
+
+			d._awaiter_deleter = [](void* ptr)
+			{
+				auto p = (CTX*)(ptr);
+				p->awaiter.destroy();
+				p->awaitable.destroy();
+				p->expr.destroy();
+				delete p;
+			};
+
+			ctx->awaiter_ptr = &d._awaiter_ptr;
+
+			return *ctx;
+		}
+
+
+
+		template<typename CTX>
+		auto& getAwaiter()
 		{
 
 			assert(awaiters.size());
 			auto d = --awaiters.end();
-			while (d->awaiter_idx != idx)
-			{
-				assert(d != awaiters.begin());
-				--d;
-			}
+			//while (d->suspend_index != CTX::suspend_index)
+			//{
+			//	assert(d != awaiters.begin());
+			//	--d;
+			//}
+			assert(d->suspend_index == CTX::suspend_index);
+			assert(d->_awaiter_ptr);
+			assert(d->_awaiter_typeid_ == &typeid(CTX));
 
-#ifndef NDEBUG
-			if (!d->_awaiter_ptr || d->_awaiter_typeid_ != &typeid(AwaiterFor))
-				terminate();
-#endif
-			auto ptr = (typename AwaiterFor::pointer)d->_awaiter_ptr;
+			auto ptr = (typename std::remove_reference<typename CTX::awaiter_type>::type*)d->_awaiter_ptr;
 			return *ptr;
 		}
+
+		template<typename CTX>
+		auto destroyAwaiter()
+		{
+			assert(awaiters.size());
+			auto d = --awaiters.end();
+			assert(d->suspend_index == CTX::suspend_index);
+			assert(d->_awaiter_ptr);
+			assert(d->_awaiter_typeid_ == &typeid(CTX));
+			auto p = (CTX*)d->_ctx_ptr;
+			p->awaiter.destroy();
+			p->awaitable.destroy();
+			p->expr.destroy();
+			delete p;
+
+			awaiters.pop_back();
+		}
+
+//
+//		template<typename Expr>
+//		typename awaiter_for<promise_type, Expr&&> constructAwaiter2(Expr&& value)
+//		{
+//			return {};
+//		}
+//
+//		template<typename Expr>
+//		typename awaiter_for<promise_type, Expr&&>::reference constructAwaiter(Expr&& value, size_t awaiterIdx)
+//		{
+//			//if (_awaiter_ptr)
+//			//{
+//			//	_awaiter_deleter(_storage_ptr);
+//			//	//std::terminate();
+//			//}
+//
+//			//std::cout << "is_lvalue_reference_v   " << std::is_lvalue_reference_v<Expr&&> << std::endl;
+//			//std::cout << "is_rvalue_reference_v   " << std::is_rvalue_reference_v<Expr&&> << std::endl;
+//
+//
+//			using AwaiterFor = awaiter_for<promise_type, Expr&&>;
+//
+//			for (auto& aa : awaiters)
+//				assert(aa.awaiter_idx != awaiterIdx);
+//
+//			awaiters.emplace_back();
+//			auto& d = awaiters.back();
+//#ifndef NDEBUG
+//			d._awaiter_typeid_ = &typeid(AwaiterFor);
+//#endif
+//			d.awaiter_idx = awaiterIdx;
+//
+//			// get the awaiter and allocate it on the heap.
+//			//auto ret = new Storage(this->await_transform(std::forward<Awaitable>(c)));
+//			auto storage_ptr = new AwaiterStorage<AwaiterFor>(promise, static_cast<decltype(value)>(value));
+//			d._storage_ptr = storage_ptr;
+//
+//			// construct the that is used if our destructor is called.
+//			d._awaiter_deleter = [](void* ptr)
+//			{
+//				auto a = (AwaiterStorage<AwaiterFor>*)(ptr);
+//				delete a;
+//			};
+//
+//			d._awaiter_ptr = &storage_ptr->awaiter;
+//			return storage_ptr->awaiter;
+//		}
+//
+//		template<typename AwaiterFor>
+//		void destroyAwaiter(size_t idx)
+//		{
+//			assert(awaiters.size());
+//			auto d = --awaiters.end();
+//			while (d->awaiter_idx != idx)
+//			{
+//				assert(d != awaiters.begin());
+//				--d;
+//			}
+//
+//#ifndef NDEBUG
+//			if (!d->_awaiter_ptr)
+//				std::terminate();
+//
+//			if (d->_awaiter_typeid_ != &typeid(AwaiterFor))
+//				std::terminate();
+//#endif
+//
+//			auto a = (AwaiterStorage<AwaiterFor>*)(d->_storage_ptr);
+//			delete a;
+//
+//			auto& v = awaiters;
+//			std::swap(*d, *--v.end());
+//			v.pop_back();
+//		}
+//
+
+
+//		// Return the current awaiter. We assumer the caller
+//		// is providing the correct awaiter type. This is validated
+//		// in debug builds.
+//		template<typename AwaiterFor>
+//		typename AwaiterFor::reference getAwaiter(size_t idx) noexcept
+//		{
+//
+//			assert(awaiters.size());
+//			auto d = --awaiters.end();
+//			while (d->awaiter_idx != idx)
+//			{
+//				assert(d != awaiters.begin());
+//				--d;
+//			}
+//
+//#ifndef NDEBUG
+//			if (!d->_awaiter_ptr || d->_awaiter_typeid_ != &typeid(AwaiterFor))
+//				terminate();
+//#endif
+//			auto ptr = (typename AwaiterFor::pointer)d->_awaiter_ptr;
+//			return *ptr;
+//		}
 
 #ifdef MACORO_CPP_20
 

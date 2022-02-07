@@ -123,14 +123,14 @@ namespace macoro
 
 	template<typename P, typename T>
 	inline decltype(auto) get_awaitable(
-		P& promise, T&& expr, typename enable_if_t<has_await_transform_member<P,T&&>::value, empty_state> = {})
+		P& promise, T&& expr, enable_if_t<has_await_transform_member<P,T&&>::value, empty_state> m = {})
 	{
 		return promise.await_transform(static_cast<T&&>(expr));
 	}
 
 	template<typename P, typename T>
 	inline decltype(auto) get_awaitable(
-		P& promise, T&& expr, typename enable_if_t<!has_await_transform_member<P,T&&>::value, empty_state> = {})
+		P& promise, T&& expr, enable_if_t<!has_await_transform_member<P,T&&>::value, empty_state> = {})
 	{
 		return static_cast<T&&>(expr);
 	}
@@ -138,7 +138,7 @@ namespace macoro
 	template<typename Awaitable>
 	inline decltype(auto) get_awaiter(
 		Awaitable&& awaitable, 
-		typename enable_if_t<
+		enable_if_t<
 			has_member_operator_co_await<Awaitable>::value, empty_state> = {})
 	{
 #ifdef MACORO_CPP_20
@@ -151,7 +151,7 @@ namespace macoro
 	template<typename Awaitable>
 	inline decltype(auto) get_awaiter(
 		Awaitable&& awaitable, 
-		typename enable_if_t<
+		enable_if_t<
 			!has_member_operator_co_await<Awaitable>::value&&
 			has_free_operator_co_await<Awaitable>::value, empty_state> = {})
 	{
@@ -165,7 +165,7 @@ namespace macoro
 	template<typename Awaitable>
 	inline decltype(auto) get_awaiter(
 		Awaitable&& awaitable,
-		typename enable_if_t<
+		enable_if_t<
 			!has_member_operator_co_await<Awaitable>::value &&
 			!has_free_operator_co_await<Awaitable>::value, empty_state> = {})
 	{

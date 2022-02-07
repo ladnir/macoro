@@ -168,12 +168,13 @@ namespace macoro
 			auto promise = co_await typename blocking_promise<ResultType>::get_promise{};
 			auto awaiter = promise->yield_value(co_await std::forward<Awaitable>(a));
 			co_await awaiter;
-#else		
+#elif 1
 			MC_BEGIN(blocking_task<ResultType>, &awaitable);
 
 			// co_yield co_await static_cast<Awaitable&&>(awaitable)
 			MC_YIELD_AWAIT(static_cast<Awaitable&&>(awaitable));
 			MC_END();
+
 #endif
 		}
 

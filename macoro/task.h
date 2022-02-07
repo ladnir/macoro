@@ -40,7 +40,7 @@ namespace macoro
 			void return_value(TT&& val) noexcept(std::is_nothrow_constructible<T, TT&&>::value)
 			{
 				static_assert(std::is_convertible<TT&&, T>::value, "the task value_type can not be constructed from the co_return expression.");
-				storage.emplace<1>(std::forward<TT>(val));
+				storage.template emplace<1>(std::forward<TT>(val));
 			}
 
 			reference_type get()&
@@ -89,7 +89,7 @@ namespace macoro
 
 			void return_value(reference_type val) noexcept
 			{
-				storage.emplace<1>(&val);
+				storage.template emplace<1>(&val);
 			}
 
 			reference_type get()
@@ -197,7 +197,7 @@ namespace macoro
 
 			awaitable(handle_type h) : impl::continuation_awaiter<handle_type, true>{ h } {
 			}
-			awaitable(awaitable&& h) : impl::continuation_awaiter<handle_type, true>(h.cont) {
+			awaitable(awaitable&& h) : impl::continuation_awaiter<handle_type, true>{ h.cont } {
 			}
 
 			~awaitable()  {
@@ -237,7 +237,7 @@ namespace macoro
 		}
 #endif
 	private:
-		friend class promise_type;
+		friend promise_type;
 
 		task(handle_type h)
 			:handle(h)

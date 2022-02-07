@@ -91,7 +91,7 @@ namespace macoro
     template <>
     struct coroutine_handle<void> {
         constexpr coroutine_handle() noexcept = default;
-        constexpr coroutine_handle(nullptr_t) noexcept {}
+        constexpr coroutine_handle(std::nullptr_t) noexcept {}
 
 #ifdef MACORO_CPP_20
         template<typename T>
@@ -106,7 +106,7 @@ namespace macoro
         };
 #endif // MACORO_CPP_20
 
-        coroutine_handle& operator=(nullptr_t) noexcept {
+        coroutine_handle& operator=(std::nullptr_t) noexcept {
             _Ptr = nullptr;
             return *this;
         }
@@ -159,9 +159,9 @@ namespace macoro
     template <class _Promise>
     struct coroutine_handle {
         constexpr coroutine_handle() noexcept = default;
-        constexpr coroutine_handle(nullptr_t) noexcept {}
+        constexpr coroutine_handle(std::nullptr_t) noexcept {}
 
-        coroutine_handle& operator=(nullptr_t) noexcept {
+        coroutine_handle& operator=(std::nullptr_t) noexcept {
             _Ptr = nullptr;
             return *this;
         }

@@ -1,17 +1,25 @@
 #include "await_lifetime_tests.h"
 
 #include <cassert>
-#include "macoro/Macros.h"
+#include "macoro/macros.h"
 #include "macoro/task.h"
 #include <iostream>
 #include <unordered_map>
+#include <cstring>
+
+#ifdef __GNUC__
+#define GCC_VERSION (__GNUC__ * 10000 \
+                     + __GNUC_MINOR__ * 100 \
+                     + __GNUC_PATCHLEVEL__)
+#endif
+
 namespace macoro
 {
 
 	namespace
 	{
 
-
+		bool printRec = false;
 
 		int counter = 0;
 		std::unordered_map<void*, int> map;
@@ -27,7 +35,7 @@ namespace macoro
 		}
 		struct Rec
 		{
-			const char* str;
+			std::string str;
 			int i, o = 0;
 
 			Rec(const char* ss, int ii, int oo = 0)
@@ -43,19 +51,24 @@ namespace macoro
 				, i(fetch(ii))
 				, o(fetch(oo))
 			{
+				if (printRec)
+					std::cout << "{\"" << str << "\", " << i << ", " << o << "}," << std::endl;
 			}
 
 
 			Rec(const char* ss, void* ii)
 				: str(ss)
 				, i(fetch(ii))
-			{}
+			{
+				if (printRec)
+					std::cout << "{\"" << str << "\", " << i << ", " << o << "}," << std::endl;
+			}
 
 
 			bool operator==(const Rec& other) const
 			{
 				return
-					std::strcmp(str, other.str) == 0 &&
+					str == other.str &&
 					i == other.i &&
 					o == other.o;
 			}
@@ -74,18 +87,33 @@ namespace macoro
 		void print(std::vector<Rec>& l)
 		{
 			for (size_t i = 0; i < l.size(); ++i)
-				std::cout << "{"" << l[i].str << "", " << l[i].i << ", " << l[i].o << "}," << std::endl;
+				std::cout << "{\"" << l[i].str << "\", " << l[i].i << ", " << l[i].o << "}," << std::endl;
 		}
 
 		void print(std::vector<Rec>& l, std::vector<Rec>& r)
 		{
+			auto lMax = 0ull, rMax = 0ull;
 			for (size_t i = 0; i < l.size(); ++i)
+				lMax = std::max<size_t>(lMax, l[i].str.size());
+			for (size_t i = 0; i < r.size(); ++i)
+				rMax = std::max<size_t>(rMax, r[i].str.size());
+			for (size_t i = 0; i < std::max(l.size(), r.size()); ++i)
 			{
-				if (!(l[i] == r[i]))
+				if (l.size() > i && r.size() > i && !(l[i] == r[i]))
 					std::cout << "> ";
 				else
 					std::cout << "  ";
-				std::cout << l[i].str << " " << l[i].i << " ~~ " << r[i].str << " " << r[i].i << std::endl;
+
+				auto ls = i < l.size();
+				auto rs = i < r.size();
+				auto lsr = (ls ? l[i].str : std::string(lMax, ' '));
+				auto rsr = (rs ? r[i].str : std::string(rMax, ' '));
+
+				if (ls) lsr.resize(lMax);
+				if (rs) rsr.resize(rMax);
+				std::cout
+					<< lsr << " " << (ls ? l[i].i : 0) << " ~~ "
+					<< rsr << " " << (rs ? r[i].i : 0) << std::endl;
 			}
 		}
 
@@ -445,8 +473,8 @@ namespace macoro
 				}
 
 #ifdef MACORO_CPP_20
-				template<typename T>
-				std::coroutine_handle<void> await_suspend(const std::coroutine_handle<T>& c)
+				template<typename TT>
+				std::coroutine_handle<void> await_suspend(const std::coroutine_handle<TT>& c)
 				{
 					h.promise().cont = c;
 					return h.std_cast();
@@ -481,8 +509,41 @@ namespace macoro
 
 	}
 
+	//template<typename T>
+	//std::true_type is_lvalue2(T&) { return {}; }
+	//template<typename T>
+	//std::false_type is_lvalue2(T&&) { return {}; }
+
+
+	template<typename T>
+	struct AsRef
+	{
+		using type = T;
+	};
+
+	template<typename DeclType, typename RefType>
+	decltype(auto) as_ref2(RefType&&)
+	{
+
+		//using isl1 = decltype(is_lvalue(std::forward<test_task<test_value>>(awaitable)));
+		using T = std::conditional_t<std::is_lvalue_reference<RefType&&>::value, DeclType&, DeclType>;
+		return AsRef<T>{};
+	}
+
+	// gcc has a bug that the awaiter is moved when it shouldnt be. This makes some tests fail.
+#ifdef GCC_VERSION
+	#define HAS_GCC_MOVE_AWAITER_BUG (GCC_VERSION < 12 * 10000)
+#else
+	#define HAS_GCC_MOVE_AWAITER_BUG 0
+#endif
 
 #ifdef MACORO_CPP_20
+	#define ENABLE_NO_MOVE_TEST (!HAS_GCC_MOVE_AWAITER_BUG)
+#else
+	#define ENABLE_NO_MOVE_TEST 0 
+#endif
+
+#if ENABLE_NO_MOVE_TEST
 	test_task<test_value> yield_await20(test_task<test_value>&& awaitable) {
 		log.emplace_back("outter start", nullptr);
 
@@ -574,20 +635,42 @@ namespace macoro
 
 		std::cout << "      passed " << std::endl;;
 	}
+#else
+	void yield_await_lifetime_test20()
+	{}
 #endif
 
+	void store_as_t_lifetime_test()
+	{
+		int test_lvalue;
+		static_assert(std::is_same<store_as_t<decltype(as_reference(test_lvalue)), decltype(test_lvalue)>, int&>::value, "");
+		int& test_lvalue_ref = test_lvalue;
+		static_assert(std::is_same<store_as_t<decltype(as_reference(test_lvalue_ref)), decltype(test_lvalue_ref)>, int&>::value, "");
 
-	test_task<test_value> yield_await14(test_task<test_value>&& awaitable) {
-		MC_BEGIN(test_task<test_value>, &awaitable);
+		static_assert(std::is_same < store_as_t<decltype(as_reference(int{})), decltype(int{}) > , int > ::value, "");
+
+		auto foo = []() -> int {return {}; };
+		static_assert(std::is_same < store_as_t<decltype(as_reference(foo())), decltype(foo()) >, int> ::value, "");
+
+		auto bar = [&]() -> int&& {return std::move(test_lvalue); };
+		static_assert(std::is_same < store_as_t<decltype(as_reference(bar())), decltype(bar()) >, int&&> ::value, "");
+
+
+		auto tar = [&]() -> int& {return (test_lvalue); };
+		static_assert(std::is_same < store_as_t<decltype(as_reference(tar())), decltype(tar()) >, int&> ::value, "");
+	}
+
+	test_task<test_value> yield_await14(test_task<test_value> a) {
+		MC_BEGIN(test_task<test_value>, awaitable = std::move(a));
 		log.emplace_back("outter start", nullptr);
 
 		//co_yield co_await std::forward<test_task<test_value>>(awaitable);
+		//MC_AWAIT(std::forward<test_task<test_value>>(awaitable));
 		MC_YIELD_AWAIT(std::forward<test_task<test_value>>(awaitable));
 
 		log.emplace_back("outter end", nullptr);
 		MC_END();
 	};
-
 
 	test_task<test_value> base_task14(bool throws)
 	{
@@ -604,6 +687,7 @@ namespace macoro
 
 		MC_END();
 	};
+
 
 
 	void yield_await_lifetime_test14()
@@ -706,7 +790,7 @@ namespace macoro
 
 		getLog();
 		done = false;
-#ifdef MACORO_CPP_20
+#if ENABLE_NO_MOVE_TEST
 		auto g = [&]() ->test_task<test_value>
 		{
 			co_await ref;
@@ -841,7 +925,6 @@ namespace macoro
 	{
 		std::cout << "await_lifetime_MovOnly_test    ";
 
-
 		//#define EXPRESSION NoCopyMove{}
 		//#define EXPRESSION MovOnly{}
 		//#define EXPRESSION mov()
@@ -867,11 +950,32 @@ namespace macoro
 			{"del promise_type", 0, 0},
 			{"del test_value", 3, 0}
 		};
-
 		getLog();
 		done = false;
 
 #ifdef MACORO_CPP_20
+
+#if HAS_GCC_MOVE_AWAITER_BUG
+
+		std::vector<Rec> exp20{
+			{"new promise_type", 0, 0},
+			{"new MovOnlyAwaiter", 1, 0},
+			{"new MovOnlyAwaitable", 1, 0},
+			{"new MovOnly", 1, 0},
+			{"mov MovOnlyAwaiter", 2, 1},
+			{"del MovOnlyAwaiter", 2, 0},
+			{"del MovOnly", 1, 0},
+			{"del MovOnlyAwaitable", 1, 0},
+			{"del MovOnlyAwaiter", 1, 0},
+			{"new test_value", 3, 0},
+			{"mov test_value", 4, 3},
+			{"del test_value", 3, 0},
+			{"del promise_type", 0, 0},
+			{"del test_value", 4, 0},
+		};
+#else
+		auto exp20 = exp;
+#endif
 		auto g = [&]() ->test_task<test_value>
 		{
 			co_await MovOnly{};
@@ -887,12 +991,14 @@ namespace macoro
 		assert(done);
 
 		auto log1 = getLog();
-		if (!(log1 == exp))
-		{
-			print(log1, exp);
-		}
+		//std::cout << "\n\n";
+		//print(log1);
 
-		assert(log1 == exp);
+		if (!(log1 == exp20))
+		{
+			print(log1, exp20);
+		}
+		assert(log1 == exp20);
 
 		//print(log1);
 #endif
@@ -951,6 +1057,27 @@ namespace macoro
 		done = false;
 
 #ifdef MACORO_CPP_20
+
+#if HAS_GCC_MOVE_AWAITER_BUG
+		std::vector<Rec> exp20{
+			{"new promise_type", 0, 0},
+			{ "new MovOnlyAwaiter", 1, 0 },
+			{ "new MovOnlyAwaitable", 1, 0 },
+			{ "new MovOnly", 1, 0 },
+			{ "mov MovOnlyAwaiter", 2, 1 },
+			{ "del MovOnlyAwaiter", 2, 0 },
+			{ "del MovOnly", 1, 0 },
+			{ "del MovOnlyAwaitable", 1, 0 },
+			{ "del MovOnlyAwaiter", 1, 0 },
+			{ "new test_value", 3, 0 },
+			{ "mov test_value", 4, 3 },
+			{ "del test_value", 3, 0 },
+			{ "del promise_type", 0, 0 },
+			{ "del test_value", 4, 0 }
+		};
+#else
+		auto exp20 = exp;
+#endif
 		auto g = [&]() ->test_task<test_value>
 		{
 			co_await fn();
@@ -965,12 +1092,15 @@ namespace macoro
 		assert(done);
 
 		auto log1 = getLog();
-		if (!(log1 == exp))
+		//print(log1);
+
+
+		if (!(log1 == exp20))
 		{
-			print(log1, exp);
+			print(log1, exp20);
 		}
 
-		assert(log1 == exp);
+		assert(log1 == exp20);
 #endif
 		done = false;
 		{
@@ -993,6 +1123,7 @@ namespace macoro
 
 	void await_lifetime_tests()
 	{
+		store_as_t_lifetime_test();
 		await_lifetime_refOnly_test();
 		await_lifetime_NoCopyMove_test();
 		await_lifetime_MovOnly_test();

@@ -8,6 +8,9 @@ namespace macoro
 	{
 		task_tests();
 		await_lifetime_tests();
+
+
+		std::cout << "===================  " << std::endl;
 	}
 
 

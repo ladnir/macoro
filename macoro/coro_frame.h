@@ -10,7 +10,7 @@
 #include "macoro/coroutine_handle.h"
 #include <array>
 #include <vector>
-
+#include <cstddef>
 #ifdef MACORO_CPP_20
 #include <coroutine>
 #endif
@@ -21,7 +21,13 @@ namespace macoro
 #define MACORO_INITIAL_SUSPEND_IDX 4294967294
 #define MACORO_FINAL_SUSPEND_IDX 4294967293
 
-	enum class SuspensionPoint : std::size_t
+#ifdef __llvm__
+#define MACORO_SUSPEND_POINT_ATTRIBUTE  __attribute__((enum_extensibility(open), flag_enum))
+#else
+#define MACORO_SUSPEND_POINT_ATTRIBUTE  
+#endif
+
+	enum class MACORO_SUSPEND_POINT_ATTRIBUTE SuspensionPoint : std::size_t
 	{
 		InitialSuspendBegin = MACORO_INITIAL_SUSPEND_BEGIN_IDX,
 		InitialSuspend = MACORO_INITIAL_SUSPEND_IDX,
@@ -148,7 +154,6 @@ namespace macoro
 	template<typename T>
 	struct ExpressionStorage<T&>
 	{
-		template<typename T>
 		struct reference_wrapper
 		{
 			T* p;
@@ -160,7 +165,7 @@ namespace macoro
 
 		using type = T;
 		using PT = typename std::remove_reference<T>::type;
-		using Constructor = typename reference_wrapper<T>;
+		using Constructor = reference_wrapper;
 
 		Constructor st;
 		void* ptr = nullptr;
@@ -191,44 +196,37 @@ namespace macoro
 		ExpressionStorage<awaitable_type> awaitable;
 		ExpressionStorage<awaiter_type> awaiter;
 
+		using expr_constructor = typename ExpressionStorage<expression_type>::Constructor;
+		using awaitable_constructor = typename ExpressionStorage<awaitable_type>::Constructor;
+		using awaiter_constructor = typename ExpressionStorage<awaiter_type>::Constructor;
+
 		void** awaiter_ptr;
 	};
 
+	//template<typename T>
+	//std::true_type is_lvalue(T&) { return {}; }
+	//template<typename T>
+	//std::false_type is_lvalue(T&&) { return {}; }
+
+
+	template<typename Ref, typename Dec>
+	struct store_as
+	{
+		using type = std::conditional_t<std::is_lvalue_reference<Ref>::value && !std::is_lvalue_reference<Dec>::value
+			,
+			Ref,
+			Dec
+		>;
+	};
+
+	template<typename Ref, typename Dec>
+	using store_as_t = typename store_as<Ref, Dec>::type;
 
 	template<typename T>
-	std::true_type is_lvalue(T&) { return {}; }
-	template<typename T>
-	std::false_type is_lvalue(T&&) { return {}; }
-
-
-
-	//template<typename AwaiterFor>
-	//struct AwaiterStorage
-	//{
-
-	//	using Expr = typename  AwaiterFor::expr;
-	//	using Awaitable = typename  AwaiterFor::awaitable;
-	//	using value_type = typename AwaiterFor::value_type;
-	//	using Awaiter = typename AwaiterFor::awaiter;
-
-	//	Expr value;
-	//	Awaitable awaitable;
-	//	//value_type awaiter;
-	//	Awaiter awaiter;
-
-	//	//AwaiterStorage(promise_type& promise, Expr&& val)
-	//	//	: value(std::forward<Expr>(val))
-	//	//	, awaitable(get_awaitable(promise, std::forward<Expr>(value)))
-	//	//	, awaiter(get_awaiter(static_cast<Awaitable>(awaitable)))
-	//	//{}
-
-	//	template<typename P, typename E>
-	//	AwaiterStorage(P& promise, E&& val)
-	//		: value(static_cast<decltype(val)>(val))
-	//		, awaitable(get_awaitable(promise, static_cast<decltype(value)>(value)))
-	//		, awaiter(get_awaiter(static_cast<decltype(awaitable)>(awaitable)))
-	//	{}
-	//};
+	decltype(auto) as_reference(T&& t)
+	{
+		return static_cast<decltype(t)>(t);
+	}
 
 	template<>
 	struct FrameBase<void>
@@ -626,7 +624,7 @@ namespace macoro
 
 #ifdef MACORO_CPP_20
 		using FrameBase<Promise>::std_handle;
-		using std_handle_adapter = FrameBase<Promise>::std_handle_adapter;
+		using std_handle_adapter = typename FrameBase<Promise>::std_handle_adapter;
 		std_handle_adapter std_adapter;
 #endif
 		Frame(const Frame&) = delete;
@@ -646,7 +644,7 @@ namespace macoro
 			;
 			auto outer_handle = coroutine_handle<promise_type>::from_promise(promise, coroutine_handle_type::mocoro);
 			std_adapter.promise->outer_handle = outer_handle;
-			std_handle = std::coroutine_handle<std_handle_adapter::promise_type>::from_promise(*std_adapter.promise);
+			std_handle = std::coroutine_handle<typename std_handle_adapter::promise_type>::from_promise(*std_adapter.promise);
 #endif
 		}
 

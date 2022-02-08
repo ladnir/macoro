@@ -47,3 +47,8 @@ else()
             CXX_EXTENSIONS NO
     )
 endif()
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND MACORO_CPP_20)
+    target_compile_options( macoro INTERFACE
+        "-fcoroutines"
+        )
+endif()

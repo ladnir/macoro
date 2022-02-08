@@ -532,7 +532,11 @@ namespace macoro
 
 	// gcc has a bug that the awaiter is moved when it shouldnt be. This makes some tests fail.
 #ifdef GCC_VERSION
-	#define HAS_GCC_MOVE_AWAITER_BUG (GCC_VERSION < 12 * 10000)
+	#ifndef __llvm__
+		#define HAS_GCC_MOVE_AWAITER_BUG (GCC_VERSION < 12 * 10000)
+	#else
+	#define HAS_GCC_MOVE_AWAITER_BUG 0
+#endif
 #else
 	#define HAS_GCC_MOVE_AWAITER_BUG 0
 #endif

@@ -210,7 +210,7 @@ namespace macoro
 				if (!this->cont)
 					throw broken_promise{ MACORO_LOCATION };
 
-				using move2 = typename std::conditional<std::is_same<decltype(this->cont.promise()), void>::value, std::false_type, move>::type;
+				using move2 = typename std::conditional<std::is_same<decltype(this->cont.promise().get()), void>::value, std::false_type, move>::type;
 
 				return impl::optMove(move2{}, this->cont.promise());
 			}
@@ -249,6 +249,14 @@ namespace macoro
 
 	};
 
+	
+
+	template<typename awaitable>
+	auto make_task(awaitable a)
+		-> task<remove_rvalue_reference_t<awaitable_result_t<awaitable>>>
+	{
+		co_return co_await static_cast<awaitable&&>(awaitable);
+	}
 
 
 	namespace impl

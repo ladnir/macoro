@@ -194,13 +194,12 @@ namespace macoro
 			MC_END();
 #endif
 		}
-
 	}
 
 
 	template<typename Awaitable>
 	typename awaitable_traits<Awaitable&&>::await_result
-		blocking_get(Awaitable&& awaitable)
+		sync_wait(Awaitable&& awaitable)
 	{
 		auto task = impl::make_blocking_task<Awaitable&&>(std::forward<Awaitable>(awaitable));
 		task.start();

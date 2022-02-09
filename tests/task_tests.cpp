@@ -1,6 +1,6 @@
 #include "macoro/task.h"
 #include <iostream>
-#include "macoro/blocking.h"
+#include "macoro/sync_wait.h"
 
 namespace macoro
 {
@@ -158,6 +158,7 @@ namespace macoro
 
 		std::cout << "passed" << std::endl;
 	}
+
 	namespace {
 		struct move_only
 		{
@@ -302,13 +303,13 @@ namespace macoro
 #ifdef MACORO_CPP_20
 		{
 			task<int> t = taskInt20();
-			int i = blocking_get(t);
+			int i = sync_wait(t);
 			assert(i == 42);
 		}
 #endif
 		{
 			task<int> t = taskInt14();
-			int i = blocking_get(t);
+			int i = sync_wait(t);
 			assert(i == 42);
 		}
 		std::cout << "passed" << std::endl;
@@ -322,14 +323,14 @@ namespace macoro
 		{
 			taskVoid_called = false;
 			task<void> t = taskVoid20();
-			blocking_get(t);
+			sync_wait(t);
 			assert(taskVoid_called);
 		}
 #endif
 		{
 			taskVoid_called = false;
 			task<void> t = taskVoid14();
-			blocking_get(t);
+			sync_wait(t);
 			assert(taskVoid_called);
 		}
 		std::cout << "passed" << std::endl;
@@ -342,7 +343,7 @@ namespace macoro
 		{
 			taskRef_val = 42;
 			task<int&> t = taskRef20();
-			int& i = blocking_get(t);
+			int& i = sync_wait(t);
 			assert(i == 42);
 			++taskRef_val;
 			assert(i == 43);
@@ -351,7 +352,7 @@ namespace macoro
 		{
 			taskRef_val = 42;
 			task<int&> t = taskRef14();
-			int& i = blocking_get(t);
+			int& i = sync_wait(t);
 			assert(i == 42);
 			++taskRef_val;
 			assert(i == 43);
@@ -368,23 +369,23 @@ namespace macoro
 #ifdef MACORO_CPP_20
 		{
 			task<move_only> t = taskmove20();
-			auto v = std::move(blocking_get(t));
+			auto v = std::move(sync_wait(t));
 			assert(v.v == 42);
 		}
 		{
 			task<move_only>&& f();
-			auto v = blocking_get(taskmove20());
+			auto v = sync_wait(taskmove20());
 			assert(v.v == 42);
 		}
 #endif
 		{
 			task<move_only> t = taskmove14();
-			auto v = std::move(blocking_get(t));
+			auto v = std::move(sync_wait(t));
 			assert(v.v == 42);
 		}
 		{
 			task<move_only>&& f();
-			auto v = blocking_get(taskmove14());
+			auto v = sync_wait(taskmove14());
 			assert(v.v == 42);
 		}
 		std::cout << "passed" << std::endl;
@@ -399,7 +400,7 @@ namespace macoro
 			task<int> t = taskThrows20();
 			bool didThrow = false;
 			try {
-				auto v = blocking_get(t);
+				auto v = sync_wait(t);
 			}
 			catch (std::runtime_error& re)
 			{
@@ -413,7 +414,7 @@ namespace macoro
 			task<int> t = taskThrows14();
 			bool didThrow = false;
 			try {
-				auto v = blocking_get(t);
+				auto v = sync_wait(t);
 			}
 			catch (std::runtime_error& re)
 			{

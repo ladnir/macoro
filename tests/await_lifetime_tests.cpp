@@ -1127,6 +1127,8 @@ namespace macoro
 
 	void await_lifetime_tests()
 	{
+		std::cout << "-------- lifetime ----------" << std::endl;
+
 		store_as_t_lifetime_test();
 		await_lifetime_refOnly_test();
 		await_lifetime_NoCopyMove_test();

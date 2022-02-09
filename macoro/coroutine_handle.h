@@ -288,6 +288,12 @@ namespace macoro
             return _Ptr;
         }
 
+#ifdef MACORO_CPP_20
+        std::noop_coroutine_handle std_cast() const { return std::noop_coroutine(); }
+        explicit operator std::coroutine_handle<void>() const { return std_cast(); }
+        explicit operator std::noop_coroutine_handle() const { return std_cast(); }
+#endif // MACORO_CPP_20
+
     private:
         coroutine_handle() noexcept = default;
 
@@ -324,3 +330,5 @@ namespace macoro
     };
 
 }
+
+#include "coro_frame.h"

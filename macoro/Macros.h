@@ -2,7 +2,7 @@
 
 //#include "macoro/Context.h"
 #include "coro_frame.h"
-
+#include <iostream>
 
 #define MACORO_CAT(a, b)   MACORO_PP_CAT_I(a, b)
 #define MACORO_PP_CAT_I(a, b) MACORO_PP_CAT_II(~, a ## b)

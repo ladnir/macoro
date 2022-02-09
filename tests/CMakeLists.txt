@@ -1,7 +1,9 @@
 
 set(SRC
 	task_tests.cpp
+	eager_task_tests.cpp
 	await_lifetime_tests.cpp
+	result_tests.cpp
 )
 
 

@@ -72,7 +72,6 @@ namespace macoro
 		};
 	}
 
-
 	struct broken_promise : public std::logic_error
 	{
 

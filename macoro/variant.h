@@ -18,6 +18,7 @@ namespace macoro
 	{
 		return nonstd::get<I>(std::forward<VARIANT>(v));
 	}
+#define MACORO_VARIANT_NAMESPACE nonstd
 
 #else
 	template<typename... T>
@@ -28,6 +29,7 @@ namespace macoro
 	{
 		return std::get<I>(std::forward<VARIANT>(v));
 	}
+#define MACORO_VARIANT_NAMESPACE std
 
 #endif
 }

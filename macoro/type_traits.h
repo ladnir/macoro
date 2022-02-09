@@ -185,15 +185,15 @@ namespace macoro
 		using reference = value_type&;
 	};
 
-
-
-
 	template<typename awaitable>
 	struct awaitable_traits
 	{
 		using awaiter = decltype(get_awaiter(std::declval<awaitable>()));
 		using await_result = decltype(std::declval<awaiter>().await_resume());
 	};
+
+	template<typename awaitable>
+	using awaitable_result_t = typename awaitable_traits<awaitable>::await_result;
 
 	template<typename C, typename T, typename = void>
 	struct has_set_continuation_member : false_type
@@ -207,5 +207,11 @@ namespace macoro
 
 		>>
 		: true_type{};
+
+
+	template<typename T>
+	using remove_rvalue_reference_t = typename std::conditional<std::is_rvalue_reference<T>::value,
+		typename std::remove_reference<T>::type,
+		T >::type;
 
 }

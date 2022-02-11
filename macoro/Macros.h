@@ -33,7 +33,7 @@
 	using Handle = ::macoro::coroutine_handle<macoro_promise_type>;												\
 	{																											\
 		auto& promise = _macoro_frame_->promise;																\
-		auto handle = Handle::from_promise(promise, coroutine_handle_type::mocoro);								\
+		auto handle = Handle::from_promise(promise, ::macoro::coroutine_handle_type::macoro);					\
 		auto& ctx = _macoro_frame_->template makeAwaitContext<MACORO_CAT(macoro_AwaitContext, SUSPEND_IDX)>();	\
 		ctx.expr.ptr      = new (ctx.expr.v())      typename decltype(ctx.expr)::Constructor(EXPRESSION);		\
 		ctx.awaitable.ptr = new (ctx.awaitable.v()) typename decltype(ctx.awaitable)::Constructor(get_awaitable(promise, ctx.expr.get()));	\
@@ -104,8 +104,8 @@
 
 // Begin a lambda based coroutine which returns the given type.
 #define MC_BEGIN(ReturnType, ...)																				\
-do { auto _macoro_frame_ = ::macoro::makeFrame<typename coroutine_traits<ReturnType>::promise_type>(			\
-	[__VA_ARGS__](::macoro::FrameBase<typename coroutine_traits<ReturnType>::promise_type>* _macoro_frame_) mutable ->::macoro::coroutine_handle<void>\
+do { auto _macoro_frame_ = ::macoro::makeFrame<typename ::macoro::coroutine_traits<ReturnType>::promise_type>(			\
+	[__VA_ARGS__](::macoro::FrameBase<typename ::macoro::coroutine_traits<ReturnType>::promise_type>* _macoro_frame_) mutable ->::macoro::coroutine_handle<void>\
 	{																											\
 		try {																									\
 																												\
@@ -196,14 +196,14 @@ MACORO_FINAL_SUSPEND_RESUME:																					\
 		_macoro_frame_->template getAwaiter<MACORO_CAT(macoro_AwaitContext, MACORO_FINAL_SUSPEND_IDX)>().await_resume();	\
 		_macoro_frame_->template destroyAwaiter<MACORO_CAT(macoro_AwaitContext, MACORO_FINAL_SUSPEND_IDX)>();	\
 		_macoro_frame_->destroy(_macoro_frame_);																\
-		return noop_coroutine();																				\
+		return ::macoro::noop_coroutine();																				\
 	});																											\
 																												\
 	auto _macoro_ret_ = _macoro_frame_->promise.macoro_get_return_object();										\
 	using macoro_promise_type = decltype(_macoro_frame_->promise);												\
 	using Handle = ::macoro::coroutine_handle<macoro_promise_type>;												\
 	macoro_promise_type& promise = _macoro_frame_->promise;														\
-	auto handle = Handle::from_promise(promise, ::macoro::coroutine_handle_type::mocoro);						\
+	auto handle = Handle::from_promise(promise, ::macoro::coroutine_handle_type::macoro);						\
 	handle.resume();																							\
 	return _macoro_ret_;																						\
 } while (0)

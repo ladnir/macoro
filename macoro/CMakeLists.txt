@@ -52,3 +52,74 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND MACORO_CPP_20)
         "-fcoroutines"
         )
 endif()
+
+
+
+
+
+
+#############################################
+#            Install                        #
+#############################################
+
+# make cache variables for install destinations
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+configure_file("${CMAKE_CURRENT_LIST_DIR}/../cmake/macoroFindDeps.cmake" "macoroFindDeps.cmake" COPYONLY)
+# generate the config file that is includes the exports
+configure_package_config_file(
+  "${CMAKE_CURRENT_LIST_DIR}/../cmake/Config.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/macoroConfig.cmake"
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/macoro
+  NO_SET_AND_CHECK_MACRO
+  NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+if(NOT DEFINED macoro_VERSION_MAJOR)
+    message("\n\n\n\n warning, macoro_VERSION_MAJOR not defined ${macoro_VERSION_MAJOR}")
+endif()
+
+set_property(TARGET macoro PROPERTY VERSION ${macoro_VERSION})
+
+# generate the version file for the config file
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/macoroConfigVersion.cmake"
+  VERSION "${macoro_VERSION_MAJOR}.${macoro_VERSION_MINOR}.${macoro_VERSION_PATCH}"
+  COMPATIBILITY AnyNewerVersion
+)
+
+# install the configuration file
+install(FILES
+          "${CMAKE_CURRENT_BINARY_DIR}/macoroConfig.cmake"
+          "${CMAKE_CURRENT_BINARY_DIR}/macoroConfigVersion.cmake"
+          "${CMAKE_CURRENT_BINARY_DIR}/macoroFindDeps.cmake"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/macoro
+)
+
+# install library
+install(
+    TARGETS macoro 
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    EXPORT macoroTargets)
+
+# install headers
+install(DIRECTORY . DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/macoro FILES_MATCHING PATTERN "*.h")
+
+
+#install config header
+install( FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/config.h"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/macoro")
+
+# install config
+install(EXPORT macoroTargets
+  FILE macoroTargets.cmake
+  NAMESPACE macoro::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/macoro
+)
+ export(EXPORT macoroTargets
+       FILE "${CMAKE_CURRENT_BINARY_DIR}/macoroTargets.cmake"
+       NAMESPACE macoro::
+)
+

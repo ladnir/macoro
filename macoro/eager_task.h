@@ -242,7 +242,7 @@ namespace macoro
 			template<typename P>
 			auto await_suspend(const std::coroutine_handle<P>& t) noexcept
 			{
-				return await_suspend_impl(t).std_cast();
+				return await_suspend_impl(coroutine_handle<void>(t)).std_cast();
 			}
 
 			template<typename P>
@@ -328,15 +328,15 @@ namespace macoro
 		template<typename T>
 		eager_task<T> eager_task_promise<T>::get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::std) }; }
 		template<typename T>
-		eager_task<T> eager_task_promise<T>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::mocoro) }; }
+		eager_task<T> eager_task_promise<T>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::macoro) }; }
 
 		template<typename T>
 		eager_task<T&> eager_task_promise<T&>::get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::std) }; }
 		template<typename T>
-		eager_task<T&> eager_task_promise<T&>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::mocoro) }; }
+		eager_task<T&> eager_task_promise<T&>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::macoro) }; }
 
 		inline eager_task<void> eager_task_promise<void>::get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::std) }; }
-		inline eager_task<void> eager_task_promise<void>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::mocoro) }; }
+		inline eager_task<void> eager_task_promise<void>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::macoro) }; }
 
 
 

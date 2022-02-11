@@ -112,10 +112,23 @@ namespace macoro
 
 		// must return bool
 		enable_if_t<std::is_same<
-		decltype(std::declval<Awaiter>().await_suspend(std::declval<T>())),
-		bool
+			decltype(std::declval<Awaiter>().await_suspend(std::declval<T>())),
+			bool
 		>::value, void>
 
+		>>
+		: true_type{};
+
+
+	template<typename Awaiter, typename T, typename = void>
+	struct has_any_await_suspend : false_type
+	{};
+
+	template <typename Awaiter, typename T>
+	struct has_any_await_suspend <Awaiter, T, void_t<
+
+		// must have a await_suspend(...) member fn
+		decltype(std::declval<Awaiter>().await_suspend(std::declval<T>()))
 		>>
 		: true_type{};
 
@@ -185,11 +198,38 @@ namespace macoro
 		using reference = value_type&;
 	};
 
+
+	template<typename T, typename = std::void_t<>>
+	struct is_awaitable : std::false_type {};
+
 	template<typename awaitable>
+	struct is_awaitable<awaitable, std::void_t<decltype(get_awaiter(std::declval<awaitable>()))>>
+		: std::true_type
+	{};
+
+	template<typename T>
+	constexpr bool is_awaitable_v = is_awaitable<T>::value;
+
+	template<typename T, typename = void>
 	struct awaitable_traits
+	{};
+
+	//template<typename T>
+	//struct awaitable_traits<T, std::void_t<decltype(cppcoro::detail::get_awaiter(std::declval<T>()))>>
+	//{
+	//	using awaiter_t = decltype(cppcoro::detail::get_awaiter(std::declval<T>()));
+
+	//	using await_result_t = decltype(std::declval<awaiter_t>().await_resume());
+	//};
+
+	template<typename awaitable>
+	struct awaitable_traits<awaitable, std::void_t<decltype(get_awaiter(std::declval<awaitable>()))>>
 	{
 		using awaiter = decltype(get_awaiter(std::declval<awaitable>()));
 		using await_result = decltype(std::declval<awaiter>().await_resume());
+
+		using awaiter_t = awaiter;
+		using await_result_t = await_result;
 	};
 
 	template<typename awaitable>
@@ -210,8 +250,30 @@ namespace macoro
 
 
 	template<typename T>
+	using remove_reference_t = typename std::remove_reference<T>::type;
+
+	template<typename T>
 	using remove_rvalue_reference_t = typename std::conditional<std::is_rvalue_reference<T>::value,
-		typename std::remove_reference<T>::type,
+		remove_reference_t<T>,
 		T >::type;
 
+
+	template<typename T>
+	struct unwrap_reference
+	{
+		using type = T;
+	};
+
+	template<typename T>
+	struct unwrap_reference<std::reference_wrapper<T>>
+	{
+		using type = T;
+	};
+
+	template<typename T>
+	using remove_reference_wrapper_t = typename unwrap_reference<T>::type;
+
+
+	template<typename T>
+	using remove_reference_and_wrapper_t = remove_reference_wrapper_t<remove_reference_t<T>>;
 }

@@ -394,7 +394,7 @@ namespace macoro
 				}
 
 				test_task<T> get_return_object() { return { coroutine_handle<promise_type>::from_promise(*this, coroutine_handle_type::std) }; }
-				test_task<T> macoro_get_return_object() { return { coroutine_handle<promise_type>::from_promise(*this, coroutine_handle_type::mocoro) }; }
+				test_task<T> macoro_get_return_object() { return { coroutine_handle<promise_type>::from_promise(*this, coroutine_handle_type::macoro) }; }
 
 				void unhandled_exception()
 				{
@@ -476,7 +476,7 @@ namespace macoro
 				template<typename TT>
 				std::coroutine_handle<void> await_suspend(const std::coroutine_handle<TT>& c)
 				{
-					h.promise().cont = c;
+					h.promise().cont = coroutine_handle<TT>( c );
 					return h.std_cast();
 				}
 #endif

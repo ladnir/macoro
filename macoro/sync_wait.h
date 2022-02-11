@@ -151,9 +151,9 @@ namespace macoro
 		template<typename T>
 		inline blocking_task<T> blocking_promise<T>::get_return_object() noexcept { return { coroutine_handle<blocking_promise<T>>::from_promise(*this, coroutine_handle_type::std) }; }
 		template<typename T>
-		inline blocking_task<T> blocking_promise<T>::macoro_get_return_object() noexcept { return { coroutine_handle<blocking_promise<T>>::from_promise(*this, coroutine_handle_type::mocoro) }; }
+		inline blocking_task<T> blocking_promise<T>::macoro_get_return_object() noexcept { return { coroutine_handle<blocking_promise<T>>::from_promise(*this, coroutine_handle_type::macoro) }; }
 		inline blocking_task<void> blocking_promise<void>::get_return_object() noexcept { return { coroutine_handle<blocking_promise<void>>::from_promise(*this, coroutine_handle_type::std) }; }
-		inline blocking_task<void> blocking_promise<void>::macoro_get_return_object() noexcept { return { coroutine_handle<blocking_promise<void>>::from_promise(*this, coroutine_handle_type::mocoro) }; }
+		inline blocking_task<void> blocking_promise<void>::macoro_get_return_object() noexcept { return { coroutine_handle<blocking_promise<void>>::from_promise(*this, coroutine_handle_type::macoro) }; }
 
 		template<
 			typename Awaitable,
@@ -163,12 +163,11 @@ namespace macoro
 			>
 			make_blocking_task(Awaitable&& awaitable)
 		{
-#if 0
-
+#if MACORO_MAKE_BLOCKING_20
 			auto promise = co_await typename blocking_promise<ResultType>::get_promise{};
-			auto awaiter = promise->yield_value(co_await std::forward<Awaitable>(a));
+			auto awaiter = promise->yield_value(co_await std::forward<Awaitable>(awaitable));
 			co_await awaiter;
-#elif 1
+#else
 			MC_BEGIN(blocking_task<ResultType>, &awaitable);
 
 			// co_yield co_await static_cast<Awaitable&&>(awaitable)
@@ -186,7 +185,7 @@ namespace macoro
 			>
 			make_blocking_task(Awaitable&& awaitable)
 		{
-#if 0
+#if MACORO_MAKE_BLOCKING_20
 			co_await std::forward<Awaitable>(awaitable);
 #else
 			MC_BEGIN(blocking_task<ResultType>, &awaitable);
@@ -203,7 +202,6 @@ namespace macoro
 	{
 		auto task = impl::make_blocking_task<Awaitable&&>(std::forward<Awaitable>(awaitable));
 		task.start();
-
 		return task.get();
 	}
 

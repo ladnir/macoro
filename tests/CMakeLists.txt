@@ -4,6 +4,7 @@ set(SRC
 	eager_task_tests.cpp
 	await_lifetime_tests.cpp
 	result_tests.cpp
+	 when_all_tests.cpp
 )
 
 

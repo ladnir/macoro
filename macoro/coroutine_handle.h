@@ -70,7 +70,7 @@ namespace macoro
     enum class coroutine_handle_type
     {
         std,
-        mocoro
+        macoro
     };
 
 #ifdef MACORO_CPP_20
@@ -95,12 +95,12 @@ namespace macoro
 
 #ifdef MACORO_CPP_20
         template<typename T>
-        coroutine_handle(const std::coroutine_handle<T>& h) noexcept {
+        explicit coroutine_handle(const std::coroutine_handle<T>& h) noexcept {
             _Ptr = h.address();
             assert(((std::size_t)_Ptr & 1) == 0);
         };
         template<typename T>
-        coroutine_handle(std::coroutine_handle<T>&& h) noexcept {
+        explicit coroutine_handle(std::coroutine_handle<T>&& h) noexcept {
             _Ptr = h.address();
             assert(((std::size_t)_Ptr & 1) == 0);
         };
@@ -160,6 +160,17 @@ namespace macoro
     struct coroutine_handle {
         constexpr coroutine_handle() noexcept = default;
         constexpr coroutine_handle(std::nullptr_t) noexcept {}
+
+#ifdef MACORO_CPP_20
+        explicit coroutine_handle(const std::coroutine_handle<_Promise>& h) noexcept {
+            _Ptr = h.address();
+            assert(((std::size_t)_Ptr & 1) == 0);
+        };
+        explicit coroutine_handle(std::coroutine_handle<_Promise>&& h) noexcept {
+            _Ptr = h.address();
+            assert(((std::size_t)_Ptr & 1) == 0);
+        };
+#endif 
 
         coroutine_handle& operator=(std::nullptr_t) noexcept {
             _Ptr = nullptr;
@@ -315,6 +326,9 @@ namespace macoro
             return true;
         }
 
+#ifdef MACORO_CPP_20
+        constexpr void await_suspend(std::coroutine_handle<>) const noexcept {}
+#endif
         constexpr void await_suspend(coroutine_handle<>) const noexcept {}
         constexpr void await_resume() const noexcept {}
     };
@@ -325,6 +339,9 @@ namespace macoro
             return false;
         }
 
+#ifdef MACORO_CPP_20
+        constexpr void await_suspend(std::coroutine_handle<>) const noexcept {}
+#endif
         constexpr void await_suspend(coroutine_handle<>) const noexcept {}
         constexpr void await_resume() const noexcept {}
     };

@@ -1,3 +1,4 @@
+#pragma once
 #include "macoro/coroutine_handle.h"
 #include "macoro/coro_frame.h"
 #include "macoro/awaiter.h"
@@ -22,7 +23,7 @@ namespace macoro
 
 			coroutine_handle<> cont;
 			template<typename C>
-			void set_continuation(C&& c) { cont = c; }
+			void set_continuation(C&& c) { cont = coroutine_handle<>(c); }
 			suspend_always initial_suspend() const noexcept { return {}; }
 			continuation_awaiter<> final_suspend() const noexcept { return { cont }; }
 
@@ -73,7 +74,7 @@ namespace macoro
 
 			coroutine_handle<> cont;
 			template<typename C>
-			void set_continuation(C&& c) { cont = c; }
+			void set_continuation(C&& c) { cont = coroutine_handle<>(c); }
 			suspend_always initial_suspend() const noexcept { return {}; }
 			continuation_awaiter<> final_suspend() const noexcept { return { cont }; }
 
@@ -112,7 +113,7 @@ namespace macoro
 			coroutine_handle<> cont;
 
 			template<typename C>
-			void set_continuation(C&&c) { cont = c; }
+			void set_continuation(C&&c) { cont = coroutine_handle<>(c); }
 
 			suspend_always initial_suspend() const noexcept { return {}; }
 			continuation_awaiter<> final_suspend() const noexcept { return { cont }; }
@@ -175,9 +176,12 @@ namespace macoro
 		task(task&& t) : handle(std::exchange(t.handle, std::nullptr_t{})) {
 		}
 		task& operator=(const task&) = delete;
-		task& operator=(task&& t) { 
-			~task();
+		task& operator=(task&& t) {
+			if (handle)
+				handle.destroy();
 			handle = std::exchange(t.handle, std::nullptr_t{});
+
+			return *this;
 		};
 		~task()
 		{
@@ -265,15 +269,15 @@ namespace macoro
 		template<typename T>
 		task<T> task_promise<T>::get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::std) }; }
 		template<typename T>
-		task<T> task_promise<T>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::mocoro) }; }
+		task<T> task_promise<T>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::macoro) }; }
 
 		template<typename T>
 		task<T&> task_promise<T&>::get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::std) }; }
 		template<typename T>
-		task<T&> task_promise<T&>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::mocoro) }; }
+		task<T&> task_promise<T&>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::macoro) }; }
 
 		inline task<void> task_promise<void>::get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::std) }; }
-		inline task<void> task_promise<void>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::mocoro) }; }
+		inline task<void> task_promise<void>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::macoro) }; }
 
 
 

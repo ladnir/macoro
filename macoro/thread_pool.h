@@ -80,7 +80,7 @@ namespace macoro
 		bool await_ready() const noexcept { return false; }
 
 		template<typename H>
-		void await_suspend(H h) const { pool->post(h); }
+		void await_suspend(H h) const { pool->post(coroutine_handle<void>(h)); }
 
 		void await_resume() const noexcept {}
 	};
@@ -96,7 +96,7 @@ namespace macoro
 		auto await_suspend(const H& h)const {
 			using traits_C = coroutine_handle_traits<H>;
 			using return_type = typename traits_C::template coroutine_handle<void>;
-			if (pool->try_dispatch(h))
+			if (pool->try_dispatch(coroutine_handle<void>(h)))
 				return return_type(h);
 			else
 				return static_cast<return_type>(noop_coroutine());

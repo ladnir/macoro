@@ -2,20 +2,22 @@
 #include <iostream>
 #include "macoro/sync_wait.h"
 
+
+#ifdef MACORO_CPP_20
+macoro::task<int> taskInt20()
+{
+	co_return 42;
+}
+#endif
+macoro::task<int> taskInt14()
+{
+	MC_BEGIN(macoro::task<int>);
+	MC_RETURN(42);
+	MC_END();
+}
+
 namespace macoro
 {
-#ifdef MACORO_CPP_20
-	task<int> taskInt20()
-	{
-		co_return 42;
-	}
-#endif
-	task<int> taskInt14()
-	{
-		MC_BEGIN(task<int>);
-		MC_RETURN(42);
-		MC_END();
-	}
 	void task_int_test()
 	{
 		std::cout << "task_int_test       ";

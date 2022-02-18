@@ -84,7 +84,7 @@ namespace macoro
     void* _macoro_coro_frame(void* address, coroutine_handle_type te) noexcept;
 
     bool _macoro_coro_done(void* address)noexcept;
-    void _macoro_coro_resume(void* address);
+    //void _macoro_coro_resume(void* address);
     void _macoro_coro_destroy(void* address)noexcept;
 
 
@@ -130,13 +130,10 @@ namespace macoro
         }
 
         void operator()() const {
-            _macoro_coro_resume(_Ptr);
+            resume();
         }
 
-        void resume() const {
-            _macoro_coro_resume(_Ptr);
-        }
-
+        void resume() const;
         void destroy() const noexcept { // strengthened
             _macoro_coro_destroy(_Ptr);
         }
@@ -155,6 +152,8 @@ namespace macoro
     private:
         void* _Ptr = nullptr;
     };
+
+
 
     template <class _Promise>
     struct coroutine_handle {
@@ -200,12 +199,10 @@ namespace macoro
         }
 
         void operator()() const {
-            _macoro_coro_resume(_Ptr);
+            resume();
         }
 
-        void resume() const {
-            _macoro_coro_resume(_Ptr);
-        }
+        void resume() const;
 
         void destroy() const noexcept { // strengthened
             _macoro_coro_destroy(_Ptr);

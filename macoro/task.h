@@ -25,7 +25,10 @@ namespace macoro
 			template<typename C>
 			void set_continuation(C&& c) { cont = coroutine_handle<>(c); }
 			suspend_always initial_suspend() const noexcept { return {}; }
-			continuation_awaiter<> final_suspend() const noexcept { return { cont }; }
+			continuation_awaiter<> final_suspend() const noexcept {
+				assert(cont && "A task was completed without a continuation set.");
+				return { cont }; 
+			}
 
 			variant<empty_state, value_type, exception_type> storage;
 
@@ -76,7 +79,10 @@ namespace macoro
 			template<typename C>
 			void set_continuation(C&& c) { cont = coroutine_handle<>(c); }
 			suspend_always initial_suspend() const noexcept { return {}; }
-			continuation_awaiter<> final_suspend() const noexcept { return { cont }; }
+			continuation_awaiter<> final_suspend() const noexcept { 
+				assert(cont && "A task was completed without a continuation set.");
+				return { cont }; 
+			}
 
 			task<value_type> get_return_object() noexcept;
 			task<value_type> macoro_get_return_object() noexcept;
@@ -116,7 +122,10 @@ namespace macoro
 			void set_continuation(C&&c) { cont = coroutine_handle<>(c); }
 
 			suspend_always initial_suspend() const noexcept { return {}; }
-			continuation_awaiter<> final_suspend() const noexcept { return { cont }; }
+			continuation_awaiter<> final_suspend() const noexcept { 
+				assert(cont && "A task was completed without a continuation set.");
+				return { cont }; 
+			}
 
 			task<value_type> get_return_object() noexcept;
 			task<value_type> macoro_get_return_object() noexcept;

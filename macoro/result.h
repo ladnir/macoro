@@ -29,6 +29,10 @@ namespace macoro
 			}
 		};
 
+		template<>
+		struct OkTag<void> { };
+
+
 		template<typename T>
 		struct OkMvTag {
 			T& mV;
@@ -101,6 +105,11 @@ namespace macoro
 	}
 
 
+	inline impl::OkTag<void> Ok()
+	{
+		return {};
+	}
+
 	template<typename T>
 	impl::OkTag<remove_cvref_t<T>> Ok(const T& t)
 	{
@@ -113,28 +122,22 @@ namespace macoro
 		return impl::OkMvTag<remove_cvref_t<T>>(t);
 	}
 
+	template<typename E>
+	void result_rethrow(E&& e)
+	{
+		std::rethrow_exception(e);
+	}
 	
 	namespace impl
 	{
-		template<typename E>
-		void result_rethrow(E&& e)
-		{
-			throw e;
-		}
 
 
 		template<typename T, typename E>
-		std::exception& result_unhandled_exception()
+		auto result_unhandled_exception()
 		{
-			static_assert(std::is_base_of<std::exception, E>::value,
+			static_assert(std::is_same<std::exception_ptr, E>::value,
 				"for custom result error types with coroutines, the user must implement result_unhandled_exception. This could be to just be rethrow.");
-			try {
-				std::rethrow_exception(std::current_exception());
-			}
-			catch (std::exception& e)
-			{
-				return e;
-			}
+			return std::current_exception();
 		}
 
 		template<typename T, typename E>
@@ -162,7 +165,7 @@ namespace macoro
 		{
 			variant<empty_state,
 				typename std::remove_reference<T>::type*,
-				typename std::remove_reference<E>::type*
+				E
 			> mVar;
 
 			suspend_never initial_suspend() const noexcept { return {}; }
@@ -185,7 +188,7 @@ namespace macoro
 					}
 					else if (idx == 2)
 					{
-						result<T, E> r(Err(std::move(*MACORO_VARIANT_NAMESPACE::get<2>(promise.mVar))));
+						result<T, E> r(Err(std::move(MACORO_VARIANT_NAMESPACE::get<2>(promise.mVar))));
 						handle.destroy();
 						return r;
 					}
@@ -221,7 +224,7 @@ namespace macoro
 
 			void unhandled_exception()
 			{
-				mVar.template emplace<2>(&result_unhandled_exception<T, E>());
+				mVar.template emplace<2>(result_unhandled_exception<T, E>());
 			}
 
 			void return_value(T&& t)
@@ -237,7 +240,7 @@ namespace macoro
 	}
 
 
-	template<typename T, typename Error = std::exception>
+	template<typename T, typename Error = std::exception_ptr>
 	class result
 	{
 	public:
@@ -281,7 +284,7 @@ namespace macoro
 		value_type& value()
 		{
 			if (has_error())
-				impl::result_rethrow(error());
+				result_rethrow(error());
 
 			return MACORO_VARIANT_NAMESPACE::get<0>(var());
 		}
@@ -289,7 +292,7 @@ namespace macoro
 		const value_type& value() const
 		{
 			if (has_error())
-				impl::result_rethrow(error());
+				result_rethrow(error());
 
 			return value();
 		}
@@ -433,6 +436,145 @@ namespace macoro
 		}
 	};
 
+
+
+	template<typename Error>
+	class result<void, Error>
+	{
+	public:
+		using promise_type = impl::result_promise<void, Error>;
+		using value_type = void;
+		using error_type = remove_cvref_t<Error>;
+
+
+		result()
+		{
+		}
+
+		result(const impl::OkTag<value_type>&) {}
+		result(impl::ErrorTag<error_type>&& e) : mVar(e.mE) {}
+		result(impl::ErrorMvTag<error_type>&& e) :mVar(std::move(e.mE)) {}
+
+
+		optional<error_type> mVar;
+		optional<error_type>& var() {
+			return mVar;
+		};
+		const optional<error_type>& var() const {
+			return mVar;
+		};
+
+
+		bool has_value() const {
+			return !var();
+		}
+
+		bool has_error() const {
+			return !has_value();
+		}
+
+		explicit operator bool() {
+			return has_value();
+		}
+
+		value_type value() const
+		{
+			if (has_error())
+				result_rethrow(error());
+		}
+
+		value_type operator*() const { return value(); }
+
+		error_type& error()
+		{
+			if (has_value())
+				throw std::runtime_error("error() was called on a Result<T,E> which stores an value_type");
+
+			return *var();
+		}
+
+		const error_type& error() const
+		{
+			if (has_value())
+				throw std::runtime_error("error() was called on a Result<T,E> which stores an value_type");
+
+			return *var();
+		}
+
+		error_type error_or(error_type&& alt)
+		{
+			if (has_error())
+				return error();
+			return alt;
+		}
+
+		error_type& error_or(error_type& alt)
+		{
+			if (has_error())
+				return error();
+			return alt;
+		}
+
+		const error_type& error_or(const error_type& alt) const
+		{
+			if (has_error())
+				return error();
+			return alt;
+		}
+
+		void operator=(const impl::OkTag<value_type>& v)
+		{
+			var() = {};
+		}
+
+		void operator=(impl::ErrorMvTag<error_type>&& v)
+		{
+			var() = std::move(v.mE);
+		}
+		void operator=(impl::ErrorTag<error_type>&& v)
+		{
+			var() = v.mE;
+		}
+
+
+		bool operator==(const impl::OkTag<void>& v) const
+		{
+			return has_value();
+		}
+
+		template<typename E2>
+		bool operator==(impl::ErrorTag<E2>&& v)const
+		{
+			return (has_error() && error() == v.mE);
+		}
+		template<typename E2>
+		bool operator==(impl::ErrorMvTag<E2>&& v)const
+		{
+			return (has_error() && error() == v.mE);
+		}
+
+		bool operator!=(const impl::OkTag<void>& v)const
+		{
+			return !(*this == v);
+		}
+
+
+		template<typename E2>
+		bool operator!=(impl::ErrorTag<E2>&& v)const
+		{
+			return !(*this == v);
+		}
+		template<typename E2>
+		bool operator!=(impl::ErrorMvTag<E2>&& v)const
+		{
+			return !(*this == v);
+		}
+
+		impl::result_awaiter<void, Error> operator co_await()
+		{
+			return { this };
+		}
+	};
 
 
 }

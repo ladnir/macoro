@@ -17,9 +17,9 @@ namespace macoro
 		try {
 			r.error();
 		}
-		catch (std::exception& e)
+		catch (...)
 		{
-			r = Err(e);
+			r = Err(std::current_exception());
 		}
 
 		assert(r.has_error());
@@ -48,10 +48,11 @@ namespace macoro
 		try {
 			r.error();
 		}
-		catch (std::exception& e)
+		catch (...)
 		{
-			r = Err(e);
+			r = Err(std::current_exception());
 		}
+
 
 		assert(r.has_error());
 		std::cout << "   passed" << std::endl;
@@ -64,15 +65,47 @@ namespace macoro
 		auto foo = []()->task<int>
 		{
 			result<bool> b;
-			std::exception bb = b.error();
+			std::exception_ptr bb = b.error();
 			co_return 42;
 		};
 
-		;
 		result<int> r = sync_wait(wrap(foo()));
 		assert(r.has_error());
 		std::cout << "   passed" << std::endl;
 	}
+
+
+	void result_task_wrap_pipe_test()
+	{
+		std::cout << "result_task_wrap_pipe_test     " << std::endl;
+
+		auto foo = []()->task<int>
+		{
+			result<bool> b;
+			std::exception_ptr bb = b.error();
+			co_return 42;
+		};
+
+		result<int> r = sync_wait(foo() | wrap());
+		assert(r.has_error());
+		std::cout << "   passed" << std::endl;
+	}
+
+
+	void result_void_test()
+	{
+		std::cout << "result_void_test       " << std::endl;
+
+		auto foo = []()->task<void>
+		{
+			co_return;
+		};
+
+		result<void> r = sync_wait(wrap(foo()));
+		assert(r.has_error()==false);
+		std::cout << "   passed" << std::endl;
+	}
+
 
 	void result_tests()
 	{
@@ -80,6 +113,8 @@ namespace macoro
 		result_basic_store_test();
 		result_co_await_test();
 		result_task_wrap_test();
+		result_task_wrap_pipe_test();
+		result_void_test();
 	}
 
 }

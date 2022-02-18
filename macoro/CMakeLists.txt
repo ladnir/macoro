@@ -1,14 +1,19 @@
 
-set(SRC )
+set(SRC 
+    impl/cancellation_registration.cpp
+    impl/cancellation_source.cpp
+    impl/cancellation_state.cpp
+    impl/cancellation_token.cpp
+    )
 
-add_library(macoro INTERFACE ${SRC})
+add_library(macoro STATIC ${SRC})
 
 
 
-target_include_directories( macoro INTERFACE 
+target_include_directories( macoro PUBLIC 
                     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
                     $<INSTALL_INTERFACE:include>) 
-target_include_directories( macoro INTERFACE 
+target_include_directories( macoro PUBLIC 
                     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
                     $<INSTALL_INTERFACE:>) 
                 
@@ -16,11 +21,11 @@ configure_file(config.h.in config.h)
                     
 
 if(MACORO_OPTIONAL_LITE_V)
-    target_link_Libraries(macoro INTERFACE nonstd::optional-lite)
+    target_link_Libraries(macoro PUBLIC nonstd::optional-lite)
 endif()
 
 if(MACORO_VARIANT_LITE_V)
-    target_link_Libraries(macoro INTERFACE nonstd::variant-lite)
+    target_link_Libraries(macoro PUBLIC nonstd::variant-lite)
 endif()
 
 if(MACORO_CPP_20)
@@ -32,11 +37,11 @@ endif()
 message("MACORO_STD_VAL ${MACORO_STD_VAL}")
 
 if(APPLE OR UNIX)
-    target_compile_options( macoro INTERFACE
+    target_compile_options( macoro PUBLIC
         "-std=c++${MACORO_STD_VAL}"
     )
 elseif(MSVC)
-    target_compile_options( macoro INTERFACE
+    target_compile_options( macoro PUBLIC
         "/std:c++${MACORO_STD_VAL}"
     )
 else()
@@ -48,7 +53,7 @@ else()
     )
 endif()
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND MACORO_CPP_20)
-    target_compile_options( macoro INTERFACE
+    target_compile_options( macoro PUBLIC
         "-fcoroutines"
         )
 endif()

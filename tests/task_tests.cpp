@@ -1,7 +1,7 @@
 #include "macoro/task.h"
 #include <iostream>
 #include "macoro/sync_wait.h"
-
+#include "macoro/cancellation.h"
 
 #ifdef MACORO_CPP_20
 macoro::task<int> taskInt20()
@@ -427,7 +427,44 @@ namespace macoro
 		}
 		std::cout << "passed" << std::endl;
 	}
+	void task_blocking_cancel_test()
+	{
+		std::cout << "task_blocking_cancel_test  ";
 
+
+
+		auto t = [](cancellation_token t) -> task<void>
+		{
+			while (true)
+			{
+				if (t.is_cancellation_requested())
+					throw operation_cancelled();
+			}
+
+			co_return;
+
+		};
+
+
+		cancellation_source src;
+		std::thread thrd = std::thread([&] {
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			src.request_cancellation();
+			});
+		
+		try {
+			sync_wait(t(src.token()));
+		}
+		catch(operation_cancelled&e)
+		{ }
+		catch (...)
+		{
+			thrd.join();
+		}
+		thrd.join();
+
+		std::cout << "passed" << std::endl;
+	}
 
 	void task_tests()
 	{
@@ -443,6 +480,8 @@ namespace macoro
 		task_blocking_ref_test();
 		task_blocking_move_test();
 		task_blocking_ex_test();
+
+		task_blocking_cancel_test();
 
 	}
 

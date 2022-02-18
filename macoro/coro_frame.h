@@ -40,11 +40,13 @@ namespace macoro
 	template<typename handle>
 	struct await_suspend_t
 	{
+
 		handle value;
+		bool suspend;
 
 		explicit operator bool() const
 		{
-			return true;
+			return suspend;
 		}
 
 		auto get_handle()
@@ -119,18 +121,19 @@ namespace macoro
 		, empty_state> = {}) noexcept(noexcept(await_suspend_t<coroutine_handle<typename coroutine_handle_traits<decltype(a.await_suspend(h))>::promise_type>>{ a.await_suspend(h) }))
 	{
 
-		auto h2 = implicit_cast<has_any_await_suspend<Awaiter, coroutine_handle<T>>::value, T>(h);
-
+		//auto h2 = ;
+		using H2 = decltype(implicit_cast<has_any_await_suspend<Awaiter, coroutine_handle<T>>::value, T>(h));
 
 		static_assert(
-			std::is_same<decltype(a.await_suspend(h2)), bool>::value ||
-			std::is_convertible<decltype(a.await_suspend(h2)), macoro::coroutine_handle<>>::value ||
-			std::is_convertible<decltype(a.await_suspend(h2)), std::coroutine_handle<>>::value,
+			std::is_same<decltype(a.await_suspend(H2{})), bool > ::value ||
+			std::is_convertible<decltype(a.await_suspend(H2{})), macoro::coroutine_handle<>>::value ||
+			std::is_convertible<decltype(a.await_suspend(H2{})), std::coroutine_handle<>>::value,
 			"await_suspend() must return 'void', 'bool', or convertible to macoro::coroutine_handle<> or std::coroutine_handle<>.");
 
 		using promise_type = typename coroutine_handle_traits<decltype(a.await_suspend(h))>::promise_type;
 
-		return await_suspend_t<coroutine_handle<promise_type>>{ a.await_suspend(h) };
+		auto ret = a.await_suspend(h);
+		return await_suspend_t<coroutine_handle<promise_type>>{ ret, h != ret  };
 	}
 
 	// Intended to be equivalent to auto&&. When given
@@ -294,16 +297,6 @@ namespace macoro
 
 		bool _initial_suspend_await_resumed_called_ = false;
 
-		// Return the current suspend location of the coroutines.
-		SuspensionPoint getSuspendPoint() const {
-			return _suspension_idx_;
-		}
-
-		// set the current suspend location of the coroutines. 
-		// Must be called if the coroutines does not complete.
-		void setSuspendPoint(SuspensionPoint idx) {
-			_suspension_idx_ = idx;
-		}
 
 		struct awaiters
 		{
@@ -404,106 +397,6 @@ namespace macoro
 
 			awaiters.pop_back();
 		}
-
-//
-//		template<typename Expr>
-//		typename awaiter_for<promise_type, Expr&&> constructAwaiter2(Expr&& value)
-//		{
-//			return {};
-//		}
-//
-//		template<typename Expr>
-//		typename awaiter_for<promise_type, Expr&&>::reference constructAwaiter(Expr&& value, size_t awaiterIdx)
-//		{
-//			//if (_awaiter_ptr)
-//			//{
-//			//	_awaiter_deleter(_storage_ptr);
-//			//	//std::terminate();
-//			//}
-//
-//			//std::cout << "is_lvalue_reference_v   " << std::is_lvalue_reference_v<Expr&&> << std::endl;
-//			//std::cout << "is_rvalue_reference_v   " << std::is_rvalue_reference_v<Expr&&> << std::endl;
-//
-//
-//			using AwaiterFor = awaiter_for<promise_type, Expr&&>;
-//
-//			for (auto& aa : awaiters)
-//				assert(aa.awaiter_idx != awaiterIdx);
-//
-//			awaiters.emplace_back();
-//			auto& d = awaiters.back();
-//#ifndef NDEBUG
-//			d._awaiter_typeid_ = &typeid(AwaiterFor);
-//#endif
-//			d.awaiter_idx = awaiterIdx;
-//
-//			// get the awaiter and allocate it on the heap.
-//			//auto ret = new Storage(this->await_transform(std::forward<Awaitable>(c)));
-//			auto storage_ptr = new AwaiterStorage<AwaiterFor>(promise, static_cast<decltype(value)>(value));
-//			d._storage_ptr = storage_ptr;
-//
-//			// construct the that is used if our destructor is called.
-//			d._awaiter_deleter = [](void* ptr)
-//			{
-//				auto a = (AwaiterStorage<AwaiterFor>*)(ptr);
-//				delete a;
-//			};
-//
-//			d._awaiter_ptr = &storage_ptr->awaiter;
-//			return storage_ptr->awaiter;
-//		}
-//
-//		template<typename AwaiterFor>
-//		void destroyAwaiter(size_t idx)
-//		{
-//			assert(awaiters.size());
-//			auto d = --awaiters.end();
-//			while (d->awaiter_idx != idx)
-//			{
-//				assert(d != awaiters.begin());
-//				--d;
-//			}
-//
-//#ifndef NDEBUG
-//			if (!d->_awaiter_ptr)
-//				std::terminate();
-//
-//			if (d->_awaiter_typeid_ != &typeid(AwaiterFor))
-//				std::terminate();
-//#endif
-//
-//			auto a = (AwaiterStorage<AwaiterFor>*)(d->_storage_ptr);
-//			delete a;
-//
-//			auto& v = awaiters;
-//			std::swap(*d, *--v.end());
-//			v.pop_back();
-//		}
-//
-
-
-//		// Return the current awaiter. We assumer the caller
-//		// is providing the correct awaiter type. This is validated
-//		// in debug builds.
-//		template<typename AwaiterFor>
-//		typename AwaiterFor::reference getAwaiter(size_t idx) noexcept
-//		{
-//
-//			assert(awaiters.size());
-//			auto d = --awaiters.end();
-//			while (d->awaiter_idx != idx)
-//			{
-//				assert(d != awaiters.begin());
-//				--d;
-//			}
-//
-//#ifndef NDEBUG
-//			if (!d->_awaiter_ptr || d->_awaiter_typeid_ != &typeid(AwaiterFor))
-//				terminate();
-//#endif
-//			auto ptr = (typename AwaiterFor::pointer)d->_awaiter_ptr;
-//			return *ptr;
-//		}
 
 #ifdef MACORO_CPP_20
 
@@ -636,12 +529,13 @@ namespace macoro
 		using FrameBase<Promise>::promise;
 		using FrameBase<Promise>::done;
 
+
 		static coroutine_handle<void> resume_impl(FrameBase<void>* ptr)
 		{
 			auto This = static_cast<Frame<LambdaType, Promise>*>(ptr);
 			return (*This)(static_cast<FrameBase<Promise>*>(This));
 		}
-
+		static_assert(static_cast<Frame<LambdaType, Promise>*>(nullptr) == nullptr,"");
 		static void destroy_impl(FrameBase<void>* ptr) noexcept
 		{
 			auto self = static_cast<Frame<LambdaType, Promise>*>(ptr);
@@ -664,6 +558,7 @@ namespace macoro
 #endif
 		{
 			FrameBase<void>::resume = &Frame::resume_impl;
+			//FrameBase<void>::resume = &Frame::operator();
 			FrameBase<void>::destroy = &Frame::destroy_impl;
 #ifdef MACORO_CPP_20
 
@@ -687,34 +582,32 @@ namespace macoro
 
 		std_handle_adapter adapter()
 		{
-			// we have to perform the symmetric transfer loop here for
-			// macoro coroutines since we can only return std::coroutine_handle<>.
 			while (true)
 			{
-
+				// resume our own coro
 				auto h = (*this)(static_cast<FrameBase<promise_type>*>(this));
-
 				assert(h);
-				bool noop = h == noop_coroutine();
-				if (!noop && h.is_std() == false)
+
+				// we have to perform the symmetric transfer loop here for
+				// macoro coroutines since we can only return std::coroutine_handle<>.
+				while (h != noop_coroutine() && h.is_std() == false)
 				{
 					auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)h.address() ^ 1);
 					auto _address = realAddr->resume(realAddr).address();
 					h = coroutine_handle<void>::from_address(_address);
 				}
+
+				// we either have a std coro or a noop. We can
+				// have the std perform symmetric transfer on that. 
+				std::coroutine_handle<void> r = h.std_cast();
+
+				if (done())
+				{
+					co_return r;
+				}
 				else
 				{
-					std::coroutine_handle<void> r;
-					r = h.std_cast();
-
-					if (done())
-					{
-						co_return r;
-					}
-					else
-					{
-						co_yield r;
-					}
+					co_yield r;
 				}
 			}
 		};
@@ -801,20 +694,48 @@ namespace macoro
 		return realAddr->done();
 #endif
 	}
-
-	inline void _macoro_coro_resume(void* _address)
-	{
+	inline void coroutine_handle<void>::resume() const {
+		auto _address = _Ptr;
 		while (true)
 		{
 #ifdef MACORO_CPP_20
 
 			if (!_macoro_coro_is_std(_address))
 			{
+				if (_address == noop_coroutine().address())
+					return;
 				auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
 				_address = realAddr->resume(realAddr).address();
 				assert(_address);
+			}
+			else
+			{
+				std::coroutine_handle<void>::from_address(_address).resume();
+				return;
+			}
+#else
+			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address);
+			_address = realAddr->resume(realAddr).address();
+			if (_address == noop_coroutine().address())
+				return;
+#endif
+		}
+		//_macoro_coro_resume(_Ptr);
+	}
+	template<typename T>
+	inline void coroutine_handle<T>::resume() const {
+		auto _address = _Ptr;
+		while (true)
+		{
+#ifdef MACORO_CPP_20
+
+			if (!_macoro_coro_is_std(_address))
+			{
 				if (_address == noop_coroutine().address())
 					return;
+				auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
+				_address = realAddr->resume(realAddr).address();
+				assert(_address);
 			}
 			else
 			{
@@ -829,6 +750,34 @@ namespace macoro
 #endif
 		}
 	}
+//
+//	inline void _macoro_coro_resume(void* _address)
+//	{
+//		while (true)
+//		{
+//#ifdef MACORO_CPP_20
+//
+//			if (!_macoro_coro_is_std(_address))
+//			{
+//				if (_address == noop_coroutine().address())
+//					return;
+//				auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address ^ 1);
+//				_address = realAddr->resume(realAddr).address();
+//				assert(_address);
+//			}
+//			else
+//			{
+//				std::coroutine_handle<void>::from_address(_address).resume();
+//				return;
+//			}
+//#else
+//			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address);
+//			_address = realAddr->resume(realAddr).address();
+//			if (_address == noop_coroutine().address())
+//				return;
+//#endif
+//		}
+//	}
 
 	inline void _macoro_coro_destroy(void* _address)noexcept
 	{

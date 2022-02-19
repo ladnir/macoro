@@ -51,6 +51,7 @@ namespace macoro
 
 		auto get_handle()
 		{
+			assert(value);
 			return value;
 		}
 	};

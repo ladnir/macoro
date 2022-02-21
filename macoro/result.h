@@ -477,7 +477,7 @@ namespace macoro
 
 		result() = default;
 		result(const result&) = default;
-		result(result&& r) {};
+		result(result&& r) = default;
 		result& operator=(const result&) = default;
 		result& operator=(result&&) = default;
 

@@ -544,6 +544,11 @@ namespace macoro
 			return ready_awaitable{ m_coroutine };
 		}
 
+		coroutine_handle<promise_type> handle() const
+		{
+			return m_coroutine;
+		}
+
 	private:
 
 		coroutine_handle<promise_type> m_coroutine;

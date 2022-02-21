@@ -5,9 +5,9 @@
 
 namespace macoro
 {
-
-	template<typename scheduler, typename awaitable>
-	auto start_on(scheduler& s, awaitable& a)
+	template<typename scheduler, typename awaitable,
+		enable_if_t<std::is_void<awaitable_result_t<awaitable>>::value == false, int> = 0>
+		auto start_on(scheduler& s, awaitable& a)
 		-> eager_task<remove_rvalue_reference_t<awaitable_result_t<awaitable>>>
 	{
 		MC_BEGIN(eager_task<remove_rvalue_reference_t<awaitable_result_t<awaitable>>>,
@@ -19,8 +19,9 @@ namespace macoro
 
 		MC_END();
 	}
-	template<typename scheduler, typename awaitable>
-	auto start_on(scheduler& s, awaitable aa)
+	template<typename scheduler, typename awaitable,
+		enable_if_t<std::is_void<awaitable_result_t<awaitable>>::value == false, int> = 0>
+		auto start_on(scheduler& s, awaitable aa)
 		-> eager_task<remove_rvalue_reference_t<awaitable_result_t<awaitable>>>
 	{
 		//co_await transfer_to(s);
@@ -31,6 +32,33 @@ namespace macoro
 
 		MC_AWAIT(transfer_to(s));
 		MC_RETURN_AWAIT(a);
+
+		MC_END();
+	}
+
+	template<typename scheduler, typename awaitable,
+		enable_if_t<std::is_void<awaitable_result_t<awaitable>>::value == true, int> = 0>
+		auto start_on(scheduler& s, awaitable& a)
+		-> eager_task<remove_rvalue_reference_t<awaitable_result_t<awaitable>>>
+	{
+		MC_BEGIN(eager_task<remove_rvalue_reference_t<awaitable_result_t<awaitable>>>,
+			&s, &a);
+
+		MC_AWAIT(transfer_to(s));
+		MC_AWAIT(a);
+		MC_END();
+	}
+	template<typename scheduler, typename awaitable,
+		enable_if_t<std::is_void<awaitable_result_t<awaitable>>::value == true, int> = 0>
+		auto start_on(scheduler& s, awaitable aa)
+		-> eager_task<remove_rvalue_reference_t<awaitable_result_t<awaitable>>>
+	{
+
+		MC_BEGIN(eager_task<remove_rvalue_reference_t<awaitable_result_t<awaitable>>>,
+			&s, a = std::move(aa));
+
+		MC_AWAIT(transfer_to(s));
+		MC_AWAIT(a);
 
 		MC_END();
 	}

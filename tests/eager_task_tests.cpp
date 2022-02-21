@@ -7,6 +7,7 @@ namespace macoro
 	void make_eager_test()
 	{
 		std::cout << "make_eager_test         ";
+		//assert(0);
 		auto foo = []() -> task<int>
 		{
 			co_return 42;
@@ -71,6 +72,7 @@ namespace macoro
 	void thread_pool_start_on_test()
 	{
 		std::cout << "thread_pool_start_on_test         ";
+		//assert(0);
 
 		thread_pool tp;
 
@@ -96,8 +98,11 @@ namespace macoro
 	{
 
 #ifdef MACORO_CPP_20
+
 		eager_task<int> eager_taskInt20()
 		{
+			//assert(0);
+			//throw std::runtime_error("");
 			co_return 42;
 		}
 #endif
@@ -126,6 +131,8 @@ namespace macoro
 #ifdef MACORO_CPP_20
 		eager_task<int&> eager_taskRef20()
 		{
+			//assert(0);
+			//throw std::runtime_error("");
 			co_return taskRef_val;
 		}
 #endif

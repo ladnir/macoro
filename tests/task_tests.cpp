@@ -6,6 +6,9 @@
 #ifdef MACORO_CPP_20
 macoro::task<int> taskInt20()
 {
+	//assert(0);
+	//throw std::runtime_error("");
+
 	co_return 42;
 }
 #endif
@@ -39,7 +42,7 @@ namespace macoro
 		{
 			task<int> t = taskInt14();
 
-			auto awaiter = t.operator_co_await();
+			auto awaiter = t.MACORO_OPERATOR_COAWAIT();
 			assert(awaiter.await_ready() == false);
 
 			auto st = awaiter.await_suspend(noop_coroutine());
@@ -90,7 +93,7 @@ namespace macoro
 			taskVoid_called = false;
 			task<void> t = taskVoid14();
 
-			auto awaiter = t.operator_co_await();
+			auto awaiter = t.MACORO_OPERATOR_COAWAIT();
 			assert(awaiter.await_ready() == false);
 
 			auto st = awaiter.await_suspend(noop_coroutine());
@@ -109,6 +112,8 @@ namespace macoro
 #ifdef MACORO_CPP_20
 	task<int&> taskRef20()
 	{
+		//assert(0);
+		//throw std::runtime_error("");
 		co_return taskRef_val;
 	}
 #endif
@@ -144,7 +149,7 @@ namespace macoro
 			taskRef_val = 42;
 			task<int&> t = taskRef14();
 
-			auto awaiter = t.operator_co_await();
+			auto awaiter = t.MACORO_OPERATOR_COAWAIT();
 			assert(awaiter.await_ready() == false);
 
 			auto st = awaiter.await_suspend(noop_coroutine());
@@ -212,7 +217,7 @@ namespace macoro
 #endif
 		{
 			task<move_only> t = taskmove14();
-			auto awaiter = t.operator_co_await();
+			auto awaiter = t.MACORO_OPERATOR_COAWAIT();
 			assert(awaiter.await_ready() == false);
 			auto st = awaiter.await_suspend(noop_coroutine());
 			st.resume();
@@ -221,7 +226,7 @@ namespace macoro
 		}
 		{
 			task<move_only> t = taskmove14();
-			auto awaiter = std::move(t).operator_co_await();
+			auto awaiter = std::move(t).MACORO_OPERATOR_COAWAIT();
 			assert(awaiter.await_ready() == false);
 			auto st = awaiter.await_suspend(noop_coroutine());
 			st.resume();
@@ -278,7 +283,7 @@ namespace macoro
 
 
 			task<int> t = taskThrows14();
-			auto awaiter = t.operator_co_await();
+			auto awaiter = t.MACORO_OPERATOR_COAWAIT();
 			assert(awaiter.await_ready() == false);
 
 			auto st = awaiter.await_suspend(noop_coroutine());

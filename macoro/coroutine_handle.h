@@ -322,12 +322,13 @@ namespace macoro
         MACORO_NODISCARD constexpr bool await_ready() const noexcept {
             return true;
         }
-
-#ifdef MACORO_CPP_20
-        constexpr void await_suspend(std::coroutine_handle<>) const noexcept {}
-#endif
         constexpr void await_suspend(coroutine_handle<>) const noexcept {}
         constexpr void await_resume() const noexcept {}
+
+#ifdef MACORO_CPP_20
+        
+        constexpr void await_suspend(std::coroutine_handle<>) const noexcept {}
+#endif
     };
 
     // STRUCT suspend_always
@@ -335,12 +336,13 @@ namespace macoro
         MACORO_NODISCARD constexpr bool await_ready() const noexcept {
             return false;
         }
-
-#ifdef MACORO_CPP_20
-        constexpr void await_suspend(std::coroutine_handle<>) const noexcept {}
-#endif
         constexpr void await_suspend(coroutine_handle<>) const noexcept {}
         constexpr void await_resume() const noexcept {}
+
+#ifdef MACORO_CPP_20
+        
+        constexpr void await_suspend(std::coroutine_handle<>) const noexcept {}
+#endif
     };
 
 }

@@ -1,294 +1,596 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright (c) Lewis Baker
+// Licenced under MIT license. See github.com/lewissbaker/cppcoro LICENSE.txt for details.
+///////////////////////////////////////////////////////////////////////////////
 #pragma once
+
+#include <atomic>
+#include <exception>
+#include <utility>
+#include <type_traits>
+#include <cstdint>
+#include <cassert>
+
+#include <coroutine>
 #include "macoro/coroutine_handle.h"
-#include "macoro/coro_frame.h"
 #include "macoro/awaiter.h"
-#include "macoro/variant.h"
 #include "macoro/type_traits.h"
+
 namespace macoro
 {
-	template<typename T>
-	class task;
+	template<typename T = void, bool lazy = true> class task;
 
 	namespace impl
 	{
+		template<bool lazy>
+		class task_promise_base;
 
-		template<typename T>
-		struct task_promise 
+		template<typename T, bool lazy>
+		struct task_awaitable_base;
+
+		template<>
+		class task_promise_base<true>
 		{
-			using value_type = T;
-			using reference_type = T&;
-			using rvalue_type = T&&;
-			using exception_type = std::exception_ptr;
-			using handle_type = coroutine_handle<task_promise<value_type>>;
+			friend struct final_awaitable;
 
-			coroutine_handle<> cont;
-			template<typename C>
-			void set_continuation(C&& c) { cont = coroutine_handle<>(c); }
-			suspend_always initial_suspend() const noexcept { return {}; }
-			continuation_awaiter<> final_suspend() const noexcept {
-				assert(cont && "A task was completed without a continuation set.");
-				return { cont }; 
-			}
-
-			variant<empty_state, value_type, exception_type> storage;
-
-			task<T> get_return_object() noexcept;
-			task<T> macoro_get_return_object() noexcept;
-
-			void unhandled_exception() noexcept
+			struct final_awaitable
 			{
-				storage = std::current_exception();
-			}
+				bool await_ready() const noexcept { return false; }
 
-			template<typename TT>
-			void return_value(TT&& val) noexcept(std::is_nothrow_constructible<T, TT&&>::value)
+				template<typename PROMISE>
+				std::coroutine_handle<> await_suspend(
+					std::coroutine_handle<PROMISE> coro) noexcept
+				{
+					auto& prom = coro.promise();
+					assert(prom.m_continuation && "the lazy task type `task<T>` completed without a continuation.");
+					return prom.m_continuation.std_cast();
+				}
+
+				template<typename PROMISE>
+				coroutine_handle<> await_suspend(
+					coroutine_handle<PROMISE> coro) noexcept
+				{
+					auto& prom = coro.promise();
+					assert(prom.m_continuation && "the lazy task type `task<T>` completed without a continuation.");
+					return prom.m_continuation;
+				}
+				void await_resume() noexcept {}
+			};
+
+		public:
+
+			task_promise_base() noexcept
+			{}
+
+			auto initial_suspend() noexcept
 			{
-				static_assert(std::is_convertible<TT&&, T>::value, "the task value_type can not be constructed from the co_return expression.");
-				storage.template emplace<1>(std::forward<TT>(val));
+				return std::suspend_always{};
 			}
 
-			reference_type get()&
+			auto final_suspend() noexcept
 			{
-				if (storage.index() == 2)
-					std::rethrow_exception(v_get<2>(storage));
-				assert(storage.index() == 1);
-				return v_get<1>(storage);
+				return final_awaitable{};
 			}
 
-			rvalue_type get()&&
+			void set_continuation(std::coroutine_handle<> continuation) noexcept
 			{
-				if (storage.index() == 2)
-					std::rethrow_exception(v_get<2>(storage));
-				assert(storage.index() == 1);
-				return std::move(v_get<1>(storage));
+				assert(!m_continuation);
+				m_continuation = coroutine_handle<>(continuation);
 			}
-		};
-
-
-		template<typename T>
-		struct task_promise<T&>
-		{
-
-			using value_type = T&;
-			using reference_type = T&;
-			using pointer_type = T*;
-			using exception_type = std::exception_ptr;
-			using handle_type = coroutine_handle<task_promise<value_type>>;
-
-			coroutine_handle<> cont;
-			template<typename C>
-			void set_continuation(C&& c) { cont = coroutine_handle<>(c); }
-			suspend_always initial_suspend() const noexcept { return {}; }
-			continuation_awaiter<> final_suspend() const noexcept { 
-				assert(cont && "A task was completed without a continuation set.");
-				return { cont }; 
-			}
-
-			task<value_type> get_return_object() noexcept;
-			task<value_type> macoro_get_return_object() noexcept;
-
-			variant<empty_state, pointer_type, exception_type> storage;
-
-			void unhandled_exception() noexcept
+			void set_continuation(coroutine_handle<> continuation) noexcept
 			{
-				storage = std::current_exception();
+				assert(!m_continuation);
+				m_continuation = continuation;
 			}
 
-			void return_value(reference_type val) noexcept
-			{
-				storage.template emplace<1>(&val);
-			}
-
-			reference_type get()
-			{
-				if (storage.index() == 2)
-					std::rethrow_exception(v_get<2>(storage));
-				assert(storage.index() == 1);
-				return *v_get<1>(storage);
-			}
+		private:
+			coroutine_handle<> m_continuation;
 		};
 
 		template<>
-		struct task_promise<void> 
+		class task_promise_base<false>
 		{
-			using value_type = void;
-			using reference_type = void;
-			using exception_type = std::exception_ptr;
-			using handle_type = coroutine_handle<task_promise<value_type>>;
+			friend struct final_awaitable;
 
-			coroutine_handle<> cont;
+			struct final_awaitable
+			{
+				bool await_ready() const noexcept { return false; }
 
-			template<typename C>
-			void set_continuation(C&&c) { cont = coroutine_handle<>(c); }
+				template<typename PROMISE>
+				std::coroutine_handle<> await_suspend(
+					std::coroutine_handle<PROMISE> coro) noexcept
+				{
+					return await_suspend(coroutine_handle<PROMISE>(coro)).std_cast();
+				}
 
-			suspend_always initial_suspend() const noexcept { return {}; }
-			continuation_awaiter<> final_suspend() const noexcept { 
-				assert(cont && "A task was completed without a continuation set.");
-				return { cont }; 
+				template<typename PROMISE>
+				coroutine_handle<> await_suspend(
+					coroutine_handle<PROMISE> coro) noexcept
+				{
+					auto& promise = coro.promise();
+					// release our result. acquire their continuation (if they beat us).
+					auto b = promise.has_completed_or_continutation.exchange(true, std::memory_order::memory_order_acq_rel);
+
+					// if b, then we have finished after the continuation was set. 
+					if (b)
+					{
+						assert(promise.m_continuation);
+						return promise.m_continuation;
+					}
+					else
+						return noop_coroutine();
+				}
+				void await_resume() noexcept {}
+			};
+
+		public:
+
+			task_promise_base() noexcept
+				: has_completed_or_continutation(false)
+			{}
+
+			auto initial_suspend() noexcept
+			{
+				return std::suspend_never{};
 			}
 
-			task<value_type> get_return_object() noexcept;
-			task<value_type> macoro_get_return_object() noexcept;
+			auto final_suspend() noexcept
+			{
+				return final_awaitable{};
+			}
 
-			exception_type storage;
+			bool try_set_continuation(std::coroutine_handle<> continuation) noexcept
+			{
+				return try_set_continuation(coroutine_handle<>(continuation));
+			}
+			bool try_set_continuation(coroutine_handle<> continuation) noexcept
+			{
+				assert(!m_continuation);
+				m_continuation = continuation;
+				return has_completed_or_continutation.exchange(true, std::memory_order::memory_order_acq_rel);
+			}
+
+		private:
+			std::atomic<bool> has_completed_or_continutation;
+
+			coroutine_handle<> m_continuation;
+		};
+
+		template<typename T, bool lazy>
+		class task_promise final : public task_promise_base<lazy>
+		{
+		public:
+
+			task_promise() noexcept {}
+
+			~task_promise()
+			{
+				switch (m_resultType)
+				{
+				case result_type::value:
+					m_value.~T();
+					break;
+				case result_type::exception:
+					m_exception.~exception_ptr();
+					break;
+				default:
+					break;
+				}
+			}
+
+			task<T, lazy> get_return_object() noexcept;
+			task<T, lazy> macoro_get_return_object() noexcept;
 
 			void unhandled_exception() noexcept
 			{
-				storage = std::current_exception();
+				::new (static_cast<void*>(std::addressof(m_exception))) std::exception_ptr(
+					std::current_exception());
+				m_resultType = result_type::exception;
 			}
 
-			void return_void() noexcept { }
-
-			void get()
+			template<
+				typename VALUE,
+				typename = std::enable_if_t<std::is_convertible_v<VALUE&&, T>>>
+				void return_value(VALUE&& value)
+				noexcept(std::is_nothrow_constructible_v<T, VALUE&&>)
 			{
-				if (storage)
-					std::rethrow_exception(storage);
+				::new (static_cast<void*>(std::addressof(m_value))) T(std::forward<VALUE>(value));
+				m_resultType = result_type::value;
+			}
+
+			T& result()&
+			{
+				if (m_resultType == result_type::exception)
+				{
+					std::rethrow_exception(m_exception);
+				}
+
+				assert(m_resultType == result_type::value);
+
+				return m_value;
+			}
+
+			// HACK: Need to have co_await of task<int> return prvalue rather than
+			// rvalue-reference to work around an issue with MSVC where returning
+			// rvalue reference of a fundamental type from await_resume() will
+			// cause the value to be copied to a temporary. This breaks the
+			// sync_wait() implementation.
+			// See https://github.com/lewissbaker/cppcoro/issues/40#issuecomment-326864107
+			using rvalue_type = std::conditional_t<
+				std::is_arithmetic_v<T> || std::is_pointer_v<T>,
+				T,
+				T&&>;
+
+			rvalue_type result()&&
+			{
+				if (m_resultType == result_type::exception)
+				{
+					std::rethrow_exception(m_exception);
+				}
+
+				assert(m_resultType == result_type::value);
+
+				return std::move(m_value);
+			}
+
+		private:
+
+			enum class result_type { empty, value, exception };
+
+			result_type m_resultType = result_type::empty;
+
+			union
+			{
+				T m_value;
+				std::exception_ptr m_exception;
+			};
+
+		};
+
+		template<bool lazy>
+		class task_promise<void, lazy> : public task_promise_base<lazy>
+		{
+		public:
+
+			task_promise() noexcept = default;
+
+			task<void, lazy> get_return_object() noexcept;
+			task<void, lazy> macoro_get_return_object() noexcept;
+
+			void return_void() noexcept
+			{}
+
+			void unhandled_exception() noexcept
+			{
+				m_exception = std::current_exception();
+			}
+
+			void result()
+			{
+				if (m_exception)
+				{
+					std::rethrow_exception(m_exception);
+				}
+			}
+
+		private:
+
+			std::exception_ptr m_exception;
+
+		};
+
+		template<typename T, bool lazy>
+		class task_promise<T&, lazy> : public task_promise_base<lazy>
+		{
+		public:
+
+			task_promise() noexcept = default;
+
+			task<T&, lazy> get_return_object() noexcept;
+			task<T&, lazy> macoro_get_return_object() noexcept;
+
+			void unhandled_exception() noexcept
+			{
+				m_exception = std::current_exception();
+			}
+
+			void return_value(T& value) noexcept
+			{
+				m_value = std::addressof(value);
+			}
+
+			T& result()
+			{
+				if (m_exception)
+				{
+					std::rethrow_exception(m_exception);
+				}
+
+				return *m_value;
+			}
+
+		private:
+
+			T* m_value = nullptr;
+			std::exception_ptr m_exception;
+
+		};
+
+
+
+		template<typename T>
+		struct task_awaitable_base<T,true>
+		{
+			using promise_type = task_promise<T, true>;
+			coroutine_handle<promise_type> m_coroutine;
+
+			task_awaitable_base(std::coroutine_handle<promise_type> coroutine) noexcept
+				: m_coroutine(coroutine_handle<promise_type>(coroutine))
+			{}
+			task_awaitable_base(coroutine_handle<promise_type> coroutine) noexcept
+				: m_coroutine(coroutine)
+			{}
+
+			bool await_ready() const noexcept
+			{
+				return !m_coroutine || m_coroutine.done();
+			}
+
+			std::coroutine_handle<> await_suspend(
+				std::coroutine_handle<> awaitingCoroutine) noexcept
+			{
+				m_coroutine.promise().set_continuation(awaitingCoroutine);
+				return m_coroutine.std_cast();
+			}
+
+			coroutine_handle<> await_suspend(
+				coroutine_handle<> awaitingCoroutine) noexcept
+			{
+				m_coroutine.promise().set_continuation(awaitingCoroutine);
+				return m_coroutine;
 			}
 		};
 
 		template<typename T>
-		decltype(auto) optMove(std::true_type, T&& t)
+		struct task_awaitable_base<T, false>
 		{
-			return std::move(t.get());
-		}
+			using promise_type = task_promise<T, false>;
+			coroutine_handle<promise_type> m_coroutine;
 
-		template<typename T>
-		decltype(auto) optMove(std::false_type, T&& t)
-		{
-			return t.get();
-		}
+			task_awaitable_base(std::coroutine_handle<promise_type> coroutine) noexcept
+				: m_coroutine(coroutine_handle<promise_type>(coroutine))
+			{}
+			task_awaitable_base(coroutine_handle<promise_type> coroutine) noexcept
+				: m_coroutine(coroutine)
+			{}
 
+			bool await_ready() const noexcept
+			{
+				return !m_coroutine || m_coroutine.done();
+			}
+
+			std::coroutine_handle<> await_suspend(
+				std::coroutine_handle<> awaitingCoroutine) noexcept
+			{
+				return await_suspend(
+					coroutine_handle<>(awaitingCoroutine)).std_cast();
+			}
+
+			coroutine_handle<> await_suspend(
+				coroutine_handle<> awaitingCoroutine) noexcept
+			{
+				// release our continuation. acquire their result (if they beat us).
+				auto b = m_coroutine.promise().try_set_continuation(awaitingCoroutine);
+
+				// if b, then  the result is ready and we should just resume the
+				// awaiting coroutine. 
+				if (b)
+				{
+					return awaitingCoroutine;
+				}
+				else
+				{
+					// otherwise we have finished first and our continuation will be resumed
+					// when the coroutine finishes.
+					return noop_coroutine();
+				}
+			}
+		};
 	}
 
-	template<typename T>
-	class task
+	/// \brief
+	/// A task represents an operation that produces a result both lazily
+	/// and asynchronously.
+	///
+	/// When you call a coroutine that returns a task, the coroutine
+	/// simply captures any passed parameters and returns exeuction to the
+	/// caller. Execution of the coroutine body does not start until the
+	/// coroutine is first co_await'ed.
+	template<typename T, bool lazy>
+	class [[nodiscard]] task
 	{
 	public:
-		using promise_type = impl::task_promise<T>;
-		using value_type = typename impl::task_promise<T>::value_type;
-		using reference_type = typename impl::task_promise<T>::reference_type;
-		using exception_type = typename impl::task_promise<T>::exception_type;
-		using handle_type = typename impl::task_promise<T>::handle_type;
 
-#ifdef MACORO_CPP_20
-		static_assert(has_set_continuation_member<handle_type, std::coroutine_handle<>>::value, "pomise_type must has a set_continuation method");
-#endif
-		static_assert(has_set_continuation_member<handle_type, coroutine_handle<>>::value, "pomise_type must has a set_continuation method");
-		static_assert(has_set_continuation_member<handle_type, coroutine_handle<noop_coroutine_handle>>::value, "pomise_type must has a set_continuation method");
+		using promise_type = impl::task_promise<T, lazy>;
 
-		handle_type handle;
+		using value_type = T;
 
-		task()
+	private:
+
+
+	public:
+
+		task() noexcept
+			: m_coroutine(nullptr)
+		{}
+
+		explicit task(std::coroutine_handle<promise_type> coroutine)
+			: m_coroutine(coroutine_handle<promise_type>(coroutine))
+		{}
+		explicit task(coroutine_handle<promise_type> coroutine)
+			: m_coroutine(coroutine)
+		{}
+
+		task(task&& t) noexcept
+			: m_coroutine(t.m_coroutine)
 		{
+			t.m_coroutine = nullptr;
 		}
-		task(const task&) = delete;
-		task(task&& t) : handle(std::exchange(t.handle, std::nullptr_t{})) {
-		}
-		task& operator=(const task&) = delete;
-		task& operator=(task&& t) {
-			if (handle)
-				handle.destroy();
-			handle = std::exchange(t.handle, std::nullptr_t{});
 
-			return *this;
-		};
+		/// Disable copy construction/assignment.
+		task(const task&) = delete;
+		task& operator=(const task&) = delete;
+
+		/// Frees resources used by this task.
 		~task()
 		{
-			if (handle)
-				handle.destroy();
+			if (m_coroutine)
+			{
+				m_coroutine.destroy();
+			}
 		}
 
-		bool ready() const { return !handle || handle.done(); }
-
-		explicit operator bool() const { return ready(); }
-
-		template<typename move>
-		struct awaitable : impl::continuation_awaiter<handle_type, true>
+		task& operator=(task&& other) noexcept
 		{
-			awaitable() { 
+			if (std::addressof(other) != this)
+			{
+				if (m_coroutine)
+				{
+					m_coroutine.destroy();
+				}
+
+				m_coroutine = other.m_coroutine;
+				other.m_coroutine = nullptr;
 			}
 
-			awaitable(handle_type h) : impl::continuation_awaiter<handle_type, true>{ h } {
+			return *this;
+		}
+
+		/// \brief
+		/// Query if the task result is complete.
+		///
+		/// Awaiting a task that is ready is guaranteed not to block/suspend.
+		bool is_ready() const noexcept
+		{
+			return !m_coroutine || m_coroutine.done();
+		}
+
+		struct ref_awaitable : impl::task_awaitable_base<T,lazy>
+		{
+			using impl::task_awaitable_base<T, lazy>::task_awaitable_base;
+
+			decltype(auto) await_resume()
+			{
+				if (!this->m_coroutine)
+				{
+					throw broken_promise{};
+				}
+
+				return this->m_coroutine.promise().result();
 			}
-			awaitable(awaitable&& h) : impl::continuation_awaiter<handle_type, true>{ h.cont } {
-			}
+		};
+		auto MACORO_OPERATOR_COAWAIT() const& noexcept
+		{
 
-			~awaitable()  {
-			}
+			return ref_awaitable{ m_coroutine };
+		}
 
+		struct mov_awaitable : impl::task_awaitable_base<T, lazy>
+		{
+			using impl::task_awaitable_base<T, lazy>::task_awaitable_base;
 
-			using impl::continuation_awaiter<handle_type, true>::await_ready;
-			using impl::continuation_awaiter<handle_type, true>::await_suspend;
-			decltype(auto) await_resume() {
-				if (!this->cont)
-					throw broken_promise{ MACORO_LOCATION };
+			decltype(auto) await_resume()
+			{
+				if (!this->m_coroutine)
+				{
+					throw broken_promise{};
+				}
 
-				using move2 = typename std::conditional<std::is_same<decltype(this->cont.promise().get()), void>::value, std::false_type, move>::type;
-
-				return impl::optMove(move2{}, this->cont.promise());
+				return std::move(this->m_coroutine.promise()).result();
 			}
 		};
 
-		auto operator_co_await() const& noexcept
+		auto MACORO_OPERATOR_COAWAIT() const&& noexcept
 		{
-			return awaitable<std::false_type>{ handle };
+			return mov_awaitable{ m_coroutine };
 		}
 
-		auto operator_co_await() const&& noexcept
+		struct ready_awaitable : impl::task_awaitable_base<T, lazy>
 		{
-			return awaitable<std::true_type>{ handle };
-		}
-#ifdef MACORO_CPP_20
-		auto operator co_await() const& noexcept
+			using impl::task_awaitable_base<T, lazy>::task_awaitable_base;
+
+			void await_resume() const noexcept {}
+		};
+		/// \brief
+		/// Returns an awaitable that will await completion of the task without
+		/// attempting to retrieve the result.
+		auto when_ready() const noexcept
 		{
-			return awaitable<std::false_type>{ handle };
+			return ready_awaitable{ m_coroutine };
 		}
 
-		auto operator co_await() const&& noexcept
-		{
-			return awaitable<std::true_type>{ handle };
-		}
-#endif
 	private:
-		friend promise_type;
 
-		task(handle_type h)
-			:handle(h)
-		{
-			//std::cout << "new' t  " << this << std::endl;
-
-		}
-
+		coroutine_handle<promise_type> m_coroutine;
 
 	};
 
-	
 
-	template<typename awaitable>
-	auto make_task(awaitable a)
-		-> task<remove_rvalue_reference_t<awaitable_result_t<awaitable>>>
-	{
-		co_return co_await static_cast<awaitable&&>(awaitable);
-	}
-
+	template<typename T>
+	using eager_task = task<T, false>;
 
 	namespace impl
 	{
+		template<typename T, bool lazy>
+		task<T, lazy> task_promise<T, lazy>::get_return_object() noexcept
+		{
+			return task<T, lazy>{ coroutine_handle<task_promise>::from_promise(*this, coroutine_handle_type::std) };
+		}
 
-		template<typename T>
-		task<T> task_promise<T>::get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::std) }; }
-		template<typename T>
-		task<T> task_promise<T>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::macoro) }; }
+		template<bool lazy>
+		inline task<void, lazy> task_promise<void, lazy>::get_return_object() noexcept
+		{
+			return task<void, lazy>{ coroutine_handle<task_promise>::from_promise(*this, coroutine_handle_type::std) };
+		}
 
-		template<typename T>
-		task<T&> task_promise<T&>::get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::std) }; }
-		template<typename T>
-		task<T&> task_promise<T&>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::macoro) }; }
-
-		inline task<void> task_promise<void>::get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::std) }; }
-		inline task<void> task_promise<void>::macoro_get_return_object() noexcept { return { handle_type::from_promise(*this, coroutine_handle_type::macoro) }; }
-
+		template<typename T, bool lazy>
+		task<T&, lazy> task_promise<T&, lazy>::get_return_object() noexcept
+		{
+			return task<T&, lazy>{ coroutine_handle<task_promise>::from_promise(*this, coroutine_handle_type::std) };
+		}
 
 
+		template<typename T, bool lazy>
+		task<T, lazy> task_promise<T, lazy>::macoro_get_return_object() noexcept
+		{
+			return task<T, lazy>{ coroutine_handle<task_promise>::from_promise(*this, coroutine_handle_type::macoro) };
+		}
+
+		template<bool lazy>
+		inline task<void, lazy> task_promise<void, lazy>::macoro_get_return_object() noexcept
+		{
+			return task<void, lazy>{ coroutine_handle<task_promise>::from_promise(*this, coroutine_handle_type::macoro) };
+		}
+
+		template<typename T, bool lazy>
+		task<T&, lazy> task_promise<T&, lazy>::macoro_get_return_object() noexcept
+		{
+			return task<T&, lazy>{ coroutine_handle<task_promise>::from_promise(*this, coroutine_handle_type::macoro) };
+
+		}
+	}
+
+	template<typename AWAITABLE>
+	auto make_task(AWAITABLE awaitable)
+		-> task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>
+	{
+		co_return co_await static_cast<AWAITABLE&&>(awaitable);
+	}
+	template<typename AWAITABLE>
+	auto make_eager_task(AWAITABLE awaitable)
+		-> eager_task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>
+	{
+		co_return co_await static_cast<AWAITABLE&&>(awaitable);
 	}
 }
+

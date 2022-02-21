@@ -8,6 +8,8 @@ namespace macoro
 
 	void when_all_basic_tests()
 	{
+		std::cout << "when_all_basic_tests   ";
+
 		auto f = []() -> task<int> {
 			co_return 42;
 		};
@@ -52,8 +54,8 @@ namespace macoro
 			);
 
 		std::tuple <
-			impl::when_all_task<int&&>,
-			impl::when_all_task<bool&&>
+			impl::when_all_task<int>,
+			impl::when_all_task<bool>
 			>
 			r = sync_wait(when_all_ready(f(), g()));
 
@@ -61,17 +63,19 @@ namespace macoro
 		auto gg = g();
 
 		std::tuple <
-			impl::when_all_task<int&&>,
-			impl::when_all_task<bool&&>
+			impl::when_all_task<int>,
+			impl::when_all_task<bool&>
 		>
 			r2 = sync_wait(when_all_ready(std::move(ff), h()));
 		//auto r = sync_wait(w);
-		impl::when_all_task<int&&> r0 = std::move(std::get<0>(r));
+		impl::when_all_task<int> r0 = std::move(std::get<0>(r));
 		assert(std::get<0>(r).result() == 42);
 		assert(std::get<1>(r).result() == true);
+		std::cout << "      passed " << std::endl;
 	}
 
 	void when_all_tests()
 	{
+		when_all_basic_tests();
 	}
 }

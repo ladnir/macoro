@@ -9,9 +9,11 @@
 #ifdef MACORO_CPP_20
 #define MACORO_NODISCARD [[nodiscard]]
 #define MACORO_FALLTHROUGH [[fallthrough]]
+#define MACORO_OPERATOR_COAWAIT operator co_await
 #else
 #define MACORO_NODISCARD
 #define MACORO_FALLTHROUGH
+#define MACORO_OPERATOR_COAWAIT operator_co_await
 #endif
 
 
@@ -22,3 +24,10 @@
 #define MACORO_LOCATION __FILE__ ":" MACORO_STRINGIZE(__LINE__)
 #define MACORO_RTE_LOC std::runtime_error(MACORO_LOCATION)
 #define MACORO_ASSUME(x)
+
+
+#if _MSC_VER
+# define MACORO_NOINLINE_BUG __declspec(noinline)
+#else
+# define MACORO_NOINLINE_BUG
+#endif

@@ -143,7 +143,7 @@ namespace macoro
 		template<typename T, typename E>
 		struct result_awaiter
 		{
-			result<T, E>* result;
+			result<T, E>* mResult;
 
 			bool await_ready() noexcept { return true; }
 
@@ -155,16 +155,16 @@ namespace macoro
 			void await_suspend(const coroutine_handle<P>&) noexcept {}
 			T await_resume()
 			{
-				if (result->has_error())
-					result_rethrow(result->error());
+				if (mResult->has_error())
+					result_rethrow(mResult->error());
 
-				return std::move(result->value());
+				return std::move(mResult->value());
 			}
 		};
 		template<typename E>
 		struct result_awaiter<void, E>
 		{
-			result<void, E>* result;
+			result<void, E>* mResult;
 
 			bool await_ready() noexcept { return true; }
 
@@ -176,8 +176,8 @@ namespace macoro
 			void await_suspend(const coroutine_handle<P>&) noexcept {}
 			void await_resume()
 			{
-				if (result->has_error())
-					result_rethrow(result->error());
+				if (mResult->has_error())
+					result_rethrow(mResult->error());
 			}
 		};
 

@@ -59,7 +59,8 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND MACORO_CPP_20)
 endif()
 
 
-
+find_package (Threads)
+target_link_libraries(macoro PUBLIC Threads::Threads)
 
 
 

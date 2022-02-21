@@ -39,7 +39,7 @@
 		_macoro_ctx.awaitable.ptr = new (_macoro_ctx.awaitable.v()) typename decltype(_macoro_ctx.awaitable)::Constructor(macoro::get_awaitable(_macoro_promise, _macoro_ctx.expr.get()));	\
 		_macoro_ctx.awaiter.ptr   = new (_macoro_ctx.awaiter.v())   typename decltype(_macoro_ctx.awaiter)::Constructor(macoro::get_awaiter(_macoro_ctx.awaitable.get()));					\
 		auto& _macoro_awaiter = _macoro_ctx.awaiter.getRef();													\
-		*_macoro_ctx.awaiter_ptr = &_macoro_awaiter;															\
+		*_macoro_ctx.awaiter_ptr = (void*)&_macoro_awaiter;														\
 		if (!_macoro_awaiter.await_ready())																		\
 		{																										\
 			/*<suspend-coroutine>*/																				\

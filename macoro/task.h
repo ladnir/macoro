@@ -115,7 +115,7 @@ namespace macoro
 				{
 					auto& promise = coro.promise();
 					// release our result. acquire their continuation (if they beat us).
-					auto b = promise.has_completed_or_continutation.exchange(true, std::memory_order::memory_order_acq_rel);
+					auto b = promise.has_completed_or_continutation.exchange(true, std::memory_order_acq_rel);
 
 					// if b, then we have finished after the continuation was set. 
 					if (b)
@@ -154,7 +154,7 @@ namespace macoro
 			{
 				assert(!m_continuation);
 				m_continuation = continuation;
-				return has_completed_or_continutation.exchange(true, std::memory_order::memory_order_acq_rel);
+				return has_completed_or_continutation.exchange(true, std::memory_order_acq_rel);
 			}
 
 		private:

@@ -440,14 +440,15 @@ namespace macoro
 
 		auto t = [](cancellation_token t) -> task<void>
 		{
+			MC_BEGIN(task<>, t);
 			while (true)
 			{
 				if (t.is_cancellation_requested())
 					throw operation_cancelled();
 			}
 
-			co_return;
-
+			MC_RETURN_VOID();
+			MC_END();
 		};
 
 

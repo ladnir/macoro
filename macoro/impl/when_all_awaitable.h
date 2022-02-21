@@ -29,7 +29,9 @@ namespace macoro
 
 			constexpr bool await_ready() const noexcept { return true; }
 			void await_suspend(coroutine_handle<>) noexcept {}
+#ifdef MACORO_CPP_20
 			void await_suspend(std::coroutine_handle<>) noexcept {}
+#endif
 			std::tuple<> await_resume() const noexcept { return {}; }
 
 		};
@@ -56,7 +58,7 @@ namespace macoro
 				, m_tasks(std::move(other.m_tasks))
 			{}
 
-			auto operator co_await() & noexcept
+			auto MACORO_OPERATOR_COAWAIT() & noexcept
 			{
 				struct awaiter
 				{
@@ -69,11 +71,12 @@ namespace macoro
 						return m_awaitable.is_ready();
 					}
 
+#ifdef MACORO_CPP_20
 					bool await_suspend(std::coroutine_handle<> awaitingCoroutine) noexcept
 					{
 						return await_suspend(coroutine_handle<>(awaitingCoroutine));
 					}
-
+#endif
 					bool await_suspend(coroutine_handle<> awaitingCoroutine) noexcept
 					{
 						return m_awaitable.try_await(awaitingCoroutine);
@@ -93,7 +96,7 @@ namespace macoro
 				return awaiter{ *this };
 			}
 
-			auto operator co_await() && noexcept
+			auto MACORO_OPERATOR_COAWAIT() && noexcept
 			{
 				struct awaiter
 				{
@@ -105,11 +108,12 @@ namespace macoro
 					{
 						return m_awaitable.is_ready();
 					}
-
+#ifdef MACORO_CPP_20
 					bool await_suspend(std::coroutine_handle<> awaitingCoroutine) noexcept
 					{
 						return await_suspend(coroutine_handle<>(awaitingCoroutine));
 					}
+#endif
 					bool await_suspend(coroutine_handle<> awaitingCoroutine) noexcept
 					{
 						return m_awaitable.try_await(awaitingCoroutine);
@@ -174,7 +178,7 @@ namespace macoro
 			when_all_ready_awaitable(const when_all_ready_awaitable&) = delete;
 			when_all_ready_awaitable& operator=(const when_all_ready_awaitable&) = delete;
 
-			auto operator co_await() & noexcept
+			auto MACORO_OPERATOR_COAWAIT() & noexcept
 			{
 				class awaiter
 				{
@@ -189,11 +193,12 @@ namespace macoro
 						return m_awaitable.is_ready();
 					}
 
+#ifdef MACORO_CPP_20
 					bool await_suspend(std::coroutine_handle<> awaitingCoroutine) noexcept
 					{
 						return await_suspend(coroutine_handle<>(awaitingCoroutine));
 					}
-
+#endif
 					bool await_suspend(coroutine_handle<> awaitingCoroutine) noexcept
 					{
 						return m_awaitable.try_await(awaitingCoroutine);
@@ -214,7 +219,7 @@ namespace macoro
 			}
 
 
-			auto operator co_await() && noexcept
+			auto MACORO_OPERATOR_COAWAIT() && noexcept
 			{
 				class awaiter
 				{
@@ -229,11 +234,12 @@ namespace macoro
 						return m_awaitable.is_ready();
 					}
 
+#ifdef MACORO_CPP_20
 					bool await_suspend(std::coroutine_handle<> awaitingCoroutine) noexcept
 					{
 						return await_suspend(coroutine_handle<>(awaitingCoroutine));
 					}
-
+#endif
 					bool await_suspend(coroutine_handle<> awaitingCoroutine) noexcept
 					{
 						return m_awaitable.try_await(awaitingCoroutine);

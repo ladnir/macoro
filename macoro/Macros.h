@@ -172,6 +172,8 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ::macoro::coroutine_trai
 // `co_return co_yeild EXPRESSION`
 #define MC_RETURN_YIELD(EXPRESSION)			MC_RETURN_AWAIT(_macoro_frame_->promise.yield_value(EXPRESSION));
 
+#define MC_UNHANDLED_EXCEPTION _macoro_frame_->promise.unhandled_exception()
+
 // End the coroutine body.
 #define MC_END()																								\
 				break; 																							\
@@ -187,7 +189,7 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ::macoro::coroutine_trai
 			_macoro_frame_->destroyAwaiters();																	\
 			if (!_macoro_frame_->_initial_suspend_await_resumed_called_)										\
 				throw; 																							\
-			_macoro_frame_->promise.unhandled_exception();														\
+			MC_UNHANDLED_EXCEPTION;																				\
 		}																										\
 		/*final suspend*/																						\
 MACORO_FINAL_SUSPEND_BEGIN:																						\

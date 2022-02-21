@@ -10,7 +10,9 @@ namespace macoro
 		//assert(0);
 		auto foo = []() -> task<int>
 		{
-			co_return 42;
+			MC_BEGIN(task<int>);
+			MC_RETURN(42);
+			MC_END();
 		};
 
 		auto t = foo();
@@ -30,8 +32,10 @@ namespace macoro
 
 		auto foo = [scheduler = tp.schedule()]()->task<int>
 		{
-			co_await scheduler;
-			co_return 42;
+			MC_BEGIN(task<int>, scheduler);
+			MC_AWAIT(scheduler);
+			MC_RETURN(42);
+			MC_END();
 		};
 
 		auto t = foo();
@@ -53,8 +57,10 @@ namespace macoro
 
 		auto foo = [scheduler = tp.dispatch()]()->task<int>
 		{
-			co_await scheduler;
-			co_return 42;
+			MC_BEGIN(task<int>, scheduler);
+			MC_AWAIT(scheduler);
+			MC_RETURN(42);
+			MC_END();
 		};
 
 		auto t = foo();
@@ -78,7 +84,14 @@ namespace macoro
 
 		auto foo = []()->task<int>
 		{
+#ifdef MACORO_CPP_20
 			co_return 42;
+#else
+
+			MC_BEGIN(task<int>);
+			MC_RETURN(42);
+			MC_END();
+#endif
 		};
 
 		auto t = foo()

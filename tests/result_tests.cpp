@@ -34,11 +34,21 @@ namespace macoro
 
 		auto foo = []()->result<int>
 		{
-			result<bool> b;
 
-			bool bb = co_await b;
+			MC_BEGIN(result<int>
+				, b = result<bool>{}
+				, bb = bool{}
+			);
 
-			co_return bb ? 1 : 42;
+			MC_AWAIT_SET(bb, b);
+
+			using VALUE = macoro::impl::ErrorMvTag<std::exception_ptr>;
+			using T = result<int>;
+			static_assert(std::is_convertible<VALUE&&, T>::value, "");
+
+			MC_RETURN(Ok(bb ? 1 : 42));
+			MC_END();
+
 		};
 
 		r = foo();
@@ -64,9 +74,13 @@ namespace macoro
 
 		auto foo = []()->task<int>
 		{
-			result<bool> b;
-			std::exception_ptr bb = b.error();
-			co_return 42;
+			MC_BEGIN(task<int>
+				, b = result<bool>{}
+				, bb = std::exception_ptr{}
+			);
+			bb = b.error();
+			MC_RETURN(Ok(42));
+			MC_END();
 		};
 
 		result<int> r = sync_wait(wrap(foo()));
@@ -81,9 +95,13 @@ namespace macoro
 
 		auto foo = []()->task<int>
 		{
-			result<bool> b;
-			std::exception_ptr bb = b.error();
-			co_return 42;
+			MC_BEGIN(task<int>
+				, b = result<bool>{}
+				, bb = std::exception_ptr{}
+			);
+			bb = b.error();
+			MC_RETURN(Ok(42));
+			MC_END();
 		};
 
 		result<int> r = sync_wait(foo() | wrap());
@@ -96,9 +114,11 @@ namespace macoro
 	{
 		std::cout << "result_void_test       " << std::endl;
 
-		auto foo = []()->task<void>
+		auto foo = []()->result<void>
 		{
-			co_return;
+			MC_BEGIN(result<void>);
+			MC_RETURN(Ok());
+			MC_END();
 		};
 
 		result<void> r = sync_wait(wrap(foo()));

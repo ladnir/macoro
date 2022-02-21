@@ -78,18 +78,23 @@ namespace macoro
 		return h;
 	}
 
+#ifdef MACORO_CPP_20
 	template<bool macoro, typename T>
 	enable_if_t<!macoro, std::coroutine_handle<void>>
 		implicit_cast(const coroutine_handle<T>& h)
 	{
 		return h.std_cast();
 	}
+#endif
 
 	template<typename Awaiter, typename T>
 	await_suspend_t<bool> await_suspend(Awaiter& a, coroutine_handle<T> h,
 		enable_if_t<
-		has_void_await_suspend<Awaiter, coroutine_handle<T>>::value ||
+		has_void_await_suspend<Awaiter, coroutine_handle<T>>::value 
+#ifdef MACORO_CPP_20
+		||
 		has_void_await_suspend<Awaiter, std::coroutine_handle<void>>::value
+#endif
 		, empty_state> = {}) noexcept(noexcept(a.await_suspend(h)))
 	{
 		auto h2 = implicit_cast<has_void_await_suspend<Awaiter, coroutine_handle<T>>::value, T>(h);
@@ -100,8 +105,11 @@ namespace macoro
 	template<typename Awaiter, typename T>
 	await_suspend_t<bool> await_suspend(Awaiter& a, coroutine_handle<T> h,
 		enable_if_t<
-		has_bool_await_suspend<Awaiter, coroutine_handle<T>>::value ||
+		has_bool_await_suspend<Awaiter, coroutine_handle<T>>::value 
+#ifdef MACORO_CPP_20
+		||
 		has_bool_await_suspend<Awaiter, std::coroutine_handle<void>>::value
+#endif
 		, empty_state> = {}) noexcept(noexcept(await_suspend_t<bool>{ a.await_suspend(h) }))
 	{
 
@@ -116,9 +124,12 @@ namespace macoro
 	auto await_suspend(Awaiter& a, coroutine_handle<T> h,
 		enable_if_t<
 		!has_void_await_suspend<Awaiter, coroutine_handle<T>>::value &&
+		!has_bool_await_suspend<Awaiter, coroutine_handle<T>>::value 
+#ifdef MACORO_CPP_20
+		&&
 		!has_void_await_suspend<Awaiter, std::coroutine_handle<void>>::value &&
-		!has_bool_await_suspend<Awaiter, coroutine_handle<T>>::value &&
 		!has_bool_await_suspend<Awaiter, std::coroutine_handle<void>>::value
+#endif
 		, empty_state> = {}) noexcept(noexcept(await_suspend_t<coroutine_handle<typename coroutine_handle_traits<decltype(a.await_suspend(h))>::promise_type>>{ a.await_suspend(h) }))
 	{
 
@@ -127,8 +138,12 @@ namespace macoro
 
 		static_assert(
 			std::is_same<decltype(a.await_suspend(H2{})), bool > ::value ||
-			std::is_convertible<decltype(a.await_suspend(H2{})), macoro::coroutine_handle<>>::value ||
-			std::is_convertible<decltype(a.await_suspend(H2{})), std::coroutine_handle<>>::value,
+			std::is_convertible<decltype(a.await_suspend(H2{})), macoro::coroutine_handle<>>::value
+#ifdef MACORO_CPP_20
+			||
+			std::is_convertible<decltype(a.await_suspend(H2{})), std::coroutine_handle<>>::value
+#endif
+			,
 			"await_suspend() must return 'void', 'bool', or convertible to macoro::coroutine_handle<> or std::coroutine_handle<>.");
 
 		using promise_type = typename coroutine_handle_traits<decltype(a.await_suspend(h))>::promise_type;

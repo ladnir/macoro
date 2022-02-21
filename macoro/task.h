@@ -15,6 +15,7 @@
 #include "macoro/coroutine_handle.h"
 #include "macoro/awaiter.h"
 #include "macoro/type_traits.h"
+#include "macoro/macros.h"
 
 namespace macoro
 {
@@ -36,7 +37,7 @@ namespace macoro
 			struct final_awaitable
 			{
 				bool await_ready() const noexcept { return false; }
-
+#ifdef MACORO_CPP_20
 				template<typename PROMISE>
 				std::coroutine_handle<> await_suspend(
 					std::coroutine_handle<PROMISE> coro) noexcept
@@ -45,6 +46,7 @@ namespace macoro
 					assert(prom.m_continuation && "the lazy task type `task<T>` completed without a continuation.");
 					return prom.m_continuation.std_cast();
 				}
+#endif
 
 				template<typename PROMISE>
 				coroutine_handle<> await_suspend(
@@ -64,7 +66,7 @@ namespace macoro
 
 			auto initial_suspend() noexcept
 			{
-				return std::suspend_always{};
+				return suspend_always{};
 			}
 
 			auto final_suspend() noexcept
@@ -72,11 +74,13 @@ namespace macoro
 				return final_awaitable{};
 			}
 
+#ifdef MACORO_CPP_20
 			void set_continuation(std::coroutine_handle<> continuation) noexcept
 			{
 				assert(!m_continuation);
 				m_continuation = coroutine_handle<>(continuation);
 			}
+#endif
 			void set_continuation(coroutine_handle<> continuation) noexcept
 			{
 				assert(!m_continuation);
@@ -96,12 +100,14 @@ namespace macoro
 			{
 				bool await_ready() const noexcept { return false; }
 
+#ifdef MACORO_CPP_20
 				template<typename PROMISE>
 				std::coroutine_handle<> await_suspend(
 					std::coroutine_handle<PROMISE> coro) noexcept
 				{
 					return await_suspend(coroutine_handle<PROMISE>(coro)).std_cast();
 				}
+#endif
 
 				template<typename PROMISE>
 				coroutine_handle<> await_suspend(
@@ -131,18 +137,19 @@ namespace macoro
 
 			auto initial_suspend() noexcept
 			{
-				return std::suspend_never{};
+				return suspend_never{};
 			}
 
 			auto final_suspend() noexcept
 			{
 				return final_awaitable{};
 			}
-
+#ifdef MACORO_CPP_20
 			bool try_set_continuation(std::coroutine_handle<> continuation) noexcept
 			{
 				return try_set_continuation(coroutine_handle<>(continuation));
 			}
+#endif
 			bool try_set_continuation(coroutine_handle<> continuation) noexcept
 			{
 				assert(!m_continuation);
@@ -190,9 +197,9 @@ namespace macoro
 
 			template<
 				typename VALUE,
-				typename = std::enable_if_t<std::is_convertible_v<VALUE&&, T>>>
+				typename = enable_if_t<std::is_convertible<VALUE&&, T>::value>>
 				void return_value(VALUE&& value)
-				noexcept(std::is_nothrow_constructible_v<T, VALUE&&>)
+				noexcept(std::is_nothrow_constructible<T, VALUE&&>::value)
 			{
 				::new (static_cast<void*>(std::addressof(m_value))) T(std::forward<VALUE>(value));
 				m_resultType = result_type::value;
@@ -216,10 +223,10 @@ namespace macoro
 			// cause the value to be copied to a temporary. This breaks the
 			// sync_wait() implementation.
 			// See https://github.com/lewissbaker/cppcoro/issues/40#issuecomment-326864107
-			using rvalue_type = std::conditional_t<
-				std::is_arithmetic_v<T> || std::is_pointer_v<T>,
+			using rvalue_type = typename std::conditional<
+				std::is_arithmetic<T>::value || std::is_pointer<T>::value,
 				T,
-				T&&>;
+				T&&>::type;
 
 			rvalue_type result()&&
 			{
@@ -323,10 +330,11 @@ namespace macoro
 		{
 			using promise_type = task_promise<T, true>;
 			coroutine_handle<promise_type> m_coroutine;
-
+#ifdef MACORO_CPP_20
 			task_awaitable_base(std::coroutine_handle<promise_type> coroutine) noexcept
 				: m_coroutine(coroutine_handle<promise_type>(coroutine))
 			{}
+#endif
 			task_awaitable_base(coroutine_handle<promise_type> coroutine) noexcept
 				: m_coroutine(coroutine)
 			{}
@@ -336,12 +344,14 @@ namespace macoro
 				return !m_coroutine || m_coroutine.done();
 			}
 
+#ifdef MACORO_CPP_20
 			std::coroutine_handle<> await_suspend(
 				std::coroutine_handle<> awaitingCoroutine) noexcept
 			{
 				m_coroutine.promise().set_continuation(awaitingCoroutine);
 				return m_coroutine.std_cast();
 			}
+#endif
 
 			coroutine_handle<> await_suspend(
 				coroutine_handle<> awaitingCoroutine) noexcept
@@ -356,10 +366,12 @@ namespace macoro
 		{
 			using promise_type = task_promise<T, false>;
 			coroutine_handle<promise_type> m_coroutine;
-
+#ifdef MACORO_CPP_20
 			task_awaitable_base(std::coroutine_handle<promise_type> coroutine) noexcept
 				: m_coroutine(coroutine_handle<promise_type>(coroutine))
 			{}
+#endif
+
 			task_awaitable_base(coroutine_handle<promise_type> coroutine) noexcept
 				: m_coroutine(coroutine)
 			{}
@@ -369,12 +381,14 @@ namespace macoro
 				return !m_coroutine || m_coroutine.done();
 			}
 
+#ifdef MACORO_CPP_20
 			std::coroutine_handle<> await_suspend(
 				std::coroutine_handle<> awaitingCoroutine) noexcept
 			{
 				return await_suspend(
 					coroutine_handle<>(awaitingCoroutine)).std_cast();
 			}
+#endif
 
 			coroutine_handle<> await_suspend(
 				coroutine_handle<> awaitingCoroutine) noexcept
@@ -423,10 +437,11 @@ namespace macoro
 		task() noexcept
 			: m_coroutine(nullptr)
 		{}
-
+#ifdef MACORO_CPP_20
 		explicit task(std::coroutine_handle<promise_type> coroutine)
 			: m_coroutine(coroutine_handle<promise_type>(coroutine))
 		{}
+#endif
 		explicit task(coroutine_handle<promise_type> coroutine)
 			: m_coroutine(coroutine)
 		{}
@@ -576,10 +591,10 @@ namespace macoro
 		task<T&, lazy> task_promise<T&, lazy>::macoro_get_return_object() noexcept
 		{
 			return task<T&, lazy>{ coroutine_handle<task_promise>::from_promise(*this, coroutine_handle_type::macoro) };
-
 		}
 	}
 
+#ifdef MACORO_CPP_20
 	template<typename AWAITABLE>
 	auto make_task(AWAITABLE awaitable)
 		-> task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>
@@ -592,5 +607,25 @@ namespace macoro
 	{
 		co_return co_await static_cast<AWAITABLE&&>(awaitable);
 	}
+#else	
+	template<typename AWAITABLE>
+	auto make_task(AWAITABLE a)
+		-> task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>
+	{
+		MC_BEGIN(task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>, awaitable = std::move(a));
+		MC_RETURN_AWAIT(static_cast<AWAITABLE&&>(awaitable));
+		MC_END();
+	}
+	template<typename AWAITABLE>
+	auto make_eager_task(AWAITABLE a)
+		-> eager_task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>
+	{
+		MC_BEGIN(eager_task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>, awaitable = std::move(a));
+		MC_RETURN_AWAIT(static_cast<AWAITABLE&&>(awaitable));
+		MC_END();
+		//co_return co_await static_cast<AWAITABLE&&>(awaitable);
+	}
+
+#endif
 }
 

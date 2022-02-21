@@ -45,7 +45,7 @@ namespace macoro
 
 			operator T && ()
 			{
-				return mV;
+				return (T&&)mV;
 			}
 		};
 
@@ -146,8 +146,11 @@ namespace macoro
 			result<T, E>* result;
 
 			bool await_ready() noexcept { return true; }
+
+#ifdef MACORO_CPP_20
 			template<typename P>
 			void await_suspend(const std::coroutine_handle<P>&) noexcept {}
+#endif
 			template<typename P>
 			void await_suspend(const coroutine_handle<P>&) noexcept {}
 			T await_resume()
@@ -158,15 +161,30 @@ namespace macoro
 				return std::move(result->value());
 			}
 		};
+		template<typename E>
+		struct result_awaiter<void, E>
+		{
+			result<void, E>* result;
 
+			bool await_ready() noexcept { return true; }
+
+#ifdef MACORO_CPP_20
+			template<typename P>
+			void await_suspend(const std::coroutine_handle<P>&) noexcept {}
+#endif
+			template<typename P>
+			void await_suspend(const coroutine_handle<P>&) noexcept {}
+			void await_resume()
+			{
+				if (result->has_error())
+					result_rethrow(result->error());
+			}
+		};
 
 		template<typename T, typename E>
 		struct result_promise
 		{
-			variant<empty_state,
-				typename std::remove_reference<T>::type*,
-				E
-			> mVar;
+			optional<result<T,E>> mResult;
 
 			suspend_never initial_suspend() const noexcept { return {}; }
 			suspend_always final_suspend() const noexcept { return {}; }
@@ -179,22 +197,24 @@ namespace macoro
 				{
 
 					auto& promise = handle.promise();
-					auto idx = promise.mVar.index();
-					if (idx == 1)
-					{
-						result<T, E> r(Ok(std::move(*MACORO_VARIANT_NAMESPACE::get<1>(promise.mVar))));
-						handle.destroy();
-						return r;
-					}
-					else if (idx == 2)
-					{
-						result<T, E> r(Err(std::move(MACORO_VARIANT_NAMESPACE::get<2>(promise.mVar))));
-						handle.destroy();
-						return r;
-					}
-
+					auto r = std::move(promise.mResult.value());
 					handle.destroy();
-					throw broken_promise();
+					return r;
+					//auto idx = promise.mVar.index();
+					//if (idx == 1)
+					//{
+					//	result<T, E> r(Ok(std::move(*MACORO_VARIANT_NAMESPACE::get<1>(promise.mVar))));
+					//	handle.destroy();
+					//	return r;
+					//}
+					//else if (idx == 2)
+					//{
+					//	result<T, E> r(Err(std::move(MACORO_VARIANT_NAMESPACE::get<2>(promise.mVar))));
+					//	handle.destroy();
+					//	return r;
+					//}
+
+					//throw broken_promise();
 				}
 			};
 
@@ -204,7 +224,7 @@ namespace macoro
 			}
 			Ret macoro_get_return_object()
 			{
-				return { coroutine_handle<result_promise>::from_promise(*this, coroutine_handle_type::std) };
+				return { coroutine_handle<result_promise>::from_promise(*this, coroutine_handle_type::macoro) };
 			}
 
 			template<typename TT>
@@ -224,17 +244,19 @@ namespace macoro
 
 			void unhandled_exception()
 			{
-				mVar.template emplace<2>(result_unhandled_exception<T, E>());
+				mResult.emplace(Err(result_unhandled_exception<T, E>()));
 			}
 
-			void return_value(T&& t)
+			template<typename TT>
+			void return_value(TT&& t)
 			{
-				mVar.template emplace<1>(&t);
+				mResult.emplace(std::forward<TT>(t));
+				//mVar.template emplace<1>(&t);
 			}
-			void return_value(const T& t)
-			{
-				mVar.template emplace<1>(&t);
-			}
+			//void return_value(const T& t)
+			//{
+			//	mVar.template emplace<1>(&t);
+			//}
 		};
 
 	}
@@ -253,6 +275,12 @@ namespace macoro
 			: mVar(impl::resultDefaultConstruct<T,Error>())
 		{
 		}
+
+
+		result(const result&) = default;
+		result(result&&) = default;
+		result& operator=(const result&) = default;
+		result& operator=(result&&) = default;
 
 		result(impl::OkTag<value_type>&& v) :mVar(v.mV) {}
 		result(impl::OkMvTag<value_type>&& v) : mVar(std::move(v.mV)) {}
@@ -430,7 +458,7 @@ namespace macoro
 		}
 
 
-		impl::result_awaiter<T, Error> operator co_await()
+		impl::result_awaiter<T, Error> MACORO_OPERATOR_COAWAIT()
 		{
 			return { this };
 		}
@@ -447,9 +475,11 @@ namespace macoro
 		using error_type = remove_cvref_t<Error>;
 
 
-		result()
-		{
-		}
+		result() = default;
+		result(const result&) = default;
+		result(result&& r) {};
+		result& operator=(const result&) = default;
+		result& operator=(result&&) = default;
 
 		result(const impl::OkTag<value_type>&) {}
 		result(impl::ErrorTag<error_type>&& e) : mVar(e.mE) {}
@@ -570,7 +600,7 @@ namespace macoro
 			return !(*this == v);
 		}
 
-		impl::result_awaiter<void, Error> operator co_await()
+		impl::result_awaiter<void, Error> MACORO_OPERATOR_COAWAIT()
 		{
 			return { this };
 		}

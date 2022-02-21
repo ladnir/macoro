@@ -9,6 +9,7 @@
 #include "when_all_counter.h"
 
 #include "macoro/type_traits.h"
+#include "macoro/macros.h"
 
 #include <cassert>
 
@@ -26,8 +27,9 @@ namespace macoro
 		class when_all_task_promise final
 		{
 		public:
-
+#ifdef MACORO_CPP_20
 			using std_coroutine_handle_t = std::coroutine_handle<when_all_task_promise<RESULT>>;
+#endif
 			using coroutine_handle_t = coroutine_handle<when_all_task_promise<RESULT>>;
 
 			when_all_task_promise() noexcept
@@ -56,11 +58,12 @@ namespace macoro
 				public:
 
 					bool await_ready() const noexcept { return false; }
-
+#ifdef MACORO_CPP_20
 					void await_suspend(std_coroutine_handle_t coro) const noexcept
 					{
 						await_suspend(coroutine_handle_t(coro));
 					}
+#endif
 
 					void await_suspend(coroutine_handle_t coro) const noexcept
 					{
@@ -132,8 +135,9 @@ namespace macoro
 		class when_all_task_promise<void> final
 		{
 		public:
-
+#ifdef MACORO_CPP_20
 			using std_coroutine_handle_t = std::coroutine_handle<when_all_task_promise<void>>;
+#endif
 			using coroutine_handle_t = coroutine_handle<when_all_task_promise<void>>;
 
 			when_all_task_promise() noexcept
@@ -150,7 +154,7 @@ namespace macoro
 				return coroutine_handle_t::from_promise(*this, m_type);
 			}
 
-			std::suspend_always initial_suspend() noexcept
+			suspend_always initial_suspend() noexcept
 			{
 				return{};
 			}
@@ -162,11 +166,12 @@ namespace macoro
 				public:
 
 					bool await_ready() const noexcept { return false; }
-
+#ifdef MACORO_CPP_20
 					void await_suspend(std_coroutine_handle_t coro) const noexcept
 					{
 						coro.promise().m_counter->notify_awaitable_completed();
 					}
+#endif
 
 					void await_suspend(coroutine_handle_t coro) const noexcept
 					{
@@ -217,16 +222,19 @@ namespace macoro
 		public:
 
 			using promise_type = when_all_task_promise<RESULT>;
-
+#ifdef MACORO_CPP_20
 			using std_coroutine_handle_t = typename promise_type::std_coroutine_handle_t;
+#endif
 			using coroutine_handle_t = typename promise_type::coroutine_handle_t;
 
 			when_all_task(coroutine_handle_t coroutine) noexcept
 				: m_coroutine(coroutine)
 			{}
+#ifdef MACORO_CPP_20
 			when_all_task(std_coroutine_handle_t coroutine) noexcept
 				: m_coroutine(coroutine_handle_t(coroutine))
 			{}
+#endif
 
 			when_all_task(when_all_task&& other) noexcept
 				: m_coroutine(std::exchange(other.m_coroutine, coroutine_handle_t{}))
@@ -290,6 +298,7 @@ namespace macoro
 
 		};
 
+#ifdef MACORO_CPP_20
 		template<
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
@@ -325,5 +334,55 @@ namespace macoro
 		{
 			co_await awaitable.get();
 		}
+
+#else
+		template<
+			typename AWAITABLE,
+			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
+			std::enable_if_t<!std::is_void_v<RESULT>, int> = 0>
+			when_all_task<RESULT> make_when_all_task(AWAITABLE a)
+		{
+			MC_BEGIN(when_all_task<RESULT>, awaitable = std::move(a));
+			MC_YIELD_AWAIT(static_cast<AWAITABLE&&>(awaitable));
+			MC_END();
+		}
+
+		template<
+			typename AWAITABLE,
+			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
+			std::enable_if_t<std::is_void_v<RESULT>, int> = 0>
+			when_all_task<void> make_when_all_task(AWAITABLE a)
+		{
+			MC_BEGIN(when_all_task<void>, awaitable = std::move(a));
+			MC_AWAIT(static_cast<AWAITABLE&&>(awaitable));
+			MC_END();
+		}
+
+		template<
+			typename AWAITABLE,
+			typename RESULT = typename awaitable_traits<AWAITABLE&>::await_result_t,
+			std::enable_if_t<!std::is_void_v<RESULT>, int> = 0>
+			when_all_task<RESULT> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
+		{
+
+			MC_BEGIN(when_all_task<RESULT>, awaitable);
+			MC_YIELD_AWAIT(awaitable.get());
+			MC_END();
+			//co_yield co_await awaitable.get();
+		}
+
+		template<
+			typename AWAITABLE,
+			typename RESULT = typename awaitable_traits<AWAITABLE&>::await_result_t,
+			std::enable_if_t<std::is_void_v<RESULT>, int> = 0>
+			when_all_task<void> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
+		{
+			MC_BEGIN(when_all_task<void>, awaitable);
+			MC_AWAIT(awaitable.get());
+			MC_END();
+			//co_await awaitable.get();
+		}
+#endif
+
 	}
 }

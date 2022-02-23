@@ -20,7 +20,7 @@ namespace macoro
 		>
 		wrap(awaitable& t)
 	{
-#ifdef MACORO_CPP_20
+#ifdef MACORO_CPP_20_WRAP
 		try
 		{
 			co_return Ok(co_await t);
@@ -54,7 +54,7 @@ namespace macoro
 		>
 		wrap(awaitable t)
 	{
-#ifdef MACORO_CPP_20
+#ifdef MACORO_CPP_20_WRAP
 		try
 		{
 			co_return Ok(co_await t);
@@ -88,7 +88,7 @@ namespace macoro
 		>
 		wrap(awaitable& t)
 	{
-#ifdef MACORO_CPP_20
+#ifdef MACORO_CPP_20_WRAP
 		try
 		{
 			co_await t;
@@ -118,7 +118,7 @@ namespace macoro
 		>
 		wrap(awaitable t)
 	{
-#ifdef MACORO_CPP_20
+#ifdef MACORO_CPP_20_WRAP
 		try
 		{
 			co_await t;

@@ -416,34 +416,112 @@ namespace macoro
 
 #ifdef MACORO_CPP_20
 
-		using inline_storage_adapter = std::aligned_storage_t<400, alignof(std::max_align_t)>;
-		inline_storage_adapter frame_adapter_storage;
+		//using inline_storage_adapter = std::aligned_storage_t<400, alignof(std::max_align_t)>;
+		//inline_storage_adapter frame_adapter_storage;
+
+		//using outter_promise_type = promise_type;
+		//struct std_handle_adapter
+		//{
+		//	//struct yield_awaiter
+		//	//{
+		//	//	std::coroutine_handle<void> continuation;
+
+		//	//	bool await_ready() noexcept { return false; }
+		//	//	std::coroutine_handle<void> await_suspend(std::coroutine_handle<void> v) noexcept { return continuation; }
+		//	//	void await_resume() noexcept {}
+
+		//	//};
+
+		//	struct promise_type
+		//	{
+		//		suspend_always initial_suspend() noexcept { return {}; }
+		//		suspend_always final_suspend() const noexcept { return {}; }
+
+		//		void unhandled_exception()
+		//		{
+		//			std::rethrow_exception(std::current_exception());
+		//		}
+
+		//		bool mDone = false;
+		//		coroutine_handle<outter_promise_type> outer_handle;
+
+
+		//		std_handle_adapter get_return_object() { return { this }; }
+
+		//		~promise_type()
+		//		{
+		//			if (outer_handle)
+		//				outer_handle.destroy();
+		//		}
+
+		//		void* operator new(std::size_t size)
+		//		{
+		//			void* ptr = new char[size];
+		//			if (!ptr) throw std::bad_alloc{};
+		//			return ptr;
+		//		}
+
+		//		template<typename TT>
+		//		void* operator new(std::size_t size, TT& base)
+		//		{
+		//			if (size <= sizeof(inline_storage_adapter))
+		//			{
+		//				return &base.frame_adapter_storage;
+		//			}
+		//			else
+		//			{
+		//				void* ptr = new char[size];
+		//				if (!ptr) throw std::bad_alloc{};
+		//				return ptr;
+		//			}
+		//		}
+
+		//		void operator delete(void* ptr, std::size_t size)
+		//		{
+
+		//			if (size <= sizeof(inline_storage_adapter))
+		//			{
+		//				//delete base.frame_adapter_storage;
+		//			}
+		//			else
+		//			{
+		//				delete[](char*)ptr;
+		//			}
+		//		}
+
+		//		void return_void() {}
+
+		//	};
+
+
+		//	~std_handle_adapter()
+		//	{
+		//		std::coroutine_handle<promise_type>::from_promise(*promise).destroy();
+		//	}
+
+		//	promise_type* promise;
+		//};
+
+		//using inline_storage_adapter = std::aligned_storage_t<400, alignof(std::max_align_t)>;
+		//inline_storage_adapter frame_adapter_storage;
+		std::shared_ptr<char> frame_adapter_storage;
 
 		using outter_promise_type = promise_type;
 		struct std_handle_adapter
 		{
-			struct yield_awaiter
-			{
-				std::coroutine_handle<void> continuation;
-
-				bool await_ready() noexcept { return false; }
-				std::coroutine_handle<void> await_suspend(std::coroutine_handle<void> v) noexcept { return continuation; }
-				void await_resume() noexcept {}
-
-			};
 
 			struct promise_type
 			{
 				suspend_always initial_suspend() noexcept { return {}; }
-				yield_awaiter final_suspend() const noexcept { return { continuation }; }
+				suspend_always final_suspend() const noexcept { return {}; }
 
 				void unhandled_exception()
 				{
 					std::rethrow_exception(std::current_exception());
 				}
 
+				bool mDone = false;
 				coroutine_handle<outter_promise_type> outer_handle;
-				std::coroutine_handle<void> continuation;
 
 
 				std_handle_adapter get_return_object() { return { this }; }
@@ -454,49 +532,20 @@ namespace macoro
 						outer_handle.destroy();
 				}
 
-				yield_awaiter yield_value(std::coroutine_handle<void> cont)
-				{
-					return { cont };
-				}
-
-				void return_value(std::coroutine_handle<void> c) { continuation = c; }
-
-
-				void* operator new(std::size_t size)
-				{
-					void* ptr = new char[size];
-					if (!ptr) throw std::bad_alloc{};
-					return ptr;
-				}
-
 				template<typename TT>
 				void* operator new(std::size_t size, TT& base)
 				{
-					if (size <= sizeof(inline_storage_adapter))
-					{
-						return &base.frame_adapter_storage;
-					}
-					else
-					{
-						void* ptr = new char[size];
-						if (!ptr) throw std::bad_alloc{};
-						return ptr;
-					}
+					assert(base.frame_adapter_storage == nullptr);
+					base.frame_adapter_storage =
+						std::shared_ptr<char>(new char[size], std::default_delete<char[]>());
+					return base.frame_adapter_storage.get();
 				}
 
 				void operator delete(void* ptr, std::size_t size)
 				{
-
-					if (size <= sizeof(inline_storage_adapter))
-					{
-						//delete base.frame_adapter_storage;
-					}
-					else
-					{
-						delete[](char*)ptr;
-					}
 				}
 
+				void return_void() {}
 
 			};
 
@@ -508,6 +557,8 @@ namespace macoro
 
 			promise_type* promise;
 		};
+
+
 
 		std::coroutine_handle<typename std_handle_adapter::promise_type> std_handle;
 		std::coroutine_handle<typename std_handle_adapter::promise_type> get_std_handle()
@@ -521,6 +572,14 @@ namespace macoro
 			return base->get_std_handle();
 		}
 #endif
+
+		void final_suspend()
+		{
+#ifdef MACORO_CPP_20
+			std_handle.promise().mDone = true;
+			std_handle.resume();
+#endif
+		}
 	};
 
 
@@ -598,33 +657,58 @@ namespace macoro
 
 		std_handle_adapter adapter()
 		{
-			while (true)
+			using P = typename std_handle_adapter::promise_type;
+			while (!std_handle.promise().mDone)
 			{
-				// resume our own coro
-				auto h = (*this)(static_cast<FrameBase<promise_type>*>(this));
-				assert(h);
-
-				// we have to perform the symmetric transfer loop here for
-				// macoro coroutines since we can only return std::coroutine_handle<>.
-				while (h != noop_coroutine() && h.is_std() == false)
+				struct ThisAwaiter
 				{
-					auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)h.address() ^ 1);
-					auto _address = realAddr->resume(realAddr).address();
-					h = coroutine_handle<void>::from_address(_address);
-				}
+					Frame* frame;
 
-				// we either have a std coro or a noop. We can
-				// have the std perform symmetric transfer on that. 
-				std::coroutine_handle<void> r = h.std_cast();
+					bool await_ready() { return false; }
 
-				if (done())
-				{
-					co_return r;
-				}
-				else
-				{
-					co_yield r;
-				}
+					void await_suspend(std::coroutine_handle<P>)
+					{
+						auto ll = frame->frame_adapter_storage;
+						// resume our own coro
+						auto h = (*frame)(static_cast<FrameBase<promise_type>*>(frame));
+						assert(h);
+						h.resume();
+					}
+					//std::coroutine_handle<> await_suspend(std::coroutine_handle<P>)
+					//{
+						//// resume our own coro
+						//auto h = (*frame)(static_cast<FrameBase<promise_type>*>(frame));
+						//assert(h);
+
+						//// Ideally we would perform sysmetric transfer here but there is
+						//// a compiler bug in MSVC. Doing anothing but returning here may cause
+						////  ASAN error on MSVC. See 
+						//// https://developercommunity.visualstudio.com/t/c20-coroutine-resume-thread-safety/1668687?entry=myfeedback&space=62&ref=native&refTime=1645079575781&refUserId=36961f1e-1836-4f6a-af82-ffcfa64d75a3&viewtype=all
+						//// In particular, the adpater might have already been destroyed
+						//// and MSVC for some unknown reason updates the adapter frame even
+						//// though the coro has already been suspended. 
+						//return h.std_cast();
+
+						//// we have to perform the symmetric transfer loop here for
+						//// macoro coroutines since we can only return std::coroutine_handle<>.
+						//while (h != noop_coroutine() && h.is_std() == false)
+						//{
+						//	auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)h.address() ^ 1);
+						//	auto _address = realAddr->resume(realAddr).address();
+						//	h = coroutine_handle<void>::from_address(_address);
+						//}
+
+						//// we either have a std coro or a noop. We can
+						//// have the std perform symmetric transfer on that. 
+						//return h.std_cast();
+					//}
+
+					void await_resume() {}
+				};
+
+				co_await ThisAwaiter{ this };
+
+
 			}
 		};
 #endif
@@ -730,10 +814,10 @@ namespace macoro
 				return;
 			}
 #else
-			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address);
-			_address = realAddr->resume(realAddr).address();
 			if (_address == noop_coroutine().address())
 				return;
+			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address);
+			_address = realAddr->resume(realAddr).address();
 #endif
 		}
 		//_macoro_coro_resume(_Ptr);
@@ -759,10 +843,10 @@ namespace macoro
 				return;
 			}
 #else
-			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address);
-			_address = realAddr->resume(realAddr).address();
 			if (_address == noop_coroutine().address())
 				return;
+			auto realAddr = reinterpret_cast<FrameBase<void>*>((std::size_t)_address);
+			_address = realAddr->resume(realAddr).address();
 #endif
 		}
 	}

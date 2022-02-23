@@ -298,7 +298,7 @@ namespace macoro
 
 		};
 
-#ifdef MACORO_CPP_20
+#ifdef MACORO_CPP_20_WHEN_ALL
 		template<
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,

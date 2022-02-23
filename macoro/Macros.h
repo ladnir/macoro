@@ -193,6 +193,7 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ::macoro::coroutine_trai
 		}																										\
 		/*final suspend*/																						\
 MACORO_FINAL_SUSPEND_BEGIN:																						\
+		_macoro_frame_->final_suspend();																		\
 		IMPL_MC_AWAIT_CORE_NS(_macoro_frame_->promise.final_suspend(), MACORO_FINAL_SUSPEND_IDX)				\
 MACORO_FINAL_SUSPEND_RESUME:																					\
 		_macoro_frame_->template getAwaiter<MACORO_CAT(_macoro_AwaitContext, MACORO_FINAL_SUSPEND_IDX)>().await_resume();	\

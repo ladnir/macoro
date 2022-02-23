@@ -1,4 +1,4 @@
-
+#pragma once
 #include "macoro/type_traits.h"
 #include "macoro/coro_frame.h"
 #include "macoro/optional.h"

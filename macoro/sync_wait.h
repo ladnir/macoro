@@ -1,3 +1,4 @@
+#pragma once
 
 #include "macoro/type_traits.h"
 #include "macoro/coro_frame.h"
@@ -13,9 +14,21 @@ namespace macoro
 		template<typename T>
 		struct blocking_task;
 
+
 		template<typename T>
 		struct blocking_promise_base
 		{
+			struct final_awaiter
+			{
+				bool await_ready() { return false; }
+#ifdef MACORO_CPP_20
+				template<typename T>
+				void await_suspend(std::coroutine_handle<T> h) { h.promise().set(); }
+#endif
+				template<typename T>
+				void await_suspend(coroutine_handle<T> h) { h.promise().set(); }
+				void await_resume() {}
+			};
 
 			std::exception_ptr exception;
 			std::mutex mutex;
@@ -38,8 +51,7 @@ namespace macoro
 
 
 			suspend_always initial_suspend() noexcept { return{}; }
-			suspend_always final_suspend() noexcept {
-				set();
+			final_awaiter final_suspend() noexcept {
 				return { };
 			}
 
@@ -73,31 +85,6 @@ namespace macoro
 				if (this->exception)
 					std::rethrow_exception(this->exception);
 				return static_cast<reference_type>(*mVal);
-			}
-
-
-
-			template<typename TT>
-			decltype(auto) await_transform(TT&& t)
-			{
-				return static_cast<TT&&>(t);
-			}
-
-			struct get_promise
-			{
-				blocking_promise<T>* promise = nullptr;
-				bool await_ready() { return true; }
-				template<typename TT>
-				void await_suspend(TT&&) {}
-				blocking_promise<T>* await_resume()
-				{
-					return promise;
-				}
-			};
-
-			get_promise await_transform(get_promise)
-			{
-				return { this };
 			}
 		};
 

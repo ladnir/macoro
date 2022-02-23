@@ -135,6 +135,7 @@ namespace macoro
 				: has_completed_or_continutation(false)
 			{}
 
+
 			auto initial_suspend() noexcept
 			{
 				return suspend_never{};
@@ -159,7 +160,7 @@ namespace macoro
 
 		private:
 			std::atomic<bool> has_completed_or_continutation;
-
+			
 			coroutine_handle<> m_continuation;
 		};
 
@@ -556,7 +557,7 @@ namespace macoro
 	};
 
 
-	template<typename T>
+	template<typename T = void>
 	using eager_task = task<T, false>;
 
 	namespace impl

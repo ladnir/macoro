@@ -2,6 +2,7 @@
 #include "macoro/start_on.h"
 #include "macoro/sync_wait.h"
 #include "macoro/thread_pool.h"
+#include "macoro/when_all.h"
 namespace macoro
 {
 	void make_eager_test()
@@ -327,6 +328,133 @@ namespace macoro
 		std::cout << "passed" << std::endl;
 	}
 
+	void eager_task_stress_test()
+	{
+		std::cout << "eager_task_stress_test  ";
+		int trials = 10000;
+
+		thread_pool pool;
+		auto w = pool.make_work();
+		std::vector<std::thread> thrds(2); std::thread::hardware_concurrency();
+		for (int i = 0; i < thrds.size(); ++i)
+			thrds[i] = std::thread([&, i] {pool.run(); });
+
+
+		std::vector<eager_task<>> ts; ts.reserve(trials);
+
+		for (int i = 0; i < trials; ++i)
+		{
+			std::promise<void> p, p0,p1;
+			auto f = p.get_future().share();
+			auto f0 = p0.get_future();
+			auto f1 = p1.get_future();
+			auto t = [](std::promise<void> p0, std::shared_future<void> f) -> task<>
+			{
+				MC_BEGIN(task<>, p0 = std::move(p0), f);
+				p0.set_value();
+				f.get();
+				//co_return;
+				MC_RETURN_VOID();
+
+				MC_END();
+			};
+
+			auto a = [](eager_task<>& tt, std::promise<void> p1, std::shared_future<void> f) -> task<>
+			{
+				MC_BEGIN(task<>,&tt, p1 = std::move(p1), f);
+				p1.set_value();
+				f.get();
+				MC_AWAIT(tt);
+
+				MC_END();
+			};
+
+			ts.push_back(t(std::move(p0), f) | start_on(pool));
+			auto aa = a(ts.back(), std::move(p1), f) | start_on(pool);
+
+			f0.get();
+			f1.get();
+			p.set_value();
+
+			sync_wait(aa);
+		}
+
+		w.reset();
+		for (int i = 0; i < thrds.size(); ++i)
+			thrds[i].join();
+		std::cout << "passed" << std::endl;
+	}
+
+
+
+	void eager_task_slow_test()
+	{
+		std::cout << "eager_task_slow_test  ";
+
+		// the task t is slow to complete. 
+		// a will set its continuation.
+
+		auto t = []() -> eager_task<>
+		{
+			MC_BEGIN(eager_task<>);
+			MC_AWAIT( suspend_always{});
+			MC_RETURN_VOID();
+			MC_END();
+		};
+
+		bool done = false;
+		auto a = [&](eager_task<>& tt) -> eager_task<>
+		{
+			MC_BEGIN(eager_task<>, &tt, &done);
+			MC_AWAIT(tt);
+			done = true;
+			MC_RETURN_VOID();
+			MC_END();
+		};
+
+		auto tt = t();
+		auto aa = a(tt) ;
+
+		assert(!done);
+
+		tt.handle().resume();
+		assert(done);
+
+
+		std::cout << "passed" << std::endl;
+	}
+
+	void eager_task_fast_test()
+	{
+		std::cout << "eager_task_fast_test  ";
+		
+		// the task t is fast to complete. 
+		// a will set its continuation.
+
+		auto t = []() -> eager_task<>
+		{
+			MC_BEGIN(eager_task<>);
+			MC_RETURN_VOID();
+			MC_END();
+		};
+
+		bool done = false;
+		auto a = [&](eager_task<>& tt) -> eager_task<>
+		{
+			MC_BEGIN(eager_task<>, &tt, &done);
+			MC_AWAIT(tt);
+			done = true;
+			MC_RETURN_VOID();
+			MC_END();
+		};
+
+		auto tt = t();
+		auto aa = a(tt);
+
+		assert(done);
+
+		std::cout << "passed" << std::endl;
+	}
 
 
 	void eager_task_tests()
@@ -341,6 +469,9 @@ namespace macoro
 		eager_task_ref_test();
 		eager_task_move_test();
 		eager_task_ex_test();
+		eager_task_slow_test();
+		eager_task_fast_test();
+		eager_task_stress_test();
 
 	}
 

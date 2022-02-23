@@ -132,12 +132,14 @@ namespace macoro
 
 			work() = default;
 			work(const work&) = delete;
-			work(work&&) = default;
+			work(work&& w) : mEx(std::exchange(w.mEx, nullptr)) {}		
 			work& operator=(const work&) = delete;
-			work& operator=(work&&) = default;
+			work& operator=(work&& w) { mEx = std::exchange(w.mEx, nullptr); }
 
-			~work()
+
+			void reset()
 			{
+
 				if (mEx)
 				{
 
@@ -150,7 +152,12 @@ namespace macoro
 					{
 						mEx->mCondition.notify_all();
 					}
+					mEx = nullptr;
 				}
+			}
+			~work()
+			{
+				reset();
 			}
 		};
 

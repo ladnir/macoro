@@ -27,7 +27,9 @@
 
 
 #if _MSC_VER
-# define MACORO_NOINLINE_BUG __declspec(noinline)
+# define MACORO_WINDOWS_OS 1
+# define MACORO_NOINLINE __declspec(noinline)
 #else
-# define MACORO_NOINLINE_BUG
+# define MACORO_WINDOWS_OS 0
+# define MACORO_NOINLINE
 #endif

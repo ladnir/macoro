@@ -8,7 +8,7 @@
 namespace macoro
 {
 
-	namespace impl
+	namespace detail
 	{
 		template<typename T>
 		struct blocking_task;
@@ -202,7 +202,7 @@ namespace macoro
 	typename awaitable_traits<Awaitable&&>::await_result
 		blocking_get(Awaitable&& awaitable)
 	{
-		auto task = impl::make_blocking_task<Awaitable&&>(std::forward<Awaitable>(awaitable));
+		auto task = detail::make_blocking_task<Awaitable&&>(std::forward<Awaitable>(awaitable));
 		task.start();
 
 		return task.get();

@@ -4,7 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#include "macoro/impl/cancellation_token.h"
+#include "macoro/detail/cancellation_token.h"
 
 #include <thread>
 #include <atomic>
@@ -12,7 +12,7 @@
 
 namespace macoro
 {
-	namespace impl
+	namespace detail
 	{
 		struct cancellation_registration_state;
 

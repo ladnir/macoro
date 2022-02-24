@@ -9,7 +9,7 @@ namespace macoro
 	class cancellation_source;
 	class cancellation_registration;
 
-	namespace impl
+	namespace detail
 	{
 		class cancellation_state;
 	}
@@ -51,14 +51,15 @@ namespace macoro
 		/// has been requested for the associated operation.
 		void throw_if_cancellation_requested() const;
 
+
 	private:
 
 		friend class cancellation_source;
 		friend class cancellation_registration;
 
-		cancellation_token(impl::cancellation_state* state) noexcept;
+		cancellation_token(detail::cancellation_state* state) noexcept;
 
-		impl::cancellation_state* m_state;
+		detail::cancellation_state* m_state;
 
 	};
 

@@ -21,7 +21,7 @@ namespace macoro
 {
 	template<typename T = void, bool lazy = true> class task;
 
-	namespace impl
+	namespace detail
 	{
 		template<bool lazy>
 		class task_promise_base;
@@ -426,7 +426,7 @@ namespace macoro
 	{
 	public:
 
-		using promise_type = impl::task_promise<T, lazy>;
+		using promise_type = detail::task_promise<T, lazy>;
 
 		using value_type = T;
 
@@ -491,9 +491,9 @@ namespace macoro
 			return !m_coroutine || m_coroutine.done();
 		}
 
-		struct ref_awaitable : impl::task_awaitable_base<T,lazy>
+		struct ref_awaitable : detail::task_awaitable_base<T,lazy>
 		{
-			using impl::task_awaitable_base<T, lazy>::task_awaitable_base;
+			using detail::task_awaitable_base<T, lazy>::task_awaitable_base;
 
 			decltype(auto) await_resume()
 			{
@@ -511,9 +511,9 @@ namespace macoro
 			return ref_awaitable{ m_coroutine };
 		}
 
-		struct mov_awaitable : impl::task_awaitable_base<T, lazy>
+		struct mov_awaitable : detail::task_awaitable_base<T, lazy>
 		{
-			using impl::task_awaitable_base<T, lazy>::task_awaitable_base;
+			using detail::task_awaitable_base<T, lazy>::task_awaitable_base;
 
 			decltype(auto) await_resume()
 			{
@@ -531,9 +531,9 @@ namespace macoro
 			return mov_awaitable{ m_coroutine };
 		}
 
-		struct ready_awaitable : impl::task_awaitable_base<T, lazy>
+		struct ready_awaitable : detail::task_awaitable_base<T, lazy>
 		{
-			using impl::task_awaitable_base<T, lazy>::task_awaitable_base;
+			using detail::task_awaitable_base<T, lazy>::task_awaitable_base;
 
 			void await_resume() const noexcept {}
 		};
@@ -560,7 +560,7 @@ namespace macoro
 	template<typename T = void>
 	using eager_task = task<T, false>;
 
-	namespace impl
+	namespace detail
 	{
 		template<typename T, bool lazy>
 		task<T, lazy> task_promise<T, lazy>::get_return_object() noexcept

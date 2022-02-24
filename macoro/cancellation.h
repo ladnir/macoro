@@ -1,7 +1,8 @@
 
 #pragma once
 
-#include "impl/cancellation_registration.h"
-#include "impl/cancellation_source.h"
-#include "impl/cancellation_token.h"
-#include "impl/operation_cancelled.h"
+#include "detail/cancellation_registration.h"
+#include "detail/cancellation_source.h"
+#include "detail/cancellation_token.h"
+#include "detail/cancellation_awaiter.h"
+#include "detail/operation_cancelled.h"

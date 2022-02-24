@@ -1,14 +1,17 @@
 
 set(SRC
+	tests.cpp
+	CLP.cpp
 	task_tests.cpp
 	eager_task_tests.cpp
 	await_lifetime_tests.cpp
 	result_tests.cpp
-	 when_all_tests.cpp
+	when_all_tests.cpp
+	take_until_tests.cpp
 )
 
 
-add_library(macoroTests ${SRC})
+add_library(macoroTests ${SRC} "CLP.cpp" "CLP.h")
 
 target_link_libraries(macoroTests macoro)
 #target_compile_options(macoroTests PRIVATE "-save-temps")

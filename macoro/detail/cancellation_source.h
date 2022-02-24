@@ -8,7 +8,7 @@ namespace macoro
 {
 	class cancellation_token;
 
-	namespace impl
+	namespace detail
 	{
 		class cancellation_state;
 	}
@@ -62,7 +62,7 @@ namespace macoro
 
 	private:
 
-		impl::cancellation_state* m_state;
+		detail::cancellation_state* m_state;
 
 	};
 }

@@ -15,7 +15,8 @@ using namespace macoro;
 
 int main(int argc, char** argv)
 {
-	macoro::tests();
+	macoro::CLP cmd(argc, argv);
+	macoro::testCollection.runIf(cmd);
 	return 0;
 }
 

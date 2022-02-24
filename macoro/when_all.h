@@ -8,8 +8,8 @@
 #include <tuple>
 #include <atomic>
 #include "macoro/coroutine_handle.h"
-#include "macoro/impl/when_all_awaitable.h"
-#include "macoro/impl/when_all_task.h"
+#include "macoro/detail/when_all_awaitable.h"
+#include "macoro/detail/when_all_task.h"
 
 namespace macoro
 {
@@ -25,9 +25,9 @@ namespace macoro
 	MACORO_NODISCARD
 	auto when_all_ready(Awaitables&&... awaitables)
 	{
-		return impl::when_all_ready_awaitable<
+		return detail::when_all_ready_awaitable<
 				std::tuple<
-					impl::when_all_task<
+					detail::when_all_task<
 						awaitable_result_t<
 							remove_reference_and_wrapper_t<Awaitables>
 						>
@@ -35,7 +35,7 @@ namespace macoro
 				>
 			>
 			(std::make_tuple(
-				impl::make_when_all_task(
+				detail::make_when_all_task(
 					std::forward<Awaitables>(awaitables)
 				)...
 			)
@@ -52,16 +52,16 @@ namespace macoro
 	MACORO_NODISCARD
 	auto when_all_ready(std::vector<AWAITABLE> awaitables)
 	{
-		std::vector<impl::when_all_task<RESULT>> tasks;
+		std::vector<detail::when_all_task<RESULT>> tasks;
 
 		tasks.reserve(awaitables.size());
 
 		for (auto& awaitable : awaitables)
 		{
-			tasks.emplace_back(impl::make_when_all_task(std::move(awaitable)));
+			tasks.emplace_back(detail::make_when_all_task(std::move(awaitable)));
 		}
 
-		return impl::when_all_ready_awaitable<std::vector<impl::when_all_task<RESULT>>>(
+		return detail::when_all_ready_awaitable<std::vector<detail::when_all_task<RESULT>>>(
 			std::move(tasks));
 	}
 }

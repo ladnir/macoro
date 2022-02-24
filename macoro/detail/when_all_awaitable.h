@@ -14,7 +14,7 @@
 
 namespace macoro
 {
-	namespace impl
+	namespace detail
 	{
 		template<typename TASK_CONTAINER>
 		class when_all_ready_awaitable;

@@ -3,11 +3,9 @@
 
 namespace macoro
 {
-
 	namespace tests
 	{
-		void when_all_basic_tests();
+		void take_until_tests();
+
 	}
-
-
 }

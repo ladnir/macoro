@@ -7,7 +7,7 @@ namespace macoro
 {
 
 
-	namespace impl
+	namespace detail
 	{
 
 		template<typename continuation, typename T>

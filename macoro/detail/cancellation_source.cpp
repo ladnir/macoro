@@ -3,13 +3,13 @@
 // Licenced under MIT license. See github.com/lewissbaker/cppcoro LICENSE.txt for details.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "macoro/impl/cancellation_source.h"
-#include "macoro/impl/cancellation_state.h"
+#include "macoro/detail/cancellation_source.h"
+#include "macoro/detail/cancellation_state.h"
 
 #include <cassert>
 
 macoro::cancellation_source::cancellation_source()
-	: m_state(impl::cancellation_state::create())
+	: m_state(detail::cancellation_state::create())
 {
 }
 

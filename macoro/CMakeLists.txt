@@ -1,9 +1,11 @@
 
 set(SRC 
-    impl/cancellation_registration.cpp
-    impl/cancellation_source.cpp
-    impl/cancellation_state.cpp
-    impl/cancellation_token.cpp
+    detail/cancellation_registration.cpp
+    detail/cancellation_source.cpp
+    detail/cancellation_state.cpp
+    detail/cancellation_token.cpp
+    detail/win32.cpp
+    io_service.cpp
     )
 
 add_library(macoro STATIC ${SRC})
@@ -44,6 +46,8 @@ elseif(MSVC)
     target_compile_options( macoro PUBLIC
         "/std:c++${MACORO_STD_VAL}"
     )
+
+    target_link_libraries(macoro PUBLIC ws2_32.lib)
 else()
     set_target_properties( macoro 
         PROPERTIES

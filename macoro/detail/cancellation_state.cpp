@@ -3,18 +3,18 @@
 // Licenced under MIT license. See github.com/lewissbaker/cppcoro LICENSE.txt for details.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "macoro/impl/cancellation_state.h"
+#include "macoro/detail/cancellation_state.h"
 
 #include "macoro/config.h"
 
-#include "macoro/impl/cancellation_registration.h"
+#include "macoro/detail/cancellation_registration.h"
 
 #include <cassert>
 #include <cstdlib>
 
 namespace macoro
 {
-	namespace impl
+	namespace detail
 	{
 		struct cancellation_registration_list_chunk
 		{
@@ -68,8 +68,8 @@ namespace macoro
 	}
 }
 
-macoro::impl::cancellation_registration_list_chunk*
-macoro::impl::cancellation_registration_list_chunk::allocate(std::uint32_t entryCount)
+macoro::detail::cancellation_registration_list_chunk*
+macoro::detail::cancellation_registration_list_chunk::allocate(std::uint32_t entryCount)
 {
 	auto* chunk = static_cast<cancellation_registration_list_chunk*>(std::malloc(
 		sizeof(cancellation_registration_list_chunk) +
@@ -91,14 +91,14 @@ macoro::impl::cancellation_registration_list_chunk::allocate(std::uint32_t entry
 	return chunk;
 }
 
-void macoro::impl::cancellation_registration_list_chunk::free(
+void macoro::detail::cancellation_registration_list_chunk::free(
 	cancellation_registration_list_chunk* chunk) noexcept
 {
 	std::free(chunk);
 }
 
-macoro::impl::cancellation_registration_list*
-macoro::impl::cancellation_registration_list::allocate()
+macoro::detail::cancellation_registration_list*
+macoro::detail::cancellation_registration_list::allocate()
 {
 	constexpr std::uint32_t initialChunkSize = 16;
 
@@ -126,13 +126,13 @@ macoro::impl::cancellation_registration_list::allocate()
 	return bucket;
 }
 
-void macoro::impl::cancellation_registration_list::free(cancellation_registration_list* list) noexcept
+void macoro::detail::cancellation_registration_list::free(cancellation_registration_list* list) noexcept
 {
 	std::free(list);
 }
 
-macoro::impl::cancellation_registration_state*
-macoro::impl::cancellation_registration_state::allocate()
+macoro::detail::cancellation_registration_state*
+macoro::detail::cancellation_registration_state::allocate()
 {
 	constexpr std::uint32_t maxListCount = 16;
 
@@ -165,13 +165,13 @@ macoro::impl::cancellation_registration_state::allocate()
 	return state;
 }
 
-void macoro::impl::cancellation_registration_state::free(cancellation_registration_state* state) noexcept
+void macoro::detail::cancellation_registration_state::free(cancellation_registration_state* state) noexcept
 {
 	std::free(state);
 }
 
-macoro::impl::cancellation_registration_result
-macoro::impl::cancellation_registration_state::add_registration(
+macoro::detail::cancellation_registration_result
+macoro::detail::cancellation_registration_state::add_registration(
 	macoro::cancellation_registration* registration)
 {
 	// Pick a list to add to based on the current thread to reduce the
@@ -326,12 +326,12 @@ macoro::impl::cancellation_registration_state::add_registration(
 	}
 }
 
-macoro::impl::cancellation_state* macoro::impl::cancellation_state::create()
+macoro::detail::cancellation_state* macoro::detail::cancellation_state::create()
 {
 	return new cancellation_state();
 }
 
-macoro::impl::cancellation_state::~cancellation_state()
+macoro::detail::cancellation_state::~cancellation_state()
 {
 	assert((m_state.load(std::memory_order_relaxed) & cancellation_ref_count_mask) == 0);
 
@@ -363,12 +363,12 @@ macoro::impl::cancellation_state::~cancellation_state()
 	}
 }
 
-void macoro::impl::cancellation_state::add_token_ref() noexcept
+void macoro::detail::cancellation_state::add_token_ref() noexcept
 {
 	m_state.fetch_add(cancellation_token_ref_increment, std::memory_order_relaxed);
 }
 
-void macoro::impl::cancellation_state::release_token_ref() noexcept
+void macoro::detail::cancellation_state::release_token_ref() noexcept
 {
 	const std::uint64_t oldState = m_state.fetch_sub(cancellation_token_ref_increment, std::memory_order_acq_rel);
 	if ((oldState & cancellation_ref_count_mask) == cancellation_token_ref_increment)
@@ -377,12 +377,12 @@ void macoro::impl::cancellation_state::release_token_ref() noexcept
 	}
 }
 
-void macoro::impl::cancellation_state::add_source_ref() noexcept
+void macoro::detail::cancellation_state::add_source_ref() noexcept
 {
 	m_state.fetch_add(cancellation_source_ref_increment, std::memory_order_relaxed);
 }
 
-void macoro::impl::cancellation_state::release_source_ref() noexcept
+void macoro::detail::cancellation_state::release_source_ref() noexcept
 {
 	const std::uint64_t oldState = m_state.fetch_sub(cancellation_source_ref_increment, std::memory_order_acq_rel);
 	if ((oldState & cancellation_ref_count_mask) == cancellation_source_ref_increment)
@@ -391,22 +391,22 @@ void macoro::impl::cancellation_state::release_source_ref() noexcept
 	}
 }
 
-bool macoro::impl::cancellation_state::can_be_cancelled() const noexcept
+bool macoro::detail::cancellation_state::can_be_cancelled() const noexcept
 {
 	return (m_state.load(std::memory_order_acquire) & can_be_cancelled_mask) != 0;
 }
 
-bool macoro::impl::cancellation_state::is_cancellation_requested() const noexcept
+bool macoro::detail::cancellation_state::is_cancellation_requested() const noexcept
 {
 	return (m_state.load(std::memory_order_acquire) & cancellation_requested_flag) != 0;
 }
 
-bool macoro::impl::cancellation_state::is_cancellation_notification_complete() const noexcept
+bool macoro::detail::cancellation_state::is_cancellation_notification_complete() const noexcept
 {
 	return (m_state.load(std::memory_order_acquire) & cancellation_notification_complete_flag) != 0;
 }
 
-void macoro::impl::cancellation_state::request_cancellation()
+void macoro::detail::cancellation_state::request_cancellation()
 {
 	const auto oldState = m_state.fetch_or(cancellation_requested_flag, std::memory_order_seq_cst);
 	if ((oldState & cancellation_requested_flag) != 0)
@@ -489,7 +489,7 @@ void macoro::impl::cancellation_state::request_cancellation()
 	}
 }
 
-bool macoro::impl::cancellation_state::try_register_callback(
+bool macoro::detail::cancellation_state::try_register_callback(
 	cancellation_registration* registration)
 {
 	if (is_cancellation_requested())
@@ -566,7 +566,7 @@ bool macoro::impl::cancellation_state::try_register_callback(
 	return true;
 }
 
-void macoro::impl::cancellation_state::deregister_callback(cancellation_registration* registration) noexcept
+void macoro::detail::cancellation_state::deregister_callback(cancellation_registration* registration) noexcept
 {
 	auto* chunk = registration->m_chunk;
 	auto& entry = chunk->m_entries[registration->m_entryIndex];
@@ -617,7 +617,7 @@ void macoro::impl::cancellation_state::deregister_callback(cancellation_registra
 	}
 }
 
-macoro::impl::cancellation_state::cancellation_state() noexcept
+macoro::detail::cancellation_state::cancellation_state() noexcept
 	: m_state(cancellation_source_ref_increment)
 	, m_registrationState(nullptr)
 {

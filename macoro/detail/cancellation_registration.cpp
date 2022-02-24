@@ -3,9 +3,9 @@
 // Licenced under MIT license. See github.com/lewissbaker/cppcoro LICENSE.txt for details.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "macoro/impl/cancellation_registration.h"
+#include "macoro/detail/cancellation_registration.h"
 
-#include "macoro/impl/cancellation_state.h"
+#include "macoro/detail/cancellation_state.h"
 
 #include <cassert>
 

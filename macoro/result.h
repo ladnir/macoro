@@ -11,7 +11,7 @@ namespace macoro
 
 	template<typename T, typename Error>
 	class result;
-	namespace impl
+	namespace detail
 	{
 
 
@@ -93,33 +93,33 @@ namespace macoro
 
 
 	template<typename T>
-	impl::ErrorTag<remove_cvref_t<T>> Err(const T& t)
+	detail::ErrorTag<remove_cvref_t<T>> Err(const T& t)
 	{
-		return impl::ErrorTag<remove_cvref_t<T>>(t);
+		return detail::ErrorTag<remove_cvref_t<T>>(t);
 	}
 
 	template<typename T>
-	impl::ErrorMvTag<remove_cvref_t<T>> Err(T&& t)
+	detail::ErrorMvTag<remove_cvref_t<T>> Err(T&& t)
 	{
-		return impl::ErrorMvTag<remove_cvref_t<T>>(t);
+		return detail::ErrorMvTag<remove_cvref_t<T>>(t);
 	}
 
 
-	inline impl::OkTag<void> Ok()
+	inline detail::OkTag<void> Ok()
 	{
 		return {};
 	}
 
 	template<typename T>
-	impl::OkTag<remove_cvref_t<T>> Ok(const T& t)
+	detail::OkTag<remove_cvref_t<T>> Ok(const T& t)
 	{
-		return impl::OkTag<remove_cvref_t<T>>(t);
+		return detail::OkTag<remove_cvref_t<T>>(t);
 	}
 
 	template<typename T>
-	impl::OkMvTag<remove_cvref_t<T>> Ok(T&& t)
+	detail::OkMvTag<remove_cvref_t<T>> Ok(T&& t)
 	{
-		return impl::OkMvTag<remove_cvref_t<T>>(t);
+		return detail::OkMvTag<remove_cvref_t<T>>(t);
 	}
 
 	template<typename E>
@@ -128,7 +128,7 @@ namespace macoro
 		std::rethrow_exception(e);
 	}
 	
-	namespace impl
+	namespace detail
 	{
 
 
@@ -266,13 +266,13 @@ namespace macoro
 	class result
 	{
 	public:
-		using promise_type = impl::result_promise<T, Error>;
+		using promise_type = detail::result_promise<T, Error>;
 		using value_type = remove_cvref_t<T>;
 		using error_type = remove_cvref_t<Error>;
 
 
 		result()
-			: mVar(impl::resultDefaultConstruct<T,Error>())
+			: mVar(detail::resultDefaultConstruct<T,Error>())
 		{
 		}
 
@@ -282,10 +282,10 @@ namespace macoro
 		result& operator=(const result&) = default;
 		result& operator=(result&&) = default;
 
-		result(impl::OkTag<value_type>&& v) :mVar(v.mV) {}
-		result(impl::OkMvTag<value_type>&& v) : mVar(std::move(v.mV)) {}
-		result(impl::ErrorTag<error_type>&& e) : mVar(e.mE) {}
-		result(impl::ErrorMvTag<error_type>&& e) :mVar(std::move(e.mE)) {}
+		result(detail::OkTag<value_type>&& v) :mVar(v.mV) {}
+		result(detail::OkMvTag<value_type>&& v) : mVar(std::move(v.mV)) {}
+		result(detail::ErrorTag<error_type>&& e) : mVar(e.mE) {}
+		result(detail::ErrorMvTag<error_type>&& e) :mVar(std::move(e.mE)) {}
 
 
 		variant<value_type, error_type> mVar;
@@ -392,73 +392,73 @@ namespace macoro
 
 
 
-		void operator=(impl::OkMvTag<value_type>&& v)
+		void operator=(detail::OkMvTag<value_type>&& v)
 		{
 			var() = variant<value_type, error_type>{ MACORO_VARIANT_NAMESPACE::in_place_index<0>, std::move(v.mV) };
 		}
-		void operator=(impl::OkTag<value_type>&& v)
+		void operator=(detail::OkTag<value_type>&& v)
 		{
 			var() = variant<value_type, error_type>{ MACORO_VARIANT_NAMESPACE::in_place_index<0>, v.mV };
 		}
 
-		void operator=(impl::ErrorMvTag<error_type>&& v)
+		void operator=(detail::ErrorMvTag<error_type>&& v)
 		{
 			var() = variant<value_type, error_type>{ MACORO_VARIANT_NAMESPACE::in_place_index<1>, std::move(v.mE) };
 		}
-		void operator=(impl::ErrorTag<error_type>&& v)
+		void operator=(detail::ErrorTag<error_type>&& v)
 		{
 			var() = variant<value_type, error_type>{ MACORO_VARIANT_NAMESPACE::in_place_index<1>, v.mE };
 		}
 
 
 		template<typename T2>
-		bool operator==(impl::OkTag<T2>&& v) const
+		bool operator==(detail::OkTag<T2>&& v) const
 		{
 			return (has_value() && value() == v.mV);
 		}
 
 		template<typename T2>
-		bool operator==(impl::OkMvTag<T2>&& v)const
+		bool operator==(detail::OkMvTag<T2>&& v)const
 		{
 			return (has_value() && value() == v.mV);
 		}
 
 		template<typename E2>
-		bool operator==(impl::ErrorTag<E2>&& v)const
+		bool operator==(detail::ErrorTag<E2>&& v)const
 		{
 			return (has_error() && error() == v.mE);
 		}
 		template<typename E2>
-		bool operator==(impl::ErrorMvTag<E2>&& v)const
+		bool operator==(detail::ErrorMvTag<E2>&& v)const
 		{
 			return (has_error() && error() == v.mE);
 		}
 
 		template<typename T2>
-		bool operator!=(impl::OkTag<T2>&& v)const
+		bool operator!=(detail::OkTag<T2>&& v)const
 		{
 			return !(*this == v);
 		}
 
 		template<typename T2>
-		bool operator!=(impl::OkMvTag<T2>&& v)const
+		bool operator!=(detail::OkMvTag<T2>&& v)const
 		{
 			return !(*this == v);
 		}
 
 		template<typename E2>
-		bool operator!=(impl::ErrorTag<E2>&& v)const
+		bool operator!=(detail::ErrorTag<E2>&& v)const
 		{
 			return !(*this == v);
 		}
 		template<typename E2>
-		bool operator!=(impl::ErrorMvTag<E2>&& v)const
+		bool operator!=(detail::ErrorMvTag<E2>&& v)const
 		{
 			return !(*this == v);
 		}
 
 
-		impl::result_awaiter<T, Error> MACORO_OPERATOR_COAWAIT()
+		detail::result_awaiter<T, Error> MACORO_OPERATOR_COAWAIT()
 		{
 			return { this };
 		}
@@ -470,7 +470,7 @@ namespace macoro
 	class result<void, Error>
 	{
 	public:
-		using promise_type = impl::result_promise<void, Error>;
+		using promise_type = detail::result_promise<void, Error>;
 		using value_type = void;
 		using error_type = remove_cvref_t<Error>;
 
@@ -481,9 +481,9 @@ namespace macoro
 		result& operator=(const result&) = default;
 		result& operator=(result&&) = default;
 
-		result(const impl::OkTag<value_type>&) {}
-		result(impl::ErrorTag<error_type>&& e) : mVar(e.mE) {}
-		result(impl::ErrorMvTag<error_type>&& e) :mVar(std::move(e.mE)) {}
+		result(const detail::OkTag<value_type>&) {}
+		result(detail::ErrorTag<error_type>&& e) : mVar(e.mE) {}
+		result(detail::ErrorMvTag<error_type>&& e) :mVar(std::move(e.mE)) {}
 
 
 		optional<error_type> mVar;
@@ -552,55 +552,55 @@ namespace macoro
 			return alt;
 		}
 
-		void operator=(const impl::OkTag<value_type>& v)
+		void operator=(const detail::OkTag<value_type>& v)
 		{
 			var() = {};
 		}
 
-		void operator=(impl::ErrorMvTag<error_type>&& v)
+		void operator=(detail::ErrorMvTag<error_type>&& v)
 		{
 			var() = std::move(v.mE);
 		}
-		void operator=(impl::ErrorTag<error_type>&& v)
+		void operator=(detail::ErrorTag<error_type>&& v)
 		{
 			var() = v.mE;
 		}
 
 
-		bool operator==(const impl::OkTag<void>& v) const
+		bool operator==(const detail::OkTag<void>& v) const
 		{
 			return has_value();
 		}
 
 		template<typename E2>
-		bool operator==(impl::ErrorTag<E2>&& v)const
+		bool operator==(detail::ErrorTag<E2>&& v)const
 		{
 			return (has_error() && error() == v.mE);
 		}
 		template<typename E2>
-		bool operator==(impl::ErrorMvTag<E2>&& v)const
+		bool operator==(detail::ErrorMvTag<E2>&& v)const
 		{
 			return (has_error() && error() == v.mE);
 		}
 
-		bool operator!=(const impl::OkTag<void>& v)const
+		bool operator!=(const detail::OkTag<void>& v)const
 		{
 			return !(*this == v);
 		}
 
 
 		template<typename E2>
-		bool operator!=(impl::ErrorTag<E2>&& v)const
+		bool operator!=(detail::ErrorTag<E2>&& v)const
 		{
 			return !(*this == v);
 		}
 		template<typename E2>
-		bool operator!=(impl::ErrorMvTag<E2>&& v)const
+		bool operator!=(detail::ErrorMvTag<E2>&& v)const
 		{
 			return !(*this == v);
 		}
 
-		impl::result_awaiter<void, Error> MACORO_OPERATOR_COAWAIT()
+		detail::result_awaiter<void, Error> MACORO_OPERATOR_COAWAIT()
 		{
 			return { this };
 		}

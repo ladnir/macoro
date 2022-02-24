@@ -98,7 +98,7 @@ void macoro::cancellation_token::throw_if_cancellation_requested() const
 	}
 }
 
-macoro::cancellation_token::cancellation_token(impl::cancellation_state* state) noexcept
+macoro::cancellation_token::cancellation_token(detail::cancellation_state* state) noexcept
 	: m_state(state)
 {
 	if (m_state != nullptr)
@@ -106,3 +106,4 @@ macoro::cancellation_token::cancellation_token(impl::cancellation_state* state) 
 		m_state->add_token_ref();
 	}
 }
+

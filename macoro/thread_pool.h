@@ -10,7 +10,7 @@
 
 namespace macoro
 {
-	namespace impl
+	namespace detail
 	{
 
 		struct thread_pool_state
@@ -75,7 +75,7 @@ namespace macoro
 
 	struct thread_pool_post
 	{
-		impl::thread_pool_state* pool;
+		detail::thread_pool_state* pool;
 
 		bool await_ready() const noexcept { return false; }
 
@@ -88,7 +88,7 @@ namespace macoro
 
 	struct thread_pool_dispatch
 	{
-		impl::thread_pool_state* pool;
+		detail::thread_pool_state* pool;
 
 		bool await_ready() const noexcept { return false; }
 
@@ -112,18 +112,18 @@ namespace macoro
 
 
 		thread_pool()
-			:mState(new impl::thread_pool_state)
+			:mState(new detail::thread_pool_state)
 		{}
 		thread_pool(thread_pool&&) = default;
 		thread_pool& operator=(thread_pool&&) = default;
 
-		std::unique_ptr<impl::thread_pool_state> mState;
+		std::unique_ptr<detail::thread_pool_state> mState;
 
 		struct work
 		{
-			impl::thread_pool_state* mEx = nullptr;
+			detail::thread_pool_state* mEx = nullptr;
 
-			work(impl::thread_pool_state* e)
+			work(detail::thread_pool_state* e)
 				: mEx(e)
 			{
 				std::lock_guard<std::mutex> lock(mEx->mMutex);

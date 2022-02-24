@@ -11,7 +11,7 @@
 
 namespace macoro
 {
-	namespace impl
+	namespace detail
 	{
 		class when_all_counter
 		{

@@ -4,7 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#include "macoro/impl/cancellation_token.h"
+#include "macoro/detail/cancellation_token.h"
 
 #include <functional>
 #include <utility>
@@ -14,7 +14,7 @@
 
 namespace macoro
 {
-	namespace impl
+	namespace detail
 	{
 		class cancellation_state;
 		struct cancellation_registration_list_chunk;
@@ -71,14 +71,14 @@ namespace macoro
 
 	private:
 
-		friend class impl::cancellation_state;
-		friend struct impl::cancellation_registration_state;
+		friend class detail::cancellation_state;
+		friend struct detail::cancellation_registration_state;
 
 		void register_callback(cancellation_token&& token);
 
-		impl::cancellation_state* m_state;
+		detail::cancellation_state* m_state;
 		std::function<void()> m_callback;
-		impl::cancellation_registration_list_chunk* m_chunk;
+		detail::cancellation_registration_list_chunk* m_chunk;
 		std::uint32_t m_entryIndex;
 	};
 }

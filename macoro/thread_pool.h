@@ -9,6 +9,7 @@
 #include "macoro/awaiter.h"
 #include "cancellation.h"
 #include <algorithm>
+#include <sstream>
 namespace macoro
 {
 	namespace detail
@@ -48,7 +49,21 @@ namespace macoro
 			static thread_local thread_pool_state* mCurrentExecutor;
 
 			std::deque<coroutine_handle<void>> mDeque;
+			//struct LE
+			//{
+			//	LE(const char* s, thread_pool_time_point t)
+			//		: str(s)
+			//		, time(t)
+			//	{}
+			//	const char* str;
+			//	thread_pool_time_point time;
+			//};
+			//std::vector<LE> mLog;
 
+			//void log(const char* l)
+			//{
+			//	mLog.emplace_back(l, thread_pool_clock::now());
+			//}
 
 			std::vector<thread_pool_delay_op> mDelayHeap;
 			std::size_t mDelayOpIdx = 0;
@@ -56,6 +71,7 @@ namespace macoro
 
 			void post(coroutine_handle<void> fn)
 			{
+				//log("post");
 				assert(fn);
 				{
 					std::lock_guard<std::mutex> lock(mMutex);
@@ -67,6 +83,7 @@ namespace macoro
 			MACORO_NODISCARD
 				bool try_dispatch(coroutine_handle<void> fn)
 			{
+				//log("try_dispatch");
 				if (mCurrentExecutor == this)
 					return true;
 				else
@@ -87,7 +104,8 @@ namespace macoro
 				cancellation_token&& token,
 				optional<cancellation_registration>& reg)
 			{
-
+				//log("post_after");
+				//mLog.emplace_back("exp-pop", deadline);
 				{
 					std::unique_lock<std::mutex> lock(mMutex);
 					auto idx = mDelayOpIdx++;
@@ -107,6 +125,7 @@ namespace macoro
 
 			void cancel_delay_op(std::size_t idx)
 			{
+				//log("cancel_delay_op");
 				bool notify = false;
 				{
 					std::unique_lock<std::mutex> lock(mMutex);
@@ -315,9 +334,23 @@ namespace macoro
 				t.join();
 		}
 
+		//std::string print_log(detail::thread_pool_time_point begin)
+		//{
+		//	std::stringstream ss;
+		//	for (int i = 0; i < mState->mLog.size(); ++i)
+		//	{
+		//		ss << std::chrono::duration_cast<std::chrono::milliseconds>(mState->mLog[i].time - begin).count()
+		//			<< " ms ~ " << mState->mLog[i].str << std::endl;
+		//			
+		//	}
+
+		//	return ss.str();
+		//}
+
 		void run()
 		{
 			auto state = mState.get();
+			//state->log("run");
 
 			if (detail::thread_pool_state::mCurrentExecutor != nullptr)
 				throw std::runtime_error("calling run() on a thread that is already controlled by a thread_pool is not supported. ");
@@ -336,6 +369,8 @@ namespace macoro
 					if ((state->mDelayHeap.empty() || state->mDelayHeap.front().deadline > clock::now()) &&
 						state->mDeque.empty())
 					{
+						//state->log("run::no-work");
+
 						if (state->mDelayHeap.size())
 						{
 							state->mCondition.wait_until(lock, state->mDelayHeap.front().deadline);
@@ -355,12 +390,15 @@ namespace macoro
 
 					if (state->mDelayHeap.size() && state->mDelayHeap.front().deadline <= clock::now())
 					{
+						//state->log("run::pop-delay");
+
 						fn = state->mDelayHeap.front().handle;
 						std::pop_heap(state->mDelayHeap.begin(), state->mDelayHeap.end());
 						state->mDelayHeap.pop_back();
 					}
 					else if (state->mDeque.size())
 					{
+						//state->log("run::pop");
 						fn = state->mDeque.front();
 						state->mDeque.pop_front();
 					}
@@ -374,6 +412,7 @@ namespace macoro
 
 						lock.lock();
 					}
+					//state->log("run::next");
 				}
 			}
 

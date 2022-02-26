@@ -291,6 +291,7 @@ namespace macoro
 		t.add("task_blocking_cancel_test          ", task_blocking_cancel_test);
 
 		//t.add("when_all_basic_tests               ", when_all_basic_tests);
+		t.add("schedule_after_test                ", schedule_after);
 		t.add("take_until_tests                   ", take_until_tests);
 
 		t.add("result_basic_store_test            ", result_basic_store_test);

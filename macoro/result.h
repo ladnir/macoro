@@ -89,6 +89,8 @@ namespace macoro
 			static_assert(std::is_default_constructible<Error>::value, "either T or Error must be default constructible to default construct a result.");
 			return variant<T, Error>{ MACORO_VARIANT_NAMESPACE::in_place_index<1> };
 		}
+
+
 	}
 
 
@@ -130,7 +132,26 @@ namespace macoro
 	
 	namespace detail
 	{
+		template<typename R, typename AWAITER>
+		enable_if_t<std::is_void< awaitable_result_t<AWAITER>>::value>
+			try_resume(R&& r, AWAITER&& a)
+		{
+			try {
+				a.await_resume();
+				r = Ok();
+			}
+			catch (...) { r = Err(std::current_exception()); }
+		}
 
+		template<typename R, typename AWAITER>
+		enable_if_t<std::is_void< awaitable_result_t<AWAITER>>::value == false>
+			try_resume(R&& r, AWAITER&& a)
+		{
+			try {
+				r = Ok(a.await_resume());
+			}
+			catch (...) { r = Err(std::current_exception()); }
+		}
 
 		template<typename T, typename E>
 		auto result_unhandled_exception()
@@ -200,21 +221,6 @@ namespace macoro
 					auto r = std::move(promise.mResult.value());
 					handle.destroy();
 					return r;
-					//auto idx = promise.mVar.index();
-					//if (idx == 1)
-					//{
-					//	result<T, E> r(Ok(std::move(*MACORO_VARIANT_NAMESPACE::get<1>(promise.mVar))));
-					//	handle.destroy();
-					//	return r;
-					//}
-					//else if (idx == 2)
-					//{
-					//	result<T, E> r(Err(std::move(MACORO_VARIANT_NAMESPACE::get<2>(promise.mVar))));
-					//	handle.destroy();
-					//	return r;
-					//}
-
-					//throw broken_promise();
 				}
 			};
 
@@ -251,12 +257,7 @@ namespace macoro
 			void return_value(TT&& t)
 			{
 				mResult.emplace(std::forward<TT>(t));
-				//mVar.template emplace<1>(&t);
 			}
-			//void return_value(const T& t)
-			//{
-			//	mVar.template emplace<1>(&t);
-			//}
 		};
 
 	}

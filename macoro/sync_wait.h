@@ -22,11 +22,11 @@ namespace macoro
 			{
 				bool await_ready() { return false; }
 #ifdef MACORO_CPP_20
-				template<typename T>
-				void await_suspend(std::coroutine_handle<T> h) { h.promise().set(); }
+				template<typename P>
+				void await_suspend(std::coroutine_handle<P> h) { h.promise().set(); }
 #endif
-				template<typename T>
-				void await_suspend(coroutine_handle<T> h) { h.promise().set(); }
+				template<typename P>
+				void await_suspend(coroutine_handle<P> h) { h.promise().set(); }
 				void await_resume() {}
 			};
 

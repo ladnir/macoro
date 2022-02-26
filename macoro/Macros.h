@@ -63,43 +63,55 @@
 // RETURN_SLOT can be used to set a variable to the result of the co_await expression.
 // SUSPEND_IDX should be a unique integer literal. Typically obtained using __COUNTER__.
 #define IMPL_MC_AWAIT(EXPRESSION, RETURN_SLOT, SUSPEND_IDX)														\
-				{																								\
+				do {																							\
 					IMPL_MC_AWAIT_CORE(EXPRESSION, SUSPEND_IDX)													\
 					/*<resume-point>*/																			\
 					RETURN_SLOT _macoro_frame_->template getAwaiter<MACORO_CAT(_macoro_AwaitContext,SUSPEND_IDX)>().await_resume();		\
 					_macoro_frame_->template destroyAwaiter<MACORO_CAT(_macoro_AwaitContext,SUSPEND_IDX)>();		\
-				} do{}while(0)
+				} while(0)
+
+// a helper macro that defines a try{ co_await expression } catch(...) {}. 
+// RETURN_SLOT can be used to set a variable to the result of the co_await expression.
+// SUSPEND_IDX should be a unique integer literal. Typically obtained using __COUNTER__.
+#define IMPL_MC_AWAIT_TRY(EXPRESSION, RETURN_SLOT, SUSPEND_IDX)													\
+				do{																								\
+					IMPL_MC_AWAIT_CORE(EXPRESSION, SUSPEND_IDX)													\
+					/*<resume-point>*/																			\
+					::macoro::detail::try_resume(RETURN_SLOT, 													\
+						_macoro_frame_->template getAwaiter<MACORO_CAT(_macoro_AwaitContext,SUSPEND_IDX)>());	\
+					_macoro_frame_->template destroyAwaiter<MACORO_CAT(_macoro_AwaitContext,SUSPEND_IDX)>();	\
+				} while(0)
 
 // A helper macro that implements the MC_YIELD_AWAIT. We first perform a normal co_await
 // and then we call another co_await on the result of promise.yield_value(awaiter.await_resume()).
 #define IMPL_MC_YIELD_AWAIT(EXPRESSION, SUSPEND_IDX)															\
-				{	IMPL_MC_AWAIT_CORE(EXPRESSION, SUSPEND_IDX)													\
+				do {	IMPL_MC_AWAIT_CORE(EXPRESSION, SUSPEND_IDX)												\
 					/*<resume-point>*/																			\
 					IMPL_MC_AWAIT(_macoro_frame_->promise.yield_value(_macoro_frame_->template getAwaiter<MACORO_CAT(_macoro_AwaitContext,SUSPEND_IDX)>().await_resume()), ,__COUNTER__);\
 					_macoro_frame_->template destroyAwaiter<MACORO_CAT(_macoro_AwaitContext,SUSPEND_IDX)>();		\
-				} do{}while(0)
+				} while(0)
 
 
 // A helper macro that implements the MC_AWAIT_AWAIT. We first perform a normal co_await
 // and then we call another co_await on the result of awaiter.await_resume().
 #define IMPL_MC_AWAIT_AWAIT(EXPRESSION, SUSPEND_IDX)															\
-				{	IMPL_MC_AWAIT_CORE(EXPRESSION, SUSPEND_IDX)													\
+				do{	IMPL_MC_AWAIT_CORE(EXPRESSION, SUSPEND_IDX)													\
 					/*<resume-point>*/																			\
 					IMPL_MC_AWAIT(_macoro_frame_->template getAwaiter<MACORO_CAT(_macoro_AwaitContext,SUSPEND_IDX)>().await_resume(), ,__COUNTER__);\
 					_macoro_frame_->template destroyAwaiter<MACORO_CAT(_macoro_AwaitContext,SUSPEND_IDX)>();		\
-				} do{}while(0)
+				} while(0)
 
 
 // A helper macro that implements the MC_AWAIT_FN. We first perform a normal co_await
 // and then we call the function with the await_resume result as the parameter.
 #define IMPL_MC_AWAIT_FN(FN_SLOT, EXPRESSION, OPTIONAL_GOTO, SUSPEND_IDX)										\
-				{																								\
+				do{																								\
 					IMPL_MC_AWAIT_CORE(EXPRESSION, SUSPEND_IDX)													\
 					/*<resume-point>*/																			\
 					FN_SLOT(_macoro_frame_->template getAwaiter<MACORO_CAT(_macoro_AwaitContext,SUSPEND_IDX)>().await_resume());							\
 					_macoro_frame_->template destroyAwaiter<MACORO_CAT(_macoro_AwaitContext,SUSPEND_IDX)>();		\
 					OPTIONAL_GOTO																				\
-				} do{}while(0)
+				} while(0)
 
 
 // Begin a lambda based coroutine which returns the given type.
@@ -112,12 +124,12 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ::macoro::coroutine_trai
 			switch (_macoro_frame_->_suspension_idx_)															\
 			{																									\
 			case ::macoro::SuspensionPoint::InitialSuspendBegin:												\
-				{																								\
+				do {																								\
 					IMPL_MC_AWAIT_CORE(_macoro_frame_->promise.initial_suspend(), MACORO_INITIAL_SUSPEND_IDX)	\
 					_macoro_frame_->_initial_suspend_await_resumed_called_ = true;								\
 					_macoro_frame_->template getAwaiter<MACORO_CAT(_macoro_AwaitContext,MACORO_INITIAL_SUSPEND_IDX)>().await_resume();			\
 					_macoro_frame_->template destroyAwaiter<MACORO_CAT(_macoro_AwaitContext,MACORO_INITIAL_SUSPEND_IDX)>();						\
-				} do {} while(0)
+				} while(0)
 
 
 // Perform a co_yield co_await expression. This is equivalent to
@@ -136,13 +148,13 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ::macoro::coroutine_trai
 
 // Returns void. Equivalent to `co_return;`
 #define MC_RETURN_VOID()																						\
-				_macoro_frame_->promise.return_void();															\
-				goto MACORO_FINAL_SUSPEND_BEGIN;
+				do{ _macoro_frame_->promise.return_void();														\
+				goto MACORO_FINAL_SUSPEND_BEGIN; } while(0)
 
 // Returns a value. Equivalent to `co_return X;`
 #define MC_RETURN(X)																							\
-				_macoro_frame_->promise.return_value(X);														\
-				goto MACORO_FINAL_SUSPEND_BEGIN;
+				do { _macoro_frame_->promise.return_value(X);													\
+				goto MACORO_FINAL_SUSPEND_BEGIN; } while(0)
 
 
 // perform a basic co_await expression. This is equivalent to
@@ -153,6 +165,12 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ::macoro::coroutine_trai
 // perform a basic co_await expression and set VARIABLE to the result. This is equivalent to
 // `VARIABLE = co_await EXPRESSION`
 #define MC_AWAIT_SET(VARIABLE, EXPRESSION)	IMPL_MC_AWAIT(EXPRESSION, VARIABLE = , __COUNTER__)
+
+
+// perform a basic co_await expression and set VARIABLE to the Ok(result) or Err(std::current_exception()). This is equivalent to
+// `try { VARIABLE = Ok(co_await EXPRESSION); } catch (...) {VARIABLE = Err(std::current_exception()); }`
+#define MC_AWAIT_TRY(VARIABLE, EXPRESSION)	IMPL_MC_AWAIT_TRY(EXPRESSION, VARIABLE , __COUNTER__)
+
 
 // perform a basic co_await expression and return to the result. This is equivalent to
 // `co_return co_await EXPRESSION`

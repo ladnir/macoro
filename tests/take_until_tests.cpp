@@ -1,42 +1,58 @@
 #include "macoro/take_until.h"
+#include "macoro/timeout.h"
 #include "macoro/io_service.h"
 #include "macoro/sync_wait.h"
+#include "macoro/thread_pool.h"
+
 using namespace std::chrono_literals;
 namespace macoro
 {
 	namespace tests
 	{
-		task<int> makeTask(cancellation_token t)
+		task<int> makeTask(cancellation_source s, bool wait)
 		{
-			// wait for cancel.
-			co_await t;
+			MC_BEGIN(task<int>, s, wait);
 
-			co_return 43;
+			
+
+			// wait for cancel.
+			if (wait)
+				MC_AWAIT(s.token());
+			else
+				s.request_cancellation();
+
+			MC_RETURN(43);
+			MC_END();
 		}
 
-		task<void> use(io_service &s)
+		task<void> use(thread_pool&s, bool wait)
 		{
-			;
-			//std::chrono::duration<std::chrono::milliseconds> d;
-			
-			timeout<io_service> to(s, 10ms);
+			MC_BEGIN(task<>, &s , wait
+				, to = timeout(s, wait ? 10ms : 100000ms)
+				, i = int{}
+				);
 
-			int i = co_await take_until(makeTask(to.token()), to);
+			MC_AWAIT_SET(i, take_until(makeTask(to.source(), wait), std::move(to)));
 
-			co_return;
+			MC_END();
 		}
 		
 
 		void timeout_test()
 		{
-			io_service s;
-			auto thrd = std::thread([&] {s.process_events(); });
+			//io_service s;
+			//auto thrd = std::thread([&] {s.process_events(); });
+			thread_pool s;
+			auto work = s.make_work();
+			s.create_thread();
 
-			sync_wait(use(s));
-			std::cout << "success" << std::endl;
+			sync_wait(use(s, true));
 
-			s.stop();
-			thrd.join();
+			sync_wait(use(s, false));
+
+
+			work = {};
+			s.join();
 		}
 
 

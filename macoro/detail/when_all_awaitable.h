@@ -9,8 +9,10 @@
 #include <atomic>
 #include "macoro/coroutine_handle.h"
 #include "when_all_counter.h"
-#include <coroutine>
 
+#ifdef MACORO_CPP_20
+#include <coroutine>
+#endif
 
 namespace macoro
 {

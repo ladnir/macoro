@@ -5,66 +5,58 @@
 #include <chrono>
 #include "type_traits.h"
 #include "result.h"
+#include "macoro/macros.h"
 
 namespace macoro
 {
-	template<typename AWAITABLE, typename UNTIL>
-	task<awaitable_result_t<AWAITABLE>> take_until(AWAITABLE&& a, UNTIL&& t)
-	{
-		auto v = co_await a;
-		t.request_cancellation();
-		try { co_await t; }
-		catch (...) {}
 
-		co_return v;
+	template<typename T>
+	void request_cancellation(T&& t)
+	{
+		t.request_cancellation();
 	}
 
-
-	//task<int> makeTask(cancellation_source s)
-	//{
-	//	co_await suspend_always{};
-	//	s.request_cancellation();
-	//	co_return 42;
-	//}
-
-	template<typename Scheduler>
-	struct timeout
+	template<typename AWAITABLE, typename UNTIL,
+		enable_if_t<std::is_void<awaitable_result_t<AWAITABLE>>::value == false, int> = 0>
+	task<awaitable_result_t<AWAITABLE>> take_until(AWAITABLE a, UNTIL t)
 	{
-		cancellation_source src;
-		eager_task<> t;
+		using return_type = awaitable_result_t<AWAITABLE>;
+		MC_BEGIN(task<return_type>,
+			awaitable = std::move(a),
+			until = std::move(t),
+			v = result<return_type>{},
+			w = result<void>{});
 
+		MC_AWAIT_TRY(v, std::move(awaitable));
+		
+		request_cancellation(until);
 
-		template<typename Rep, typename Per>
-		timeout(Scheduler& s,
-			std::chrono::duration<Rep, Per> d)
-		{
-			t = [](
-				Scheduler& s, 
-				cancellation_source src, 
-				std::chrono::duration<Rep, Per> d) 
-				-> eager_task<>
-			{
-				try
-				{
-					co_await s.schedule_after(d);
-					src.request_cancellation();
-				}
-				catch (...) {}
-			}(s, src, d);
-		}
+		MC_AWAIT_TRY(w, std::move(until));
 
-		void request_cancellation() {
-			src.request_cancellation();
-		} 
+		if (v.has_error())
+			std::rethrow_exception(v.error());
+		MC_RETURN(v.value());
+		MC_END();
+	}
 
-		cancellation_token token() { return src.token(); }
+	template<typename AWAITABLE, typename UNTIL,
+		enable_if_t<std::is_void<awaitable_result_t<AWAITABLE>>::value == true, int> = 0>
+		task<void> take_until(AWAITABLE a, UNTIL t)
+	{
+		MC_BEGIN(task<>,
+			awaitable = std::move(a),
+			until = std::move(t),
+			v = result<void>{},
+			w = result<void>{});
 
+		MC_AWAIT_TRY(v, awaitable);
+		request_cancellation(until);
+		MC_AWAIT_TRY(w, until);
 
-		auto operator co_await()
-		{
-			return t.operator co_await();
-		}
-	};
-
+		if (v.has_error())
+			std::rethrow_exception(v.error());
+		MC_RETURN_VOID();
+		MC_END();
+	}
 
 }

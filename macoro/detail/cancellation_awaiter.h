@@ -16,11 +16,13 @@ namespace macoro
 		cancellation_token mtoken;
 		optional<cancellation_registration> mReg;
 		bool await_ready() { return false; }
+
+#ifdef MACORO_CPP20
 		std::coroutine_handle<> await_suspend(std::coroutine_handle<> h)
 		{
 			return await_suspend(coroutine_handle<>(h)).std_cast();
 		}
-
+#endif
 		coroutine_handle<> await_suspend(coroutine_handle<> h)
 		{
 			if (mtoken.can_be_cancelled() && ! mtoken.is_cancellation_requested())
@@ -36,7 +38,7 @@ namespace macoro
 	};
 
 
-	inline cancellation_awaiter operator co_await(cancellation_token t)
+	inline cancellation_awaiter MACORO_OPERATOR_COAWAIT(cancellation_token t)
 	{
 		return { std::move(t) };
 	}

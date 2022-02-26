@@ -11,6 +11,7 @@
 #include <array>
 #include <vector>
 #include <cstddef>
+#include <memory>
 #ifdef MACORO_CPP_20
 #include <coroutine>
 #endif

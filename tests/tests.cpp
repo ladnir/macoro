@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cmath>
 #include <array>
+#include <algorithm>
 
 namespace macoro
 {

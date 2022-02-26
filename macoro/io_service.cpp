@@ -471,12 +471,12 @@ void macoro::io_service::notify_work_finished() noexcept
 	}
 }
 
+#if MACORO_WINDOWS_OS
 macoro::detail::win32::handle_t macoro::io_service::native_iocp_handle() noexcept
 {
 	return m_iocpHandle.handle();
 }
 
-#if MACORO_WINDOWS_OS
 
 void macoro::io_service::ensure_winsock_initialised()
 {
@@ -673,6 +673,8 @@ bool macoro::io_service::try_process_one_event(bool waitForEvent)
 			};
 		}
 	}
+#else
+	return !is_stop_requested();
 #endif
 }
 
@@ -712,11 +714,12 @@ macoro::io_service::ensure_timer_thread_started()
 }
 
 macoro::io_service::timer_thread_state::timer_thread_state()
+	:
 #if MACORO_WINDOWS_OS
-	: m_wakeUpEvent(create_auto_reset_event())
-	, m_waitableTimerEvent(create_waitable_timer_event())
+		m_wakeUpEvent(create_auto_reset_event())
+	, m_waitableTimerEvent(create_waitable_timer_event()),
 #endif
-	, m_newlyQueuedTimers(nullptr)
+	 m_newlyQueuedTimers(nullptr)
 	, m_timerCancellationRequested(false)
 	, m_shutDownRequested(false)
 	, m_thread([this] { this->run(); })

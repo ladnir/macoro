@@ -11,7 +11,9 @@
 #include <cstdint>
 #include <cassert>
 
+#ifdef MACORO_CPP_20
 #include <coroutine>
+#endif
 #include "macoro/coroutine_handle.h"
 #include "macoro/awaiter.h"
 #include "macoro/type_traits.h"

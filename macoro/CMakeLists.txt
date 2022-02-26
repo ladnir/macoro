@@ -4,9 +4,15 @@ set(SRC
     detail/cancellation_source.cpp
     detail/cancellation_state.cpp
     detail/cancellation_token.cpp
-    detail/win32.cpp
     io_service.cpp
+    thread_pool.cpp
     )
+
+    
+if(MSVC)
+    LIST(APPEND SRC 
+    detail/win32.cpp)
+endif()
 
 add_library(macoro STATIC ${SRC})
 

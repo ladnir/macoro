@@ -29,10 +29,9 @@
 #if _MSC_VER
 # define MACORO_WINDOWS_OS 1
 # define MACORO_NOINLINE __declspec(noinline)
-# define MACORO_CPU_CACHE_LINE std::hardware_destructive_interference_size
 #else
 # define MACORO_WINDOWS_OS 0
 # define MACORO_NOINLINE __attribute__((noinline))
-# define MACORO_CPU_CACHE_LINE 64
 #endif
+# define MACORO_CPU_CACHE_LINE 64
 

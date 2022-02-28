@@ -120,12 +120,11 @@ namespace macoro
 
 
 
-			template<typename Scheduler>
-			auto push(Scheduler& s)
+			auto push()
 			{
 				struct push_awaitable
 				{
-					using inner = decltype(mSequence.claim_one(s));
+					using inner = decltype(mSequence.claim_one());
 					inner mInner;
 					channel* mChl;
 
@@ -145,16 +144,15 @@ namespace macoro
 					}
 				};
 
-				return push_awaitable(mSequence.claim_one(s), this);
+				return push_awaitable(mSequence.claim_one(), this);
 			}
 
 
-			template<typename Scheduler>
-			auto close(Scheduler& s)
+			auto close()
 			{
 				struct close_awaitable
 				{
-					using inner = decltype(mSequence.claim_one(s));
+					using inner = decltype(mSequence.claim_one());
 					inner mInner;
 					channel* mChl;
 
@@ -174,20 +172,18 @@ namespace macoro
 					}
 				};
 
-				return close_awaitable(mSequence.claim_one(s), this);
+				return close_awaitable(mSequence.claim_one(), this);
 			}
 
-			template<typename Scheduler>
 			struct front_awaitable_base
 			{
-				using inner = decltype(mSequence.wait_until_published(mFrontIndex, std::declval<Scheduler>()));
+				using inner = decltype(mSequence.wait_until_published(mFrontIndex));
 				inner mInner;
 				channel* mChl;
 				front_awaitable_base(inner&& in, channel* c)
 					: mInner(std::move(in))
 					, mChl(c)
 				{}
-
 
 				bool await_ready() { return mInner.await_ready(); }
 
@@ -196,14 +192,13 @@ namespace macoro
 				}
 
 			};
-			template<typename Scheduler>
-			auto front(Scheduler& s)
+			auto front()
 			{
-				struct front_awaitable : public front_awaitable_base<Scheduler>
+				struct front_awaitable : public front_awaitable_base
 				{
-					using inner = typename front_awaitable_base<Scheduler>::inner;
+					using inner = typename front_awaitable_base::inner;
 					front_awaitable(inner&& in, channel* c)
-						:front_awaitable_base<Scheduler>(std::forward<inner>(in), c)
+						:front_awaitable_base(std::forward<inner>(in), c)
 					{}
 
 					auto& await_resume() {
@@ -216,17 +211,16 @@ namespace macoro
 					}
 				};
 
-				return front_awaitable(mSequence.wait_until_published(mFrontIndex, s), this);
+				return front_awaitable(mSequence.wait_until_published(mFrontIndex), this);
 			}
 
-			template<typename Scheduler>
-			auto pop(Scheduler& s)
+			auto pop()
 			{
-				struct pop_awaitable : public front_awaitable_base<Scheduler>
+				struct pop_awaitable : public front_awaitable_base
 				{
-					using inner = typename front_awaitable_base<Scheduler>::inner;
+					using inner = typename front_awaitable_base::inner;
 					pop_awaitable(inner&& in, channel* c)
-						:front_awaitable_base<Scheduler>(std::forward<inner>(in), c)
+						:front_awaitable_base(std::forward<inner>(in), c)
 					{}
 
 
@@ -234,12 +228,13 @@ namespace macoro
 						auto available = mInner.await_resume();
 						assert(available >= mChl->mFrontIndex);
 						mChl->mData[mChl->mFrontIndex & mChl->mIndexMask].reset();
+						mChl->mBarrier.publish(mChl->mFrontIndex);
 						++mChl->mFrontIndex;
 						return;
 					}
 				};
 
-				return pop_awaitable(mSequence.wait_until_published(mFrontIndex, s), this);
+				return pop_awaitable(mSequence.wait_until_published(mFrontIndex), this);
 			}
 		public:
 		};
@@ -260,16 +255,14 @@ namespace macoro
 			channel_sender& operator=(const channel_sender&) = delete;
 			channel_sender& operator=(channel_sender&&) = default;
 
-			template<typename Scheduler>
-			auto push(Scheduler& s)
+			auto push()
 			{
-				return mBase->push(s);
+				return mBase->push();
 			}
 
-			template<typename Scheduler>
-			auto close(Scheduler& s)
+			auto close()
 			{
-				return mBase->close(s);
+				return mBase->close();
 			}
 
 		};
@@ -289,21 +282,20 @@ namespace macoro
 			channel_receiver& operator=(channel_receiver&&) = default;
 
 
-			template<typename Scheduler>
-			auto front(Scheduler& s)
+			auto front()
 			{
-				return mBase->front(s);
+				return mBase->front();
 			}
 
-			template<typename Scheduler>
-			auto pop(Scheduler& s)
+			auto pop()
 			{
-				return mBase->pop(s);
+				return mBase->pop();
 			}
 		};
 
+		
 		template<typename T>
-		std::pair<channel_sender<T>, channel_receiver<T>> make_channel(std::size_t capcaity)
+		auto make_channel(std::size_t capcaity)
 		{
 			std::shared_ptr<channel<T>> ptr = std::make_shared<channel<T>>(capcaity);
 			return std::make_pair<channel_sender<T>, channel_receiver<T>>(ptr, ptr);

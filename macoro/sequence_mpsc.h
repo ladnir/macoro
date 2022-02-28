@@ -17,20 +17,20 @@
 
 namespace macoro
 {
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
+	template<typename SEQUENCE, typename TRAITS>
 	class sequence_mpsc_claim_one_operation;
 
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
+	template<typename SEQUENCE, typename TRAITS>
 	class sequence_mpsc_claim_operation;
 
 	template<typename SEQUENCE, typename TRAITS>
 	class sequence_mpsc_wait_operation_base;
 
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
-	class sequence_mpsc_wait_operation;
+	//template<typename SEQUENCE, typename TRAITS>
+	//class sequence_mpsc_wait_operation;
 
-	/// A multi-producer sequencer is a thread-synchronisation primitive that can be
-	/// used to synchronise access to a ring-buffer of power-of-two size where you
+	/// A multi-producer sequencer is a thread-synchronization primitive that can be
+	/// used to synchronize access to a ring-buffer of power-of-two size where you
 	/// have multiple producers concurrently claiming slots in the ring-buffer and
 	/// publishing items.
 	///
@@ -76,11 +76,9 @@ namespace macoro
 		/// Returns an awaitable type that when co_awaited will suspend the awaiting
 		/// coroutine until the specified 'targetSequence' number and all prior sequence
 		/// numbers have been published.
-		template<typename SCHEDULER>
-		sequence_mpsc_wait_operation<SEQUENCE, TRAITS, SCHEDULER> wait_until_published(
+		sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS> wait_until_published(
 			SEQUENCE targetSequence,
-			SEQUENCE lastKnownPublished,
-			SCHEDULER& scheduler) const noexcept;
+			SEQUENCE lastKnownPublished) const noexcept;
 
 		/// Query if there are currently any slots available for claiming.
 		///
@@ -98,9 +96,8 @@ namespace macoro
 		/// slot within the ring buffer. Once the value has been initialised the item
 		/// must be published by calling the .publish() method, passing the sequence
 		/// number.
-		template<typename SCHEDULER>
-		sequence_mpsc_claim_one_operation<SEQUENCE, TRAITS, SCHEDULER>
-		claim_one(SCHEDULER& scheduler) noexcept;
+		sequence_mpsc_claim_one_operation<SEQUENCE, TRAITS>
+		claim_one() noexcept;
 
 		/// Claim a contiguous range of sequence numbers corresponding to slots within
 		/// a ring-buffer.
@@ -114,9 +111,8 @@ namespace macoro
 		///
 		/// The caller is responsible for ensuring that they publish every element of the
 		/// returned sequence range by calling .publish().
-		template<typename SCHEDULER>
-		sequence_mpsc_claim_operation<SEQUENCE, TRAITS, SCHEDULER>
-		claim_up_to(std::size_t count, SCHEDULER& scheduler) noexcept;
+		sequence_mpsc_claim_operation<SEQUENCE, TRAITS>
+		claim_up_to(std::size_t count) noexcept;
 
 		/// Publish the element with the specified sequence number, making it available
 		/// to consumers.
@@ -126,7 +122,7 @@ namespace macoro
 		/// until all preceding sequence numbers have also been published.
 		///
 		/// \param sequence
-		/// The sequence number of the elemnt to publish
+		/// The sequence number of the element to publish
 		/// This sequence number must have been previously acquired via a call to 'claim_one()'
 		/// or 'claim_up_to()'.
 		void publish(SEQUENCE sequence) noexcept;
@@ -144,10 +140,10 @@ namespace macoro
 		template<typename SEQUENCE2, typename TRAITS2>
 		friend class sequence_mpsc_wait_operation_base;
 
-		template<typename SEQUENCE2, typename TRAITS2, typename SCHEDULER>
+		template<typename SEQUENCE2, typename TRAITS2>
 		friend class sequence_mpsc_claim_operation;
 
-		template<typename SEQUENCE2, typename TRAITS2, typename SCHEDULER>
+		template<typename SEQUENCE2, typename TRAITS2>
 		friend class sequence_mpsc_claim_one_operation;
 
 		void resume_ready_awaiters() noexcept;
@@ -174,7 +170,7 @@ namespace macoro
 
 	};
 
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
+	template<typename SEQUENCE, typename TRAITS>
 	class sequence_mpsc_claim_awaiter
 	{
 	public:
@@ -182,9 +178,8 @@ namespace macoro
 		sequence_mpsc_claim_awaiter(
 			const sequence_barrier<SEQUENCE, TRAITS>& consumerBarrier,
 			std::size_t bufferSize,
-			const sequence_range<SEQUENCE, TRAITS>& claimedRange,
-			SCHEDULER& scheduler) noexcept
-			: m_barrierWait(consumerBarrier, claimedRange.back() - bufferSize, scheduler)
+			const sequence_range<SEQUENCE, TRAITS>& claimedRange) noexcept
+			: m_barrierWait(consumerBarrier, claimedRange.back() - bufferSize)
 			, m_claimedRange(claimedRange)
 		{}
 
@@ -211,27 +206,25 @@ namespace macoro
 
 	private:
 
-		sequence_barrier_wait_operation<SEQUENCE, TRAITS, SCHEDULER> m_barrierWait;
+		sequence_barrier_wait_operation_base<SEQUENCE, TRAITS> m_barrierWait;
 		sequence_range<SEQUENCE, TRAITS> m_claimedRange;
 
 	};
 
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
+	template<typename SEQUENCE, typename TRAITS>
 	class sequence_mpsc_claim_operation
 	{
 	public:
 
 		sequence_mpsc_claim_operation(
 			sequence_mpsc<SEQUENCE, TRAITS>& sequencer,
-			std::size_t count,
-			SCHEDULER& scheduler) noexcept
+			std::size_t count) noexcept
 			: m_sequencer(sequencer)
 			, m_count(count < sequencer.buffer_size() ? count : sequencer.buffer_size())
-			, m_scheduler(scheduler)
 		{
 		}
 
-		sequence_mpsc_claim_awaiter<SEQUENCE, TRAITS, SCHEDULER> MACORO_OPERATOR_COAWAIT() noexcept
+		sequence_mpsc_claim_awaiter<SEQUENCE, TRAITS> MACORO_OPERATOR_COAWAIT() noexcept
 		{
 			// We wait until the awaitable is actually co_await'ed before we claim the
 			// range of elements. If we claimed them earlier, then it may be possible for
@@ -243,11 +236,10 @@ namespace macoro
 			// m_count elements are available. This would complicate the logic here somewhat
 			// as we'd need to use a compare-exchange instead.
 			const SEQUENCE first = m_sequencer.m_nextToClaim.fetch_add(m_count, std::memory_order_relaxed);
-			return sequence_mpsc_claim_awaiter<SEQUENCE, TRAITS, SCHEDULER>{
+			return sequence_mpsc_claim_awaiter<SEQUENCE, TRAITS>{
 				m_sequencer.m_consumerBarrier,
 				m_sequencer.buffer_size(),
-				sequence_range<SEQUENCE, TRAITS>{ first, first + m_count },
-				m_scheduler
+				sequence_range<SEQUENCE, TRAITS>{ first, first + m_count }
 			};
 		}
 
@@ -255,11 +247,10 @@ namespace macoro
 
 		sequence_mpsc<SEQUENCE, TRAITS>& m_sequencer;
 		std::size_t m_count;
-		SCHEDULER& m_scheduler;
 
 	};
 
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
+	template<typename SEQUENCE, typename TRAITS>
 	class sequence_mpsc_claim_one_awaiter
 	{
 	public:
@@ -267,9 +258,8 @@ namespace macoro
 		sequence_mpsc_claim_one_awaiter(
 			const sequence_barrier<SEQUENCE, TRAITS>& consumerBarrier,
 			std::size_t bufferSize,
-			SEQUENCE claimedSequence,
-			SCHEDULER& scheduler) noexcept
-			: m_waitOp(consumerBarrier, claimedSequence - bufferSize, scheduler)
+			SEQUENCE claimedSequence) noexcept
+			: m_waitOp(consumerBarrier, claimedSequence - bufferSize)
 			, m_claimedSequence(claimedSequence)
 		{}
 
@@ -296,37 +286,33 @@ namespace macoro
 
 	private:
 
-		sequence_barrier_wait_operation<SEQUENCE, TRAITS, SCHEDULER> m_waitOp;
+		sequence_barrier_wait_operation_base<SEQUENCE, TRAITS> m_waitOp;
 		SEQUENCE m_claimedSequence;
 
 	};
 
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
+	template<typename SEQUENCE, typename TRAITS>
 	class sequence_mpsc_claim_one_operation
 	{
 	public:
 
 		sequence_mpsc_claim_one_operation(
-			sequence_mpsc<SEQUENCE, TRAITS>& sequencer,
-			SCHEDULER& scheduler) noexcept
+			sequence_mpsc<SEQUENCE, TRAITS>& sequencer) noexcept
 			: m_sequencer(sequencer)
-			, m_scheduler(scheduler)
 		{}
 
-		sequence_mpsc_claim_one_awaiter<SEQUENCE, TRAITS, SCHEDULER> MACORO_OPERATOR_COAWAIT() noexcept
+		sequence_mpsc_claim_one_awaiter<SEQUENCE, TRAITS> MACORO_OPERATOR_COAWAIT() noexcept
 		{
-			return sequence_mpsc_claim_one_awaiter<SEQUENCE, TRAITS, SCHEDULER>{
+			return sequence_mpsc_claim_one_awaiter<SEQUENCE, TRAITS>{
 				m_sequencer.m_consumerBarrier,
 				m_sequencer.buffer_size(),
-				m_sequencer.m_nextToClaim.fetch_add(1, std::memory_order_relaxed),
-				m_scheduler
+				m_sequencer.m_nextToClaim.fetch_add(1, std::memory_order_relaxed)
 			};
 		}
 
 	private:
 
 		sequence_mpsc<SEQUENCE, TRAITS>& m_sequencer;
-		SCHEDULER& m_scheduler;
 
 	};
 
@@ -391,7 +377,7 @@ namespace macoro
 			m_lastKnownPublished = lastKnownPublished;
 			if (m_readyToResume.exchange(true, std::memory_order_release))
 			{
-				resume_impl();
+				this->m_awaitingCoroutine.resume();
 			}
 		}
 
@@ -405,106 +391,102 @@ namespace macoro
 		std::atomic<bool> m_readyToResume;
 	};
 
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
-	class sequence_mpsc_wait_operation :
-		public sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS>
-	{
-		using schedule_operation = decltype(std::declval<SCHEDULER&>().schedule());
+	//template<typename SEQUENCE, typename TRAITS>
+	//class sequence_mpsc_wait_operation :
+	//	public sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS>
+	//{
+	//	
+	//public:
 
-	public:
+	//	sequence_mpsc_wait_operation(
+	//		const sequence_mpsc<SEQUENCE, TRAITS>& sequencer,
+	//		SEQUENCE targetSequence,
+	//		SEQUENCE lastKnownPublished) noexcept
+	//		: sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS>(sequencer, targetSequence, lastKnownPublished)
+	//		, m_scheduler(scheduler)
+	//	{}
 
-		sequence_mpsc_wait_operation(
-			const sequence_mpsc<SEQUENCE, TRAITS>& sequencer,
-			SEQUENCE targetSequence,
-			SEQUENCE lastKnownPublished,
-			SCHEDULER& scheduler) noexcept
-			: sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS>(sequencer, targetSequence, lastKnownPublished)
-			, m_scheduler(scheduler)
-		{}
+	//	sequence_mpsc_wait_operation(
+	//		const sequence_mpsc_wait_operation& other) noexcept
+	//		: sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS>(other)
+	//		, m_scheduler(other.m_scheduler)
+	//	{}
 
-		sequence_mpsc_wait_operation(
-			const sequence_mpsc_wait_operation& other) noexcept
-			: sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS>(other)
-			, m_scheduler(other.m_scheduler)
-		{}
+	//	~sequence_mpsc_wait_operation()
+	//	{
+	//		if (m_isScheduleAwaiterCreated)
+	//		{
+	//			m_scheduleAwaiter.destruct();
+	//		}
+	//		if (m_isScheduleOperationCreated)
+	//		{
+	//			m_scheduleOperation.destruct();
+	//		}
+	//	}
 
-		~sequence_mpsc_wait_operation()
-		{
-			if (m_isScheduleAwaiterCreated)
-			{
-				m_scheduleAwaiter.destruct();
-			}
-			if (m_isScheduleOperationCreated)
-			{
-				m_scheduleOperation.destruct();
-			}
-		}
+	//	SEQUENCE await_resume() noexcept(noexcept(m_scheduleOperation->await_resume()))
+	//	{
+	//		if (m_isScheduleOperationCreated)
+	//		{
+	//			m_scheduleOperation->await_resume();
+	//		}
 
-		SEQUENCE await_resume() noexcept(noexcept(m_scheduleOperation->await_resume()))
-		{
-			if (m_isScheduleOperationCreated)
-			{
-				m_scheduleOperation->await_resume();
-			}
+	//		return sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS>::await_resume();
+	//	}
 
-			return sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS>::await_resume();
-		}
+	//private:
 
-	private:
+	//	void resume_impl() noexcept override
+	//	{
+	//		try
+	//		{
+	//			m_scheduleOperation.construct(m_scheduler.schedule());
+	//			m_isScheduleOperationCreated = true;
 
-		void resume_impl() noexcept override
-		{
-			try
-			{
-				m_scheduleOperation.construct(m_scheduler.schedule());
-				m_isScheduleOperationCreated = true;
+	//			m_scheduleAwaiter.construct(detail::get_awaiter(
+	//				static_cast<schedule_operation&&>(*m_scheduleOperation)));
+	//			m_isScheduleAwaiterCreated = true;
 
-				m_scheduleAwaiter.construct(detail::get_awaiter(
-					static_cast<schedule_operation&&>(*m_scheduleOperation)));
-				m_isScheduleAwaiterCreated = true;
+	//			if (!m_scheduleAwaiter->await_ready())
+	//			{
+	//				using await_suspend_result_t = decltype(m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine));
+	//				if constexpr (std::is_void_v<await_suspend_result_t>)
+	//				{
+	//					m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine);
+	//					return;
+	//				}
+	//				else if constexpr (std::is_same_v<await_suspend_result_t, bool>)
+	//				{
+	//					if (m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine))
+	//					{
+	//						return;
+	//					}
+	//				}
+	//				else
+	//				{
+	//					// Assume it returns a coroutine_handle.
+	//					m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine).resume();
+	//					return;
+	//				}
+	//			}
+	//		}
+	//		catch (...)
+	//		{
+	//			// Ignore failure to reschedule and resume inline?
+	//			// Should we catch the exception and rethrow from await_resume()?
+	//			// Or should we require that 'co_await scheduler.schedule()' is noexcept?
+	//		}
 
-				if (!m_scheduleAwaiter->await_ready())
-				{
-					using await_suspend_result_t = decltype(m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine));
-					if constexpr (std::is_void_v<await_suspend_result_t>)
-					{
-						m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine);
-						return;
-					}
-					else if constexpr (std::is_same_v<await_suspend_result_t, bool>)
-					{
-						if (m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine))
-						{
-							return;
-						}
-					}
-					else
-					{
-						// Assume it returns a coroutine_handle.
-						m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine).resume();
-						return;
-					}
-				}
-			}
-			catch (...)
-			{
-				// Ignore failure to reschedule and resume inline?
-				// Should we catch the exception and rethrow from await_resume()?
-				// Or should we require that 'co_await scheduler.schedule()' is noexcept?
-			}
+	//		// Resume outside the catch-block.
+	//	}
 
-			// Resume outside the catch-block.
-			this->m_awaitingCoroutine.resume();
-		}
+	//	// Can't use std::optional<T> here since T could be a reference.
+	//	detail::manual_lifetime<schedule_operation> m_scheduleOperation;
+	//	detail::manual_lifetime<typename awaitable_traits<schedule_operation>::awaiter_t> m_scheduleAwaiter;
+	//	bool m_isScheduleOperationCreated = false;
+	//	bool m_isScheduleAwaiterCreated = false;
 
-		SCHEDULER& m_scheduler;
-		// Can't use std::optional<T> here since T could be a reference.
-		detail::manual_lifetime<schedule_operation> m_scheduleOperation;
-		detail::manual_lifetime<typename awaitable_traits<schedule_operation>::awaiter_t> m_scheduleAwaiter;
-		bool m_isScheduleOperationCreated = false;
-		bool m_isScheduleAwaiterCreated = false;
-
-	};
+	//};
 
 	template<typename SEQUENCE, typename TRAITS>
 	sequence_mpsc<SEQUENCE, TRAITS>::sequence_mpsc(
@@ -550,15 +532,13 @@ namespace macoro
 	}
 
 	template<typename SEQUENCE, typename TRAITS>
-	template<typename SCHEDULER>
-	sequence_mpsc_wait_operation<SEQUENCE, TRAITS, SCHEDULER>
+	sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS>
 	sequence_mpsc<SEQUENCE, TRAITS>::wait_until_published(
 		SEQUENCE targetSequence,
-		SEQUENCE lastKnownPublished,
-		SCHEDULER& scheduler) const noexcept
+		SEQUENCE lastKnownPublished) const noexcept
 	{
-		return sequence_mpsc_wait_operation<SEQUENCE, TRAITS, SCHEDULER>{
-			*this, targetSequence, lastKnownPublished, scheduler
+		return sequence_mpsc_wait_operation_base<SEQUENCE, TRAITS>{
+			*this, targetSequence, lastKnownPublished
 		};
 	}
 
@@ -571,19 +551,17 @@ namespace macoro
 	}
 
 	template<typename SEQUENCE, typename TRAITS>
-	template<typename SCHEDULER>
-	sequence_mpsc_claim_one_operation<SEQUENCE, TRAITS, SCHEDULER>
-	sequence_mpsc<SEQUENCE, TRAITS>::claim_one(SCHEDULER& scheduler) noexcept
+	sequence_mpsc_claim_one_operation<SEQUENCE, TRAITS>
+	sequence_mpsc<SEQUENCE, TRAITS>::claim_one() noexcept
 	{
-		return sequence_mpsc_claim_one_operation<SEQUENCE, TRAITS, SCHEDULER>{ *this, scheduler };
+		return sequence_mpsc_claim_one_operation<SEQUENCE, TRAITS>{ *this };
 	}
 
 	template<typename SEQUENCE, typename TRAITS>
-	template<typename SCHEDULER>
-	sequence_mpsc_claim_operation<SEQUENCE, TRAITS, SCHEDULER>
-	sequence_mpsc<SEQUENCE, TRAITS>::claim_up_to(std::size_t count, SCHEDULER& scheduler) noexcept
+	sequence_mpsc_claim_operation<SEQUENCE, TRAITS>
+	sequence_mpsc<SEQUENCE, TRAITS>::claim_up_to(std::size_t count) noexcept
 	{
-		return sequence_mpsc_claim_operation<SEQUENCE, TRAITS, SCHEDULER>{ *this, count, scheduler };
+		return sequence_mpsc_claim_operation<SEQUENCE, TRAITS>{ *this, count };
 	}
 
 	template<typename SEQUENCE, typename TRAITS>

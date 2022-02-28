@@ -324,6 +324,7 @@ namespace macoro
 		t.add("yield_await_lifetime_test14        ", yield_await_lifetime_test14);
 		t.add("sequence_spsc_test                 ", sequence_spsc_test);
 		t.add("spsc_channel_test                  ", spsc_channel_test);
-
+		t.add("spsc_channel_ex_test               ", spsc_channel_ex_test);
+		
 		});
 }

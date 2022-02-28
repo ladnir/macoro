@@ -15,7 +15,7 @@ namespace macoro
 	{
 		namespace
 		{
-
+			std::size_t n = 100'000;
 			struct message
 			{
 				int id;
@@ -28,18 +28,17 @@ namespace macoro
 			message buffer[bufferSize];
 
 			task<void> producer(
-				thread_pool& ioSvc,
 				sequence_spsc<size_t>& sequencer)
 			{
-				MC_BEGIN(task<>, &ioSvc, &sequencer
+				MC_BEGIN(task<>, &sequencer
 					, i = int{}
 					, seq = size_t{}
 					, msg = (message*)nullptr
 				);
-				for (i = 0; i < 16; ++i)
+				for (i = 0; i < n; ++i)
 				{
 					// Wait until a slot is free in the buffer.
-					MC_AWAIT_SET(seq, sequencer.claim_one(ioSvc));
+					MC_AWAIT_SET(seq, sequencer.claim_one());
 
 					// Populate the message.
 					msg = &buffer[seq & indexMask];
@@ -47,28 +46,27 @@ namespace macoro
 					msg->timestamp = steady_clock::now();
 					msg->data = 123;
 
-					std::cout << "push " << i << std::endl;
+					//std::cout << "push " << i << std::endl;
 					// Publish the message.
 					sequencer.publish(seq);
 
 				}
 
 				// Publish a sentinel
-				MC_AWAIT_SET(seq, sequencer.claim_one(ioSvc));
+				MC_AWAIT_SET(seq, sequencer.claim_one());
 				msg = &buffer[seq & indexMask];
 				msg->id = -1;
-				std::cout << "push end " << i << std::endl;
+				//std::cout << "push end " << i << std::endl;
 				sequencer.publish(seq);
 
 				MC_END();
 			}
 
 			task<void> consumer(
-				thread_pool& threadPool,
 				const sequence_spsc<size_t>& sequencer,
 				sequence_barrier<size_t>& consumerBarrier)
 			{
-				MC_BEGIN(task<>, &threadPool, &sequencer, &consumerBarrier
+				MC_BEGIN(task<>, &sequencer, &consumerBarrier
 					, nextToRead = size_t{ 0 }
 					, msg = (message*)nullptr
 					, available = size_t{}
@@ -77,16 +75,16 @@ namespace macoro
 				{
 					// Wait until the next message is available
 					// There may be more than one available.
-					MC_AWAIT_SET(available, sequencer.wait_until_published(nextToRead, threadPool));
+					MC_AWAIT_SET(available, sequencer.wait_until_published(nextToRead));
 					do {
 						msg = &buffer[nextToRead & indexMask];
 						if (msg->id == -1)
 						{
 							consumerBarrier.publish(nextToRead);
-							std::cout << "pop done " << nextToRead << std::endl;
+							//std::cout << "pop done " << nextToRead << std::endl;
 							MC_RETURN_VOID();
 						}
-						std::cout << "pop " << nextToRead << std::endl;
+						//std::cout << "pop " << nextToRead << std::endl;
 
 						if (msg->id != nextToRead)
 							throw MACORO_RTE_LOC;
@@ -103,7 +101,7 @@ namespace macoro
 				MC_END();
 			}
 
-			task<void> example(thread_pool& tp)
+			task<void> example()
 			{
 				struct State
 				{
@@ -114,13 +112,13 @@ namespace macoro
 					{}
 				};
 
-				MC_BEGIN(task<void>, &tp
+				MC_BEGIN(task<void>
 					, state = new State{}
 				);
 
 				MC_AWAIT(when_all_ready(
-					producer(tp, state->sequencer),
-					consumer(tp, state->sequencer, state->barrier))
+					producer(state->sequencer),
+					consumer(state->sequencer, state->barrier))
 				);
 
 				delete state;
@@ -132,11 +130,7 @@ namespace macoro
 
 		void sequence_spsc_test()
 		{
-			thread_pool::work w0;
-			thread_pool tp0(1, w0);
-			sync_wait(example(tp0));
-
-			w0 = {};
+			sync_wait(example());
 		}
 	}
 

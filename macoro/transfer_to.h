@@ -8,7 +8,6 @@ namespace macoro
 	{
 		return s.schedule();
 	}
-
 }
 
 

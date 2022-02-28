@@ -10,10 +10,10 @@
 
 namespace macoro
 {
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
+	template<typename SEQUENCE, typename TRAITS>
 	class sequence_spsc_claim_one_operation;
 
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
+	template<typename SEQUENCE, typename TRAITS>
 	class sequence_spsc_claim_operation;
 
 	template<
@@ -43,10 +43,9 @@ namespace macoro
 		/// co_await expression will be the sequence number of the slot.
 		/// The caller must publish() the claimed sequence number once they have written to
 		/// the ring-buffer.
-		template<typename SCHEDULER>
 		[[nodiscard]]
-		sequence_spsc_claim_one_operation<SEQUENCE, TRAITS, SCHEDULER>
-		claim_one(SCHEDULER& scheduler) noexcept;
+		sequence_spsc_claim_one_operation<SEQUENCE, TRAITS>
+		claim_one() noexcept;
 
 		/// Claim one or more contiguous slots in the ring-buffer.
 		///
@@ -62,10 +61,9 @@ namespace macoro
 		/// the range of sequence numbers that were claimed. Once you have written element values
 		/// to all of the claimed slots you must publish() the sequence range in order to make
 		/// the elements available to consumers.
-		template<typename SCHEDULER>
 		[[nodiscard]]
-		sequence_spsc_claim_operation<SEQUENCE, TRAITS, SCHEDULER> claim_up_to(
-			std::size_t count, SCHEDULER& scheduler) noexcept;
+		sequence_spsc_claim_operation<SEQUENCE, TRAITS> claim_up_to(
+			std::size_t count) noexcept;
 
 		/// Publish the specified sequence number.
 		///
@@ -106,19 +104,18 @@ namespace macoro
 		/// last-published sequence number, which is guaranteed to be at least 'seq' but may be some
 		/// subsequent sequence number if additional items were published while waiting for the
 		/// the requested sequence number to be published.
-		template<typename SCHEDULER>
 		[[nodiscard]]
-		auto wait_until_published(SEQUENCE targetSequence, SCHEDULER& scheduler) const noexcept
+		auto wait_until_published(SEQUENCE targetSequence) const noexcept
 		{
-			return m_producerBarrier.wait_until_published(targetSequence, scheduler);
+			return m_producerBarrier.wait_until_published(targetSequence);
 		}
 
 	private:
 
-		template<typename SEQUENCE2, typename TRAITS2, typename SCHEDULER>
+		template<typename SEQUENCE2, typename TRAITS2>
 		friend class sequence_spsc_claim_operation;
 
-		template<typename SEQUENCE2, typename TRAITS2, typename SCHEDULER>
+		template<typename SEQUENCE2, typename TRAITS2>
 		friend class sequence_spsc_claim_one_operation;
 
 #if _MSC_VER
@@ -139,18 +136,16 @@ namespace macoro
 #endif
 	};
 
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
+	template<typename SEQUENCE, typename TRAITS>
 	class sequence_spsc_claim_one_operation
 	{
 	public:
 
 		sequence_spsc_claim_one_operation(
-			sequence_spsc<SEQUENCE, TRAITS>& sequencer,
-			SCHEDULER& scheduler) noexcept
+			sequence_spsc<SEQUENCE, TRAITS>& sequencer) noexcept
 			: m_consumerWaitOperation(
 				sequencer.m_consumerBarrier,
-				static_cast<SEQUENCE>(sequencer.m_nextToClaim - sequencer.m_bufferSize),
-				scheduler)
+				static_cast<SEQUENCE>(sequencer.m_nextToClaim - sequencer.m_bufferSize))
 			, m_sequencer(sequencer)
 		{}
 
@@ -177,24 +172,22 @@ namespace macoro
 
 	private:
 
-		sequence_barrier_wait_operation<SEQUENCE, TRAITS, SCHEDULER> m_consumerWaitOperation;
+		sequence_barrier_wait_operation_base<SEQUENCE, TRAITS> m_consumerWaitOperation;
 		sequence_spsc<SEQUENCE, TRAITS>& m_sequencer;
 
 	};
 
-	template<typename SEQUENCE, typename TRAITS, typename SCHEDULER>
+	template<typename SEQUENCE, typename TRAITS>
 	class sequence_spsc_claim_operation
 	{
 	public:
 
 		explicit sequence_spsc_claim_operation(
 			sequence_spsc<SEQUENCE, TRAITS>& sequencer,
-			std::size_t count,
-			SCHEDULER& scheduler) noexcept
+			std::size_t count) noexcept
 			: m_consumerWaitOperation(
 				sequencer.m_consumerBarrier,
-				static_cast<SEQUENCE>(sequencer.m_nextToClaim - sequencer.m_bufferSize),
-				scheduler)
+				static_cast<SEQUENCE>(sequencer.m_nextToClaim - sequencer.m_bufferSize))
 			, m_sequencer(sequencer)
 			, m_count(count)
 		{}
@@ -229,28 +222,26 @@ namespace macoro
 
 	private:
 
-		sequence_barrier_wait_operation<SEQUENCE, TRAITS, SCHEDULER> m_consumerWaitOperation;
+		sequence_barrier_wait_operation_base<SEQUENCE, TRAITS> m_consumerWaitOperation;
 		sequence_spsc<SEQUENCE, TRAITS>& m_sequencer;
 		std::size_t m_count;
 
 	};
 
 	template<typename SEQUENCE, typename TRAITS>
-	template<typename SCHEDULER>
 	[[nodiscard]]
-	sequence_spsc_claim_one_operation<SEQUENCE, TRAITS, SCHEDULER>
-	sequence_spsc<SEQUENCE, TRAITS>::claim_one(SCHEDULER& scheduler) noexcept
+	sequence_spsc_claim_one_operation<SEQUENCE, TRAITS>
+	sequence_spsc<SEQUENCE, TRAITS>::claim_one() noexcept
 	{
-		return sequence_spsc_claim_one_operation<SEQUENCE, TRAITS, SCHEDULER>{ *this, scheduler };
+		return sequence_spsc_claim_one_operation<SEQUENCE, TRAITS>{ *this };
 	}
 
 	template<typename SEQUENCE, typename TRAITS>
-	template<typename SCHEDULER>
 	[[nodiscard]]
-	sequence_spsc_claim_operation<SEQUENCE, TRAITS, SCHEDULER>
-	sequence_spsc<SEQUENCE, TRAITS>::claim_up_to(std::size_t count, SCHEDULER& scheduler) noexcept
+	sequence_spsc_claim_operation<SEQUENCE, TRAITS>
+	sequence_spsc<SEQUENCE, TRAITS>::claim_up_to(std::size_t count) noexcept
 	{
-		return sequence_spsc_claim_operation<SEQUENCE, TRAITS, SCHEDULER>(*this, count, scheduler);
+		return sequence_spsc_claim_operation<SEQUENCE, TRAITS>(*this, count);
 	}
 }
 

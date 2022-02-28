@@ -1,6 +1,6 @@
 #pragma once
 
-#include "cancellation.h"
+#include "stop.h"
 #include "task.h"
 #include <chrono>
 #include "type_traits.h"
@@ -12,39 +12,45 @@ namespace macoro
 
 	struct timeout
 	{
-		optional<cancellation_source> src;
+		optional<stop_source> mSrc;
+		optional<stop_callback> mReg;
 		eager_task<> t;
 
 		timeout() = default;
 		timeout(const timeout&) = delete;
-		timeout(timeout&& o) : src(o.src), t(std::move(o.t)) {}
+		timeout(timeout&& o) : mSrc(o.mSrc), t(std::move(o.t)) {}
 		timeout& operator=(const timeout&) = delete;
-		timeout& operator=(timeout&& o) { src = o.src; t = std::move(o.t); return *this; };
+		timeout& operator=(timeout&& o) { mSrc = o.mSrc; t = std::move(o.t); return *this; };
 
 
 		template<typename Scheduler, typename Rep, typename Per>
 		timeout(Scheduler& s,
-			std::chrono::duration<Rep, Per> d)
+			std::chrono::duration<Rep, Per> d,
+			stop_token token = {})
 		{
-			reset(s, d);
+			reset(s, d, std::move(token));
 		}
 
 
 		template<typename Scheduler, typename Rep, typename Per>
 		void reset(Scheduler& s,
-			std::chrono::duration<Rep, Per> d)
+			std::chrono::duration<Rep, Per> d,
+			stop_token token = {})
 		{
-			src.emplace();
-			t = make_task(s, src.value(), d);
+			mSrc.emplace();
+			if (token.stop_possible())
+				mReg.emplace(token, [src = mSrc.value()]() mutable { src.request_stop(); });
+
+			t = make_task(s, mSrc.value(), d);
 		}
 
-		void request_cancellation() {
-			src.value().request_cancellation();
+		void request_stop() {
+			mSrc.value().request_stop();
 		}
 
-		cancellation_token token() { return src.value().token(); }
+		stop_token get_token() { return mSrc.value().get_token(); }
 
-		cancellation_source source() { return src.value(); }
+		stop_source get_source() { return mSrc.value(); }
 
 		auto MACORO_OPERATOR_COAWAIT()
 		{
@@ -55,14 +61,14 @@ namespace macoro
 
 		template<typename Scheduler, typename Rep, typename Per>
 		static eager_task<> make_task(Scheduler& s,
-			cancellation_source src,
+			stop_source mSrc,
 			std::chrono::duration<Rep, Per> d)
 		{
-			MC_BEGIN(eager_task<>, &s, src = std::move(src), d,
+			MC_BEGIN(eager_task<>, &s, mSrc = std::move(mSrc), d,
 				r = result<void>{});
 
-			MC_AWAIT_TRY(r, s.schedule_after(d, src.token()));
-			src.request_cancellation();
+			MC_AWAIT_TRY(r, s.schedule_after(d, mSrc.get_token()));
+			mSrc.request_stop();
 			MC_END();
 
 		}

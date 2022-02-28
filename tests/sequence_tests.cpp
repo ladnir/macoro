@@ -1,0 +1,143 @@
+
+#include <chrono>
+#include "macoro/task.h"
+#include "macoro/thread_pool.h"
+#include "macoro/when_all.h"
+#include "macoro/sync_wait.h"
+#include "macoro/sequence_mpsc.h"
+#include "macoro/sequence_spsc.h"
+#include "macoro/macros.h"
+using namespace std::chrono;
+
+namespace macoro
+{
+	namespace tests
+	{
+		namespace
+		{
+
+			struct message
+			{
+				int id;
+				steady_clock::time_point timestamp;
+				float data;
+			};
+
+			constexpr size_t bufferSize = 8; // Must be power-of-two
+			constexpr size_t indexMask = bufferSize - 1;
+			message buffer[bufferSize];
+
+			task<void> producer(
+				thread_pool& ioSvc,
+				sequence_spsc<size_t>& sequencer)
+			{
+				MC_BEGIN(task<>, &ioSvc, &sequencer
+					, i = int{}
+					, seq = size_t{}
+					, msg = (message*)nullptr
+				);
+				for (i = 0; i < 16; ++i)
+				{
+					// Wait until a slot is free in the buffer.
+					MC_AWAIT_SET(seq, sequencer.claim_one(ioSvc));
+
+					// Populate the message.
+					msg = &buffer[seq & indexMask];
+					msg->id = i;
+					msg->timestamp = steady_clock::now();
+					msg->data = 123;
+
+					std::cout << "push " << i << std::endl;
+					// Publish the message.
+					sequencer.publish(seq);
+
+				}
+
+				// Publish a sentinel
+				MC_AWAIT_SET(seq, sequencer.claim_one(ioSvc));
+				msg = &buffer[seq & indexMask];
+				msg->id = -1;
+				std::cout << "push end " << i << std::endl;
+				sequencer.publish(seq);
+
+				MC_END();
+			}
+
+			task<void> consumer(
+				thread_pool& threadPool,
+				const sequence_spsc<size_t>& sequencer,
+				sequence_barrier<size_t>& consumerBarrier)
+			{
+				MC_BEGIN(task<>, &threadPool, &sequencer, &consumerBarrier
+					, nextToRead = size_t{ 0 }
+					, msg = (message*)nullptr
+					, available = size_t{}
+				);
+				while (true)
+				{
+					// Wait until the next message is available
+					// There may be more than one available.
+					MC_AWAIT_SET(available, sequencer.wait_until_published(nextToRead, threadPool));
+					do {
+						msg = &buffer[nextToRead & indexMask];
+						if (msg->id == -1)
+						{
+							consumerBarrier.publish(nextToRead);
+							std::cout << "pop done " << nextToRead << std::endl;
+							MC_RETURN_VOID();
+						}
+						std::cout << "pop " << nextToRead << std::endl;
+
+						if (msg->id != nextToRead)
+							throw MACORO_RTE_LOC;
+						if (msg->data != 123)
+							throw MACORO_RTE_LOC;
+
+					} while (nextToRead++ != available);
+
+					// Notify the producer that we've finished processing
+					// up to 'nextToRead - 1'.
+					consumerBarrier.publish(available);
+				}
+
+				MC_END();
+			}
+
+			task<void> example(thread_pool& tp)
+			{
+				struct State
+				{
+					sequence_barrier<size_t> barrier;
+					sequence_spsc<size_t> sequencer;
+					State()
+						: sequencer(barrier, bufferSize)
+					{}
+				};
+
+				MC_BEGIN(task<void>, &tp
+					, state = new State{}
+				);
+
+				MC_AWAIT(when_all_ready(
+					producer(tp, state->sequencer),
+					consumer(tp, state->sequencer, state->barrier))
+				);
+
+				delete state;
+
+				MC_END();
+			}
+
+		}
+
+		void sequence_spsc_test()
+		{
+			thread_pool::work w0;
+			thread_pool tp0(1, w0);
+			sync_wait(example(tp0));
+
+			w0 = {};
+		}
+	}
+
+}

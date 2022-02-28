@@ -6,63 +6,63 @@
 
 namespace macoro
 {
-	class cancellation_token;
+	class stop_token;
 
 	namespace detail
 	{
-		class cancellation_state;
+		class stop_state;
 	}
 
-	class cancellation_source
+	class stop_source
 	{
 	public:
 
 		/// Construct to a new cancellation source.
-		cancellation_source();
+		stop_source();
 
 		/// Create a new reference to the same underlying cancellation
 		/// source as \p other.
-		cancellation_source(const cancellation_source& other) noexcept;
+		stop_source(const stop_source& other) noexcept;
 
-		cancellation_source(cancellation_source&& other) noexcept;
+		stop_source(stop_source&& other) noexcept;
 
-		~cancellation_source();
+		~stop_source();
 
-		cancellation_source& operator=(const cancellation_source& other) noexcept;
+		stop_source& operator=(const stop_source& other) noexcept;
 
-		cancellation_source& operator=(cancellation_source&& other) noexcept;
+		stop_source& operator=(stop_source&& other) noexcept;
 
 		/// Query if this cancellation source can be cancelled.
 		///
 		/// A cancellation source object will not be cancellable if it has
-		/// previously been moved into another cancellation_source instance
-		/// or was copied from a cancellation_source that was not cancellable.
-		bool can_be_cancelled() const noexcept;
+		/// previously been moved into another stop_source instance
+		/// or was copied from a stop_source that was not cancellable.
+		bool stop_possible() const noexcept;
 
 		/// Obtain a cancellation token that can be used to query if
 		/// cancellation has been requested on this source.
 		///
 		/// The cancellation token can be passed into functions that you
 		/// may want to later be able to request cancellation.
-		cancellation_token token() const noexcept;
+		stop_token get_token() const noexcept;
 
 		/// Request cancellation of operations that were passed an associated
 		/// cancellation token.
 		///
-		/// Any cancellation callback registered via a cancellation_registration
+		/// Any cancellation callback registered via a stop_callback
 		/// object will be called inside this function by the first thread to
 		/// call this method.
 		///
-		/// This operation is a no-op if can_be_cancelled() returns false.
-		void request_cancellation();
+		/// This operation is a no-op if stop_possible() returns false.
+		void request_stop();
 
-		/// Query if some thread has called 'request_cancellation()' on this
-		/// cancellation_source.
-		bool is_cancellation_requested() const noexcept;
+		/// Query if some thread has called 'request_stop()' on this
+		/// stop_source.
+		bool stop_requested() const noexcept;
 
 	private:
 
-		detail::cancellation_state* m_state;
+		detail::stop_state* m_state;
 
 	};
 }

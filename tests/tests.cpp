@@ -6,7 +6,8 @@
 #include "take_until_tests.h"
 #include "task_tests.h"
 #include "when_all_tests.h"
-
+#include "sequence_tests.h"
+#include "channel_spsc_tests.h"
 
 #ifdef _MSC_VER
 #include <windows.h>
@@ -321,7 +322,8 @@ namespace macoro
 		t.add("await_lifetime_fn_test             ", await_lifetime_fn_test);
 		t.add("yield_await_lifetime_test20        ", yield_await_lifetime_test20);
 		t.add("yield_await_lifetime_test14        ", yield_await_lifetime_test14);
-		return;
+		t.add("sequence_spsc_test                 ", sequence_spsc_test);
+		t.add("spsc_channel_test                  ", spsc_channel_test);
 
 		});
 }

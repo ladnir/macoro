@@ -1,9 +1,9 @@
 
 set(SRC 
-    detail/cancellation_registration.cpp
-    detail/cancellation_source.cpp
-    detail/cancellation_state.cpp
-    detail/cancellation_token.cpp
+    detail/stop_callback.cpp
+    detail/stop_source.cpp
+    detail/stop_state.cpp
+    detail/stop_token.cpp
     
     thread_pool.cpp
     )
@@ -51,6 +51,7 @@ if(APPLE OR UNIX)
 elseif(MSVC)
     target_compile_options( macoro PUBLIC
         "/std:c++${MACORO_STD_VAL}"
+        "/D_ENABLE_EXTENDED_ALIGNED_STORAGE"
     )
 
     target_link_libraries(macoro PUBLIC ws2_32.lib)

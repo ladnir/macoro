@@ -3,11 +3,11 @@
 // Licenced under MIT license. See github.com/lewissbaker/cppcoro LICENSE.txt for details.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "macoro/detail/cancellation_state.h"
+#include "macoro/detail/stop_state.h"
 
 #include "macoro/config.h"
 
-#include "macoro/detail/cancellation_registration.h"
+#include "macoro/detail/stop_callback.h"
 
 #include <cassert>
 #include <cstdlib>
@@ -16,123 +16,123 @@ namespace macoro
 {
 	namespace detail
 	{
-		struct cancellation_registration_list_chunk
+		struct stop_callback_list_chunk
 		{
-			static cancellation_registration_list_chunk* allocate(std::uint32_t entryCount);
-			static void free(cancellation_registration_list_chunk* chunk) noexcept;
+			static stop_callback_list_chunk* allocate(std::uint32_t entryCount);
+			static void free(stop_callback_list_chunk* chunk) noexcept;
 
-			std::atomic<cancellation_registration_list_chunk*> m_nextChunk;
-			cancellation_registration_list_chunk* m_prevChunk;
+			std::atomic<stop_callback_list_chunk*> m_nextChunk;
+			stop_callback_list_chunk* m_prevChunk;
 			std::atomic<std::int32_t> m_approximateFreeCount;
 			std::uint32_t m_entryCount;
-			std::atomic<cancellation_registration*> m_entries[1];
+			std::atomic<stop_callback*> m_entries[1];
 		};
 
-		struct cancellation_registration_list
+		struct stop_callback_list
 		{
-			static cancellation_registration_list* allocate();
-			static void free(cancellation_registration_list* bucket) noexcept;
+			static stop_callback_list* allocate();
+			static void free(stop_callback_list* bucket) noexcept;
 
-			std::atomic<cancellation_registration_list_chunk*> m_approximateTail;
-			cancellation_registration_list_chunk m_headChunk;
+			std::atomic<stop_callback_list_chunk*> m_approximateTail;
+			stop_callback_list_chunk m_headChunk;
 		};
 
-		struct cancellation_registration_result
+		struct stop_callback_result
 		{
-			cancellation_registration_result(
-				cancellation_registration_list_chunk* chunk,
+			stop_callback_result(
+				stop_callback_list_chunk* chunk,
 				std::uint32_t entryIndex)
 				: m_chunk(chunk)
 				, m_entryIndex(entryIndex)
 			{}
 
-			cancellation_registration_list_chunk* m_chunk;
+			stop_callback_list_chunk* m_chunk;
 			std::uint32_t m_entryIndex;
 		};
 
-		struct cancellation_registration_state
+		struct stop_callback_state
 		{
-			static cancellation_registration_state* allocate();
-			static void free(cancellation_registration_state* list) noexcept;
+			static stop_callback_state* allocate();
+			static void free(stop_callback_state* list) noexcept;
 
-			cancellation_registration_result add_registration(
-				macoro::cancellation_registration* registration);
+			stop_callback_result add_registration(
+				macoro::stop_callback* registration);
 
 			std::thread::id m_notificationThreadId;
 
 			// Store N separate lists and randomly apportion threads to a given
 			// list to reduce chance of contention.
 			std::uint32_t m_listCount;
-			std::atomic<cancellation_registration_list*> m_lists[1];
+			std::atomic<stop_callback_list*> m_lists[1];
 		};
 	}
 }
 
-macoro::detail::cancellation_registration_list_chunk*
-macoro::detail::cancellation_registration_list_chunk::allocate(std::uint32_t entryCount)
+macoro::detail::stop_callback_list_chunk*
+macoro::detail::stop_callback_list_chunk::allocate(std::uint32_t entryCount)
 {
-	auto* chunk = static_cast<cancellation_registration_list_chunk*>(std::malloc(
-		sizeof(cancellation_registration_list_chunk) +
-		(entryCount - 1) * sizeof(cancellation_registration_list_chunk::m_entries[0])));
+	auto* chunk = static_cast<stop_callback_list_chunk*>(std::malloc(
+		sizeof(stop_callback_list_chunk) +
+		(entryCount - 1) * sizeof(stop_callback_list_chunk::m_entries[0])));
 	if (chunk == nullptr)
 	{
 		throw std::bad_alloc{};
 	}
 
-	::new (&chunk->m_nextChunk) std::atomic<cancellation_registration_list_chunk*>(nullptr);
+	::new (&chunk->m_nextChunk) std::atomic<stop_callback_list_chunk*>(nullptr);
 	chunk->m_prevChunk = nullptr;
 	::new (&chunk->m_approximateFreeCount) std::atomic<int32_t>(static_cast<std::int32_t>(entryCount - 1));
 	chunk->m_entryCount = entryCount;
 	for (std::uint32_t i = 0; i < entryCount; ++i)
 	{
-		::new (&chunk->m_entries[i]) std::atomic<cancellation_registration*>(nullptr);
+		::new (&chunk->m_entries[i]) std::atomic<stop_callback*>(nullptr);
 	}
 
 	return chunk;
 }
 
-void macoro::detail::cancellation_registration_list_chunk::free(
-	cancellation_registration_list_chunk* chunk) noexcept
+void macoro::detail::stop_callback_list_chunk::free(
+	stop_callback_list_chunk* chunk) noexcept
 {
 	std::free(chunk);
 }
 
-macoro::detail::cancellation_registration_list*
-macoro::detail::cancellation_registration_list::allocate()
+macoro::detail::stop_callback_list*
+macoro::detail::stop_callback_list::allocate()
 {
 	constexpr std::uint32_t initialChunkSize = 16;
 
 	const std::size_t bufferSize =
-		sizeof(cancellation_registration_list) +
-		(initialChunkSize - 1) * sizeof(cancellation_registration_list_chunk::m_entries[0]);
+		sizeof(stop_callback_list) +
+		(initialChunkSize - 1) * sizeof(stop_callback_list_chunk::m_entries[0]);
 
-	auto* bucket = static_cast<cancellation_registration_list*>(std::malloc(bufferSize));
+	auto* bucket = static_cast<stop_callback_list*>(std::malloc(bufferSize));
 	if (bucket == nullptr)
 	{
 		throw std::bad_alloc{};
 	}
 
-	::new (&bucket->m_approximateTail) std::atomic<cancellation_registration_list_chunk*>(&bucket->m_headChunk);
-	::new (&bucket->m_headChunk.m_nextChunk) std::atomic<cancellation_registration_list_chunk*>(nullptr);
+	::new (&bucket->m_approximateTail) std::atomic<stop_callback_list_chunk*>(&bucket->m_headChunk);
+	::new (&bucket->m_headChunk.m_nextChunk) std::atomic<stop_callback_list_chunk*>(nullptr);
 	bucket->m_headChunk.m_prevChunk = nullptr;
 	::new (&bucket->m_headChunk.m_approximateFreeCount)
 		std::atomic<int32_t>(static_cast<std::int32_t>(initialChunkSize - 1));
 	bucket->m_headChunk.m_entryCount = initialChunkSize;
 	for (std::uint32_t i = 0; i < initialChunkSize; ++i)
 	{
-		::new (&bucket->m_headChunk.m_entries[i]) std::atomic<cancellation_registration*>(nullptr);
+		::new (&bucket->m_headChunk.m_entries[i]) std::atomic<stop_callback*>(nullptr);
 	}
 
 	return bucket;
 }
 
-void macoro::detail::cancellation_registration_list::free(cancellation_registration_list* list) noexcept
+void macoro::detail::stop_callback_list::free(stop_callback_list* list) noexcept
 {
 	std::free(list);
 }
 
-macoro::detail::cancellation_registration_state*
-macoro::detail::cancellation_registration_state::allocate()
+macoro::detail::stop_callback_state*
+macoro::detail::stop_callback_state::allocate()
 {
 	constexpr std::uint32_t maxListCount = 16;
 
@@ -147,10 +147,10 @@ macoro::detail::cancellation_registration_state::allocate()
 	}
 
 	const std::size_t bufferSize =
-		sizeof(cancellation_registration_state) +
-		(listCount - 1) * sizeof(cancellation_registration_state::m_lists[0]);
+		sizeof(stop_callback_state) +
+		(listCount - 1) * sizeof(stop_callback_state::m_lists[0]);
 
-	auto* state = static_cast<cancellation_registration_state*>(std::malloc(bufferSize));
+	auto* state = static_cast<stop_callback_state*>(std::malloc(bufferSize));
 	if (state == nullptr)
 	{
 		throw std::bad_alloc{};
@@ -159,20 +159,20 @@ macoro::detail::cancellation_registration_state::allocate()
 	state->m_listCount = listCount;
 	for (std::uint32_t i = 0; i < listCount; ++i)
 	{
-		::new (&state->m_lists[i]) std::atomic<cancellation_registration_list*>(nullptr);
+		::new (&state->m_lists[i]) std::atomic<stop_callback_list*>(nullptr);
 	}
 
 	return state;
 }
 
-void macoro::detail::cancellation_registration_state::free(cancellation_registration_state* state) noexcept
+void macoro::detail::stop_callback_state::free(stop_callback_state* state) noexcept
 {
 	std::free(state);
 }
 
-macoro::detail::cancellation_registration_result
-macoro::detail::cancellation_registration_state::add_registration(
-	macoro::cancellation_registration* registration)
+macoro::detail::stop_callback_result
+macoro::detail::stop_callback_state::add_registration(
+	macoro::stop_callback* registration)
 {
 	// Pick a list to add to based on the current thread to reduce the
 	// chance of contention with multiple threads concurrently registering
@@ -183,12 +183,12 @@ macoro::detail::cancellation_registration_state::add_registration(
 	auto* list = listPtr.load(std::memory_order_acquire);
 	if (list == nullptr)
 	{
-		auto* newList = cancellation_registration_list::allocate();
+		auto* newList = stop_callback_list::allocate();
 
 		// Pre-claim the first slot.
 		registration->m_chunk = &newList->m_headChunk;
 		registration->m_entryIndex = 0;
-		::new (&newList->m_headChunk.m_entries[0]) std::atomic<cancellation_registration*>(registration);
+		::new (&newList->m_headChunk.m_entries[0]) std::atomic<stop_callback*>(registration);
 
 		if (listPtr.compare_exchange_strong(
 			list,
@@ -196,11 +196,11 @@ macoro::detail::cancellation_registration_state::add_registration(
 			std::memory_order_seq_cst,
 			std::memory_order_acquire))
 		{
-			return cancellation_registration_result(&newList->m_headChunk, 0);
+			return stop_callback_result(&newList->m_headChunk, 0);
 		}
 		else
 		{
-			cancellation_registration_list::free(newList);
+			stop_callback_list::free(newList);
 		}
 	}
 
@@ -279,7 +279,7 @@ macoro::detail::cancellation_registration_state::add_registration(
 							// Successfully claimed the slot.
 							const std::int32_t newFreeCount = freeCount < 0 ? 0 : freeCount - 1;
 							chunk->m_approximateFreeCount.store(newFreeCount, std::memory_order_relaxed);
-							return cancellation_registration_result(chunk, entryIndex);
+							return stop_callback_result(chunk, entryIndex);
 						}
 					}
 				}
@@ -300,15 +300,15 @@ macoro::detail::cancellation_registration_state::add_registration(
 			lastChunk->m_entryCount * 2 : maxElementCount;
 
 		// May throw std::bad_alloc if out of memory.
-		auto* newChunk = cancellation_registration_list_chunk::allocate(elementCount);
+		auto* newChunk = stop_callback_list_chunk::allocate(elementCount);
 		newChunk->m_prevChunk = lastChunk;
 
 		// Pre-allocate first slot.
 		registration->m_chunk = newChunk;
 		registration->m_entryIndex = 0;
-		::new (&newChunk->m_entries[0]) std::atomic<cancellation_registration*>(registration);
+		::new (&newChunk->m_entries[0]) std::atomic<stop_callback*>(registration);
 
-		cancellation_registration_list_chunk* oldNext = nullptr;
+		stop_callback_list_chunk* oldNext = nullptr;
 		if (lastChunk->m_nextChunk.compare_exchange_strong(
 			oldNext,
 			newChunk,
@@ -316,22 +316,22 @@ macoro::detail::cancellation_registration_state::add_registration(
 			std::memory_order_relaxed))
 		{
 			list->m_approximateTail.store(newChunk, std::memory_order_release);
-			return cancellation_registration_result(newChunk, 0);
+			return stop_callback_result(newChunk, 0);
 		}
 
 		// Some other thread published a new chunk to the end of the list
 		// concurrently. Free our chunk and go around the loop again, hopefully
 		// allocating a slot from the chunk the other thread just allocated.
-		cancellation_registration_list_chunk::free(newChunk);
+		stop_callback_list_chunk::free(newChunk);
 	}
 }
 
-macoro::detail::cancellation_state* macoro::detail::cancellation_state::create()
+macoro::detail::stop_state* macoro::detail::stop_state::create()
 {
-	return new cancellation_state();
+	return new stop_state();
 }
 
-macoro::detail::cancellation_state::~cancellation_state()
+macoro::detail::stop_state::~stop_state()
 {
 	assert((m_state.load(std::memory_order_relaxed) & cancellation_ref_count_mask) == 0);
 
@@ -348,74 +348,74 @@ macoro::detail::cancellation_state::~cancellation_state()
 			if (list != nullptr)
 			{
 				auto* chunk = list->m_headChunk.m_nextChunk.load(std::memory_order_relaxed);
-				cancellation_registration_list::free(list);
+				stop_callback_list::free(list);
 
 				while (chunk != nullptr)
 				{
 					auto* next = chunk->m_nextChunk.load(std::memory_order_relaxed);
-					cancellation_registration_list_chunk::free(chunk);
+					stop_callback_list_chunk::free(chunk);
 					chunk = next;
 				}
 			}
 		}
 
-		cancellation_registration_state::free(registrationState);
+		stop_callback_state::free(registrationState);
 	}
 }
 
-void macoro::detail::cancellation_state::add_token_ref() noexcept
+void macoro::detail::stop_state::add_token_ref() noexcept
 {
-	m_state.fetch_add(cancellation_token_ref_increment, std::memory_order_relaxed);
+	m_state.fetch_add(stop_token_ref_increment, std::memory_order_relaxed);
 }
 
-void macoro::detail::cancellation_state::release_token_ref() noexcept
+void macoro::detail::stop_state::release_token_ref() noexcept
 {
-	const std::uint64_t oldState = m_state.fetch_sub(cancellation_token_ref_increment, std::memory_order_acq_rel);
-	if ((oldState & cancellation_ref_count_mask) == cancellation_token_ref_increment)
+	const std::uint64_t oldState = m_state.fetch_sub(stop_token_ref_increment, std::memory_order_acq_rel);
+	if ((oldState & cancellation_ref_count_mask) == stop_token_ref_increment)
 	{
 		delete this;
 	}
 }
 
-void macoro::detail::cancellation_state::add_source_ref() noexcept
+void macoro::detail::stop_state::add_source_ref() noexcept
 {
-	m_state.fetch_add(cancellation_source_ref_increment, std::memory_order_relaxed);
+	m_state.fetch_add(stop_source_ref_increment, std::memory_order_relaxed);
 }
 
-void macoro::detail::cancellation_state::release_source_ref() noexcept
+void macoro::detail::stop_state::release_source_ref() noexcept
 {
-	const std::uint64_t oldState = m_state.fetch_sub(cancellation_source_ref_increment, std::memory_order_acq_rel);
-	if ((oldState & cancellation_ref_count_mask) == cancellation_source_ref_increment)
+	const std::uint64_t oldState = m_state.fetch_sub(stop_source_ref_increment, std::memory_order_acq_rel);
+	if ((oldState & cancellation_ref_count_mask) == stop_source_ref_increment)
 	{
 		delete this;
 	}
 }
 
-bool macoro::detail::cancellation_state::can_be_cancelled() const noexcept
+bool macoro::detail::stop_state::stop_possible() const noexcept
 {
-	return (m_state.load(std::memory_order_acquire) & can_be_cancelled_mask) != 0;
+	return (m_state.load(std::memory_order_acquire) & stop_possible_mask) != 0;
 }
 
-bool macoro::detail::cancellation_state::is_cancellation_requested() const noexcept
+bool macoro::detail::stop_state::stop_requested() const noexcept
 {
 	return (m_state.load(std::memory_order_acquire) & cancellation_requested_flag) != 0;
 }
 
-bool macoro::detail::cancellation_state::is_cancellation_notification_complete() const noexcept
+bool macoro::detail::stop_state::is_cancellation_notification_complete() const noexcept
 {
 	return (m_state.load(std::memory_order_acquire) & cancellation_notification_complete_flag) != 0;
 }
 
-void macoro::detail::cancellation_state::request_cancellation()
+void macoro::detail::stop_state::request_stop()
 {
 	const auto oldState = m_state.fetch_or(cancellation_requested_flag, std::memory_order_seq_cst);
 	if ((oldState & cancellation_requested_flag) != 0)
 	{
-		// Some thread has already called request_cancellation().
+		// Some thread has already called request_stop().
 		return;
 	}
 
-	// We are the first caller of request_cancellation.
+	// We are the first caller of request_stop.
 	// Need to execute any registered callbacks to notify them of cancellation.
 
 	// NOTE: We need to use sequentially-consistent operations here to ensure
@@ -489,10 +489,10 @@ void macoro::detail::cancellation_state::request_cancellation()
 	}
 }
 
-bool macoro::detail::cancellation_state::try_register_callback(
-	cancellation_registration* registration)
+bool macoro::detail::stop_state::try_register_callback(
+	stop_callback* registration)
 {
-	if (is_cancellation_requested())
+	if (stop_requested())
 	{
 		return false;
 	}
@@ -501,12 +501,12 @@ bool macoro::detail::cancellation_state::try_register_callback(
 	if (registrationState == nullptr)
 	{
 		// Could throw std::bad_alloc
-		auto* newRegistrationState = cancellation_registration_state::allocate();
+		auto* newRegistrationState = stop_callback_state::allocate();
 
 		// Need to use 'sequentially consistent' on the write here to ensure that if
 		// we subsequently read a value from m_state at the end of this function that
 		// doesn't have the cancellation_requested_flag bit set that a subsequent call
-		// in another thread to request_cancellation() will see this write.
+		// in another thread to request_stop() will see this write.
 		if (m_registrationState.compare_exchange_strong(
 			registrationState,
 			newRegistrationState,
@@ -517,7 +517,7 @@ bool macoro::detail::cancellation_state::try_register_callback(
 		}
 		else
 		{
-			cancellation_registration_state::free(newRegistrationState);
+			stop_callback_state::free(newRegistrationState);
 		}
 	}
 
@@ -525,7 +525,7 @@ bool macoro::detail::cancellation_state::try_register_callback(
 	auto result = registrationState->add_registration(registration);
 
 	// Need to check status again to handle the case where
-	// another thread calls request_cancellation() concurrently
+	// another thread calls request_stop() concurrently
 	// but doesn't see our write to the registration list.
 	//
 	// Note, we don't call IsCancellationRequested() here since that
@@ -543,13 +543,13 @@ bool macoro::detail::cancellation_state::try_register_callback(
 		auto& entry = result.m_chunk->m_entries[result.m_entryIndex];
 
 		// Need to use compare_exchange here rather than just exchange since
-		// it may be possible that the thread calling request_cancellation()
+		// it may be possible that the thread calling request_stop()
 		// acquired our registration and executed the callback, freeing up
 		// the slot and then a third thread registers a new registration
 		// that gets allocated to this slot.
 		//
 		// Can use relaxed memory order here since in the case that this succeeds
-		// no other thread will have written to the cancellation_registration record
+		// no other thread will have written to the stop_callback record
 		// so we can safely read from the record without synchronisation.
 		auto* oldValue = registration;
 		const bool deregisteredSuccessfully =
@@ -566,13 +566,13 @@ bool macoro::detail::cancellation_state::try_register_callback(
 	return true;
 }
 
-void macoro::detail::cancellation_state::deregister_callback(cancellation_registration* registration) noexcept
+void macoro::detail::stop_state::deregister_callback(stop_callback* registration) noexcept
 {
 	auto* chunk = registration->m_chunk;
 	auto& entry = chunk->m_entries[registration->m_entryIndex];
 
 	// Use 'acquire' memory order on failure case so that we synchronise with the write
-	// to the slot inside request_cancellation() that acquired the registration such that
+	// to the slot inside request_stop() that acquired the registration such that
 	// we have visibility of its prior write to m_notifyingThreadId.
 	//
 	// Could use 'relaxed' memory order on success case as if this succeeds it means that
@@ -594,7 +594,7 @@ void macoro::detail::cancellation_state::deregister_callback(cancellation_regist
 	}
 	else
 	{
-		// A thread executing request_cancellation() has acquired this callback and
+		// A thread executing request_stop() has acquired this callback and
 		// is executing it. Need to wait until it finishes executing before we return
 		// and the registration object is destructed.
 		//
@@ -617,8 +617,8 @@ void macoro::detail::cancellation_state::deregister_callback(cancellation_regist
 	}
 }
 
-macoro::detail::cancellation_state::cancellation_state() noexcept
-	: m_state(cancellation_source_ref_increment)
+macoro::detail::stop_state::stop_state() noexcept
+	: m_state(stop_source_ref_increment)
 	, m_registrationState(nullptr)
 {
 }

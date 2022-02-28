@@ -3,20 +3,20 @@
 // Licenced under MIT license. See github.com/lewissbaker/cppcoro LICENSE.txt for details.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "cancellation_token.h"
+#include "stop_token.h"
 #include "operation_cancelled.h"
 
-#include "cancellation_state.h"
+#include "stop_state.h"
 
 #include <utility>
 #include <cassert>
 
-macoro::cancellation_token::cancellation_token() noexcept
+macoro::stop_token::stop_token() noexcept
 	: m_state(nullptr)
 {
 }
 
-macoro::cancellation_token::cancellation_token(const cancellation_token& other) noexcept
+macoro::stop_token::stop_token(const stop_token& other) noexcept
 	: m_state(other.m_state)
 {
 	if (m_state != nullptr)
@@ -25,13 +25,13 @@ macoro::cancellation_token::cancellation_token(const cancellation_token& other) 
 	}
 }
 
-macoro::cancellation_token::cancellation_token(cancellation_token&& other) noexcept
+macoro::stop_token::stop_token(stop_token&& other) noexcept
 	: m_state(other.m_state)
 {
 	other.m_state = nullptr;
 }
 
-macoro::cancellation_token::~cancellation_token()
+macoro::stop_token::~stop_token()
 {
 	if (m_state != nullptr)
 	{
@@ -39,7 +39,7 @@ macoro::cancellation_token::~cancellation_token()
 	}
 }
 
-macoro::cancellation_token& macoro::cancellation_token::operator=(const cancellation_token& other) noexcept
+macoro::stop_token& macoro::stop_token::operator=(const stop_token& other) noexcept
 {
 	if (other.m_state != m_state)
 	{
@@ -59,7 +59,7 @@ macoro::cancellation_token& macoro::cancellation_token::operator=(const cancella
 	return *this;
 }
 
-macoro::cancellation_token& macoro::cancellation_token::operator=(cancellation_token&& other) noexcept
+macoro::stop_token& macoro::stop_token::operator=(stop_token&& other) noexcept
 {
 	if (this != &other)
 	{
@@ -75,30 +75,30 @@ macoro::cancellation_token& macoro::cancellation_token::operator=(cancellation_t
 	return *this;
 }
 
-void macoro::cancellation_token::swap(cancellation_token& other) noexcept
+void macoro::stop_token::swap(stop_token& other) noexcept
 {
 	std::swap(m_state, other.m_state);
 }
 
-bool macoro::cancellation_token::can_be_cancelled() const noexcept
+bool macoro::stop_token::stop_possible() const noexcept
 {
-	return m_state != nullptr && m_state->can_be_cancelled();
+	return m_state != nullptr && m_state->stop_possible();
 }
 
-bool macoro::cancellation_token::is_cancellation_requested() const noexcept
+bool macoro::stop_token::stop_requested() const noexcept
 {
-	return m_state != nullptr && m_state->is_cancellation_requested();
+	return m_state != nullptr && m_state->stop_requested();
 }
 
-void macoro::cancellation_token::throw_if_cancellation_requested() const
+void macoro::stop_token::throw_if_stop_requested() const
 {
-	if (is_cancellation_requested())
+	if (stop_requested())
 	{
 		throw operation_cancelled{};
 	}
 }
 
-macoro::cancellation_token::cancellation_token(detail::cancellation_state* state) noexcept
+macoro::stop_token::stop_token(detail::stop_state* state) noexcept
 	: m_state(state)
 {
 	if (m_state != nullptr)

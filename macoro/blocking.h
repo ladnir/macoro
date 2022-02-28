@@ -78,9 +78,9 @@ namespace macoro
 
 
 			template<typename TT>
-			decltype(auto) await_transform(TT&& t)
+			decltype(auto) await_transform(TT&& mTask)
 			{
-				return static_cast<TT&&>(t);
+				return static_cast<TT&&>(mTask);
 			}
 
 			struct get_promise

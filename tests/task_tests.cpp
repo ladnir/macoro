@@ -1,7 +1,7 @@
 #include "macoro/task.h"
 #include <iostream>
 #include "macoro/sync_wait.h"
-#include "macoro/cancellation.h"
+#include "macoro/stop.h"
 
 namespace
 {
@@ -444,12 +444,12 @@ namespace macoro
 
 
 
-			auto t = [](cancellation_token t) -> task<void>
+			auto t = [](stop_token t) -> task<void>
 			{
 				MC_BEGIN(task<>, t);
 				while (true)
 				{
-					if (t.is_cancellation_requested())
+					if (t.stop_requested())
 						throw operation_cancelled();
 				}
 
@@ -458,14 +458,14 @@ namespace macoro
 			};
 
 
-			cancellation_source src;
+			stop_source mSrc;
 			std::thread thrd = std::thread([&] {
 				std::this_thread::sleep_for(std::chrono::milliseconds(10));
-				src.request_cancellation();
+				mSrc.request_stop();
 				});
 
 			try {
-				sync_wait(t(src.token()));
+				sync_wait(t(mSrc.get_token()));
 			}
 			catch (operation_cancelled& e)
 			{

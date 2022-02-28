@@ -270,9 +270,9 @@ namespace macoro
 	using store_as_t = typename store_as<Ref, Dec>::type;
 
 	template<typename T>
-	decltype(auto) as_reference(T&& t)
+	decltype(auto) as_reference(T&& mTask)
 	{
-		return static_cast<decltype(t)>(t);
+		return static_cast<decltype(mTask)>(mTask);
 	}
 
 	template<>
@@ -649,7 +649,7 @@ namespace macoro
 #ifdef MACORO_CPP_20
 		~Frame()
 		{
-			// For when std_adapter isn't the one who called our destructor,
+			// For when std_adapter isn'mTask the one who called our destructor,
 			// prevent it from calling it recursively by setting the handle
 			// back to this frame to null.
 			std_adapter.promise->outer_handle = std::nullptr_t{};
@@ -684,7 +684,7 @@ namespace macoro
 						//// Ideally we would perform sysmetric transfer here but there is
 						//// a compiler bug in MSVC. Doing anothing but returning here may cause
 						////  ASAN error on MSVC. See 
-						//// https://developercommunity.visualstudio.com/t/c20-coroutine-resume-thread-safety/1668687?entry=myfeedback&space=62&ref=native&refTime=1645079575781&refUserId=36961f1e-1836-4f6a-af82-ffcfa64d75a3&viewtype=all
+						//// https://developercommunity.visualstudio.com/mTask/c20-coroutine-resume-thread-safety/1668687?entry=myfeedback&space=62&ref=native&refTime=1645079575781&refUserId=36961f1e-1836-4f6a-af82-ffcfa64d75a3&viewtype=all
 						//// In particular, the adpater might have already been destroyed
 						//// and MSVC for some unknown reason updates the adapter frame even
 						//// though the coro has already been suspended. 

@@ -4,8 +4,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#include "macoro/detail/cancellation_registration.h"
-#include "macoro/detail/cancellation_token.h"
+#include "macoro/detail/stop_callback.h"
+#include "macoro/detail/stop_token.h"
 #include "macoro/detail/operation_cancelled.h"
 #include "macoro/detail/operation_cancelled.h"
 #include "macoro/detail/win32.h"
@@ -149,9 +149,9 @@ namespace macoro
 
 		protected:
 
-			win32_overlapped_operation_cancellable(cancellation_token&& ct) noexcept
+			win32_overlapped_operation_cancellable(stop_token&& ct) noexcept
 				: win32_overlapped_operation_base(&win32_overlapped_operation_cancellable::on_operation_completed)
-				, m_state(ct.is_cancellation_requested() ? state::completed : state::not_started)
+				, m_state(ct.stop_requested() ? state::completed : state::not_started)
 				, m_cancellationToken(std::move(ct))
 			{
 				m_errorCode = error_operation_aborted;
@@ -159,9 +159,9 @@ namespace macoro
 
 			win32_overlapped_operation_cancellable(
 				void* pointer,
-				cancellation_token&& ct) noexcept
+				stop_token&& ct) noexcept
 				: win32_overlapped_operation_base(pointer, &win32_overlapped_operation_cancellable::on_operation_completed)
-				, m_state(ct.is_cancellation_requested() ? state::completed : state::not_started)
+				, m_state(ct.stop_requested() ? state::completed : state::not_started)
 				, m_cancellationToken(std::move(ct))
 			{
 				m_errorCode = error_operation_aborted;
@@ -169,9 +169,9 @@ namespace macoro
 
 			win32_overlapped_operation_cancellable(
 				std::uint64_t offset,
-				cancellation_token&& ct) noexcept
+				stop_token&& ct) noexcept
 				: win32_overlapped_operation_base(offset, &win32_overlapped_operation_cancellable::on_operation_completed)
-				, m_state(ct.is_cancellation_requested() ? state::completed : state::not_started)
+				, m_state(ct.stop_requested() ? state::completed : state::not_started)
 				, m_cancellationToken(std::move(ct))
 			{
 				m_errorCode = error_operation_aborted;
@@ -220,7 +220,7 @@ namespace macoro
 				// the operation has finished starting. The cancellation callback
 				// will only attempt to request cancellation of the operation with
 				// CancelIoEx() once the state has been set to 'started'.
-				const bool canBeCancelled = m_cancellationToken.can_be_cancelled();
+				const bool canBeCancelled = m_cancellationToken.stop_possible();
 				if (canBeCancelled)
 				{
 					m_cancellationCallback.emplace(
@@ -380,8 +380,8 @@ namespace macoro
 			}
 
 			std::atomic<state> m_state;
-			macoro::cancellation_token m_cancellationToken;
-			optional<macoro::cancellation_registration> m_cancellationCallback;
+			macoro::stop_token m_cancellationToken;
+			optional<macoro::stop_callback> m_cancellationCallback;
 			coroutine_handle<> m_awaitingCoroutine;
 
 		};

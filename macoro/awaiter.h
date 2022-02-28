@@ -12,14 +12,14 @@ namespace macoro
 
 		template<typename continuation, typename T>
 		enable_if_t<has_set_continuation_member<continuation, T>::value>
-			set_continuation(continuation&& c, T&& t)
+			set_continuation(continuation&& c, T&& mTask)
 		{
-			c.promise().set_continuation(t);
+			c.promise().set_continuation(mTask);
 		}
 
 		template<typename continuation, typename T>
 		enable_if_t<!has_set_continuation_member<continuation, T>::value>
-			set_continuation(continuation&& c, T&& t)
+			set_continuation(continuation&& c, T&& mTask)
 		{}
 
 		template<typename T, typename continuation>
@@ -63,9 +63,9 @@ namespace macoro
 			}
 
 			template<typename T>
-			auto await_suspend(T&&t) noexcept
+			auto await_suspend(T&&mTask) noexcept
 			{
-				set_continuation(cont, t);
+				set_continuation(cont, mTask);
 				return convert_handle<T>(cont);
 			}
 

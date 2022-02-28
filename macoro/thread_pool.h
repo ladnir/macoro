@@ -7,7 +7,7 @@
 
 #include "macoro/coroutine_handle.h"
 #include "macoro/awaiter.h"
-#include "cancellation.h"
+#include "stop.h"
 #include <algorithm>
 #include <sstream>
 namespace macoro
@@ -101,8 +101,8 @@ namespace macoro
 			void post_after(
 				coroutine_handle<> h,
 				thread_pool_time_point deadline,
-				cancellation_token&& token,
-				optional<cancellation_registration>& reg)
+				stop_token&& token,
+				optional<stop_callback>& reg)
 			{
 				//log("post_after");
 				//mLog.emplace_back("exp-pop", deadline);
@@ -112,7 +112,7 @@ namespace macoro
 					mDelayHeap.emplace_back(idx, h, deadline);
 					std::push_heap(mDelayHeap.begin(), mDelayHeap.end());
 
-					if (token.can_be_cancelled())
+					if (token.stop_possible())
 					{
 						reg.emplace(token, [idx, this] {
 							cancel_delay_op(idx);
@@ -184,8 +184,8 @@ namespace macoro
 		{
 			thread_pool_state* mPool;
 			thread_pool_time_point mDeadline;
-			cancellation_token mToken;
-			optional<cancellation_registration> mReg;
+			stop_token mToken;
+			optional<stop_callback> mReg;
 
 
 			bool await_ready() const noexcept { return false; }
@@ -206,17 +206,6 @@ namespace macoro
 	public:
 		using clock = detail::thread_pool_clock;
 
-		thread_pool()
-			:mState(new detail::thread_pool_state)
-		{}
-		thread_pool(thread_pool&&) = default;
-		thread_pool& operator=(thread_pool&&) = default;
-
-		~thread_pool()
-		{
-			join();
-		}
-
 		std::unique_ptr<detail::thread_pool_state> mState;
 
 		struct work
@@ -236,7 +225,7 @@ namespace macoro
 			work& operator=(const work&) = delete;
 			work& operator=(work&& w) { 
 				reset();
-				mEx = w.mEx; 
+				mEx = std::exchange(w.mEx, nullptr);
 				return *this; 
 			}
 
@@ -263,6 +252,26 @@ namespace macoro
 				reset();
 			}
 		};
+
+
+		thread_pool()
+			:mState(new detail::thread_pool_state)
+		{}
+		thread_pool(thread_pool&&) = default;
+		thread_pool& operator=(thread_pool&&) = default;
+
+		thread_pool(std::size_t number_of_threads, work & w)
+			: mState(new detail::thread_pool_state)
+		{
+			w = make_work();
+			create_threads(number_of_threads);
+		}
+
+		~thread_pool()
+		{
+			join();
+		}
+
 
 		detail::thread_pool_post schedule()
 		{
@@ -295,7 +304,7 @@ namespace macoro
 		template<typename Rep, typename Per>
 		detail::thread_pool_post_after schedule_after(
 			std::chrono::duration<Rep, Per> delay,
-			cancellation_token token = {})
+			stop_token token = {})
 		{
 			return { mState.get(), delay + clock::now(), std::move(token) };
 		}

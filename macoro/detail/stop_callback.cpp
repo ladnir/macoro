@@ -3,13 +3,13 @@
 // Licenced under MIT license. See github.com/lewissbaker/cppcoro LICENSE.txt for details.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "macoro/detail/cancellation_registration.h"
+#include "macoro/detail/stop_callback.h"
 
-#include "macoro/detail/cancellation_state.h"
+#include "macoro/detail/stop_state.h"
 
 #include <cassert>
 
-macoro::cancellation_registration::~cancellation_registration()
+macoro::stop_callback::~stop_callback()
 {
 	if (m_state != nullptr)
 	{
@@ -18,10 +18,10 @@ macoro::cancellation_registration::~cancellation_registration()
 	}
 }
 
-void macoro::cancellation_registration::register_callback(cancellation_token&& token)
+void macoro::stop_callback::register_callback(stop_token&& token)
 {
 	auto* state = token.m_state;
-	if (state != nullptr && state->can_be_cancelled())
+	if (state != nullptr && state->stop_possible())
 	{
 		m_state = state;
 		if (state->try_register_callback(this))

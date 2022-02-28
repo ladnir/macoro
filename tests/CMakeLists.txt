@@ -1,19 +1,18 @@
 
-set(SRC
-	tests.cpp
-	CLP.cpp
-	task_tests.cpp
-	eager_task_tests.cpp
-	await_lifetime_tests.cpp
-	result_tests.cpp
-	when_all_tests.cpp
-	take_until_tests.cpp
-)
 
 
-add_library(macoroTests ${SRC} "CLP.cpp" "CLP.h")
+add_library(macoroTests 
+	"tests.cpp"
+	"CLP.cpp"
+	"task_tests.cpp"
+	"eager_task_tests.cpp"
+	"await_lifetime_tests.cpp"
+	"result_tests.cpp"
+	"when_all_tests.cpp"
+	"take_until_tests.cpp"
+	"sequence_tests.cpp"
+	"CLP.cpp" 
+	"CLP.h" 
+	"channel_spsc_tests.cpp")
 
 target_link_libraries(macoroTests macoro)
-#target_compile_options(macoroTests PRIVATE "-save-temps")
-#set_source_files_properties(await_lifetime_tests.cpp PROPERTIES COMPILE_FLAGS "-E ")
-#set_source_files_properties(await_lifetime_tests.cpp PROPERTIES COMPILE_FLAGS "/P /Fi${CMAKE_CURRENT_BINARY_DIR}\\output.i")

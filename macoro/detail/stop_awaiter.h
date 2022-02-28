@@ -1,20 +1,20 @@
 #pragma once
-#include "cancellation_token.h"
-#include "cancellation_registration.h"
+#include "stop_token.h"
+#include "stop_callback.h"
 #include "macoro/coroutine_handle.h"
 
 namespace macoro
 {
 
 
-	class cancellation_awaiter
+	class stop_awaiter
 	{
 	public:
-		cancellation_awaiter(cancellation_token&& t)
+		stop_awaiter(stop_token&& t)
 			:mtoken(std::move(t))
 		{}
-		cancellation_token mtoken;
-		optional<cancellation_registration> mReg;
+		stop_token mtoken;
+		optional<stop_callback> mReg;
 		bool await_ready() { return false; }
 
 #ifdef MACORO_CPP20
@@ -25,7 +25,7 @@ namespace macoro
 #endif
 		coroutine_handle<> await_suspend(coroutine_handle<> h)
 		{
-			if (mtoken.can_be_cancelled() && ! mtoken.is_cancellation_requested())
+			if (mtoken.stop_possible() && ! mtoken.stop_requested())
 			{
 				mReg.emplace(mtoken, [h] {
 					h.resume();
@@ -38,7 +38,7 @@ namespace macoro
 	};
 
 
-	inline cancellation_awaiter MACORO_OPERATOR_COAWAIT(cancellation_token t)
+	inline stop_awaiter MACORO_OPERATOR_COAWAIT(stop_token t)
 	{
 		return { std::move(t) };
 	}

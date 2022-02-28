@@ -15,7 +15,7 @@ namespace macoro
 			time_point<steady_clock> begin, end, wake;
 		}
 
-		task<int> makeTask(thread_pool& ex, cancellation_source s, bool wait)
+		task<int> makeTask(thread_pool& ex, stop_source s, bool wait)
 		{
 			MC_BEGIN(task<int>, &ex, s, wait);
 
@@ -24,7 +24,7 @@ namespace macoro
 			// wait for cancel.
 			if (wait)
 			{
-				MC_AWAIT(s.token());
+				MC_AWAIT(s.get_token());
 				wake = steady_clock::now();
 
 			}
@@ -32,7 +32,7 @@ namespace macoro
 			{
 				MC_AWAIT(ex.schedule_after(milliseconds(15)));
 				wake = steady_clock::now();
-				s.request_cancellation();
+				s.request_stop();
 			}
 
 			MC_RETURN(43);
@@ -47,7 +47,7 @@ namespace macoro
 			);
 
 			begin = steady_clock::now();
-			MC_AWAIT_SET(i, take_until(makeTask(ex, to.source(), wait), std::move(to)));
+			MC_AWAIT_SET(i, take_until(makeTask(ex, to.get_source(), wait), std::move(to)));
 			end = steady_clock::now();
 
 			MC_END();

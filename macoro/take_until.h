@@ -1,6 +1,6 @@
 #pragma once
 
-#include "cancellation.h"
+#include "stop.h"
 #include "task.h"
 #include <chrono>
 #include "type_traits.h"
@@ -11,9 +11,9 @@ namespace macoro
 {
 
 	template<typename T>
-	void request_cancellation(T&& t)
+	void request_stop(T&& t)
 	{
-		t.request_cancellation();
+		t.request_stop();
 	}
 
 	template<typename AWAITABLE, typename UNTIL,
@@ -29,7 +29,7 @@ namespace macoro
 
 		MC_AWAIT_TRY(v, std::move(awaitable));
 		
-		request_cancellation(until);
+		request_stop(until);
 
 		MC_AWAIT_TRY(w, std::move(until));
 
@@ -50,7 +50,7 @@ namespace macoro
 			w = result<void>{});
 
 		MC_AWAIT_TRY(v, awaitable);
-		request_cancellation(until);
+		request_stop(until);
 		MC_AWAIT_TRY(w, until);
 
 		if (v.has_error())

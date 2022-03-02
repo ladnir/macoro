@@ -1,6 +1,8 @@
 
 #include "macoro/sequence_spsc.h"
 #include <vector>
+#include <stdexcept>
+	
 
 namespace macoro
 {

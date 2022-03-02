@@ -58,7 +58,7 @@ namespace macoro
 		{
 			//io_service s;
 			//auto thrd = std::thread([&] {s.process_events(); });
-			auto maxLag = 30;
+			auto maxLag = 40;
 			thread_pool s;
 			auto work = s.make_work();
 			s.create_thread();
@@ -67,10 +67,10 @@ namespace macoro
 
 			auto t0 = duration_cast<milliseconds>(end - begin).count();
 			auto w0 = duration_cast<milliseconds>(wake - begin).count();
-			//std::cout << t0 << "ms vs 10 " << std::endl;
-			//std::cout << w0 << "ms " << std::endl;
 			if (t0 < 10 || t0 > 10 + maxLag)
 			{
+				std::cout << t0 << "ms vs 10  ~ max " << 10 + maxLag << std::endl;
+			//std::cout << w0 << "ms " << std::endl;
 				throw MACORO_RTE_LOC;
 			}
 
@@ -81,7 +81,10 @@ namespace macoro
 			//std::cout << t1 << "ms vs 15 " << std::endl;
 			//std::cout << w1 << "ms " << std::endl;
 			if (t1 < 15 || t1 > 15 + maxLag)
+			{
+				std::cout << t1 << "ms vs 15  ~ max " << 15 + maxLag << std::endl;
 				throw MACORO_RTE_LOC;
+			}
 
 			work = {};
 			s.join();

@@ -16,7 +16,7 @@ namespace macoro
 
 	template<typename... Awaitables,
 		enable_if_t<
-			std::conjunction<
+			conjunction<
 				is_awaitable<
 					remove_reference_and_wrapper_t<Awaitables>
 				>...

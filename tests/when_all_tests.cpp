@@ -36,10 +36,10 @@ namespace macoro
 				>::value
 				, "");
 
-			static_assert(std::is_same_v<
+			static_assert(std::is_same<
 				remove_reference_and_wrapper_t<task<int>>,
 				task<int>
-			>, "");
+			>::value, "");
 
 
 			static_assert(
@@ -49,7 +49,7 @@ namespace macoro
 				, "");
 
 			static_assert(
-				std::conjunction<
+				conjunction<
 				is_awaitable<
 				remove_reference_and_wrapper_t<task<int>>
 				>,

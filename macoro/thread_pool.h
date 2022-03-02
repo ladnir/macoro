@@ -103,7 +103,8 @@ namespace macoro
 				coroutine_handle<> h,
 				thread_pool_time_point deadline,
 				stop_token&& token,
-				optional<stop_callback>& reg)
+				optional_stop_callback& reg
+			)
 			{
 				if (token.stop_requested() == false)
 				{
@@ -193,8 +194,7 @@ namespace macoro
 			thread_pool_state* mPool;
 			thread_pool_time_point mDeadline;
 			stop_token mToken;
-			optional<stop_callback> mReg;
-
+			optional_stop_callback mReg;
 
 			bool await_ready() const noexcept { return false; }
 

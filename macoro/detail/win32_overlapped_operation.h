@@ -111,7 +111,7 @@ namespace macoro
 #endif
 			bool await_suspend(coroutine_handle<> awaitingCoroutine)
 			{
-				static_assert(std::is_base_of_v<win32_overlapped_operation, OPERATION>);
+				static_assert(std::is_base_of<win32_overlapped_operation, OPERATION>::value);
 
 				m_awaitingCoroutine = awaitingCoroutine;
 				return static_cast<OPERATION*>(this)->try_start();
@@ -203,7 +203,7 @@ namespace macoro
 			MACORO_NOINLINE
 			bool await_suspend(coroutine_handle<> awaitingCoroutine)
 			{
-				static_assert(std::is_base_of_v<win32_overlapped_operation_cancellable, OPERATION>);
+				static_assert(std::is_base_of<win32_overlapped_operation_cancellable, OPERATION>::value);
 
 				m_awaitingCoroutine = awaitingCoroutine;
 

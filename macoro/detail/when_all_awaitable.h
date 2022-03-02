@@ -44,13 +44,13 @@ namespace macoro
 		public:
 
 			explicit when_all_ready_awaitable(TASKS&&... tasks)
-				noexcept(std::conjunction_v<std::is_nothrow_move_constructible<TASKS>...>)
+				noexcept(conjunction<std::is_nothrow_move_constructible<TASKS>...>::value)
 				: m_counter(sizeof...(TASKS))
 				, m_tasks(std::move(tasks)...)
 			{}
 
 			explicit when_all_ready_awaitable(std::tuple<TASKS...>&& tasks)
-				noexcept(std::is_nothrow_move_constructible_v<std::tuple<TASKS...>>)
+				noexcept(std::is_nothrow_move_constructible<std::tuple<TASKS...>>::value)
 				: m_counter(sizeof...(TASKS))
 				, m_tasks(std::move(tasks))
 			{}
@@ -172,7 +172,7 @@ namespace macoro
 			{}
 
 			when_all_ready_awaitable(when_all_ready_awaitable&& other)
-				noexcept(std::is_nothrow_move_constructible_v<TASK_CONTAINER>)
+				noexcept(std::is_nothrow_move_constructible<TASK_CONTAINER>::value)
 				: m_counter(other.m_tasks.size())
 				, m_tasks(std::move(other.m_tasks))
 			{}

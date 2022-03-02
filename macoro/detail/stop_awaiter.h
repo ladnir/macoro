@@ -13,8 +13,16 @@ namespace macoro
 		stop_awaiter(stop_token&& t)
 			:mtoken(std::move(t))
 		{}
+		stop_awaiter() = default;
+		stop_awaiter(const stop_awaiter&) = delete;
+#ifdef MACORO_CPP20
+		stop_awaiter(stop_awaiter&&) = delete;
+#else
+		stop_awaiter(stop_awaiter&&) = default;
+#endif
+
 		stop_token mtoken;
-		optional<stop_callback> mReg;
+		optional_stop_callback mReg;
 		bool await_ready() { return false; }
 
 #ifdef MACORO_CPP20
@@ -30,6 +38,7 @@ namespace macoro
 				mReg.emplace(mtoken, [h] {
 					h.resume();
 					});
+
 				return noop_coroutine();
 			}
 			return h;
@@ -40,6 +49,6 @@ namespace macoro
 
 	inline stop_awaiter MACORO_OPERATOR_COAWAIT(stop_token t)
 	{
-		return { std::move(t) };
+		return std::move(t);
 	}
 }

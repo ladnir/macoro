@@ -30,6 +30,11 @@ namespace macoro
 	using false_type = std::false_type;
 	using true_type = std::true_type;
 
+	template<class...> struct conjunction : true_type { };
+	template<class B1> struct conjunction<B1> : B1 { };
+	template<class B1, class... Bn>
+	struct conjunction<B1, Bn...>
+		: std::conditional<bool(B1::value), conjunction<Bn...>, B1>::type {};
 
 	template<typename Promise, typename Expression, typename = void>
 	struct has_await_transform_member : false_type
@@ -199,11 +204,11 @@ namespace macoro
 	};
 
 
-	template<typename T, typename = std::void_t<>>
+	template<typename T, typename = void_t<>>
 	struct is_awaitable : std::false_type {};
 
 	template<typename awaitable>
-	struct is_awaitable<awaitable, std::void_t<decltype(get_awaiter(std::declval<awaitable>()))>>
+	struct is_awaitable<awaitable, void_t<decltype(get_awaiter(std::declval<awaitable>()))>>
 		: std::true_type
 	{};
 
@@ -223,7 +228,7 @@ namespace macoro
 	//};
 
 	template<typename awaitable>
-	struct awaitable_traits<awaitable, std::void_t<decltype(get_awaiter(std::declval<awaitable>()))>>
+	struct awaitable_traits<awaitable, void_t<decltype(get_awaiter(std::declval<awaitable>()))>>
 	{
 		using awaiter = decltype(get_awaiter(std::declval<awaitable>()));
 		using await_result = decltype(std::declval<awaiter>().await_resume());

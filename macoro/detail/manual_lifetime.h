@@ -23,7 +23,7 @@ namespace macoro
 			manual_lifetime& operator=(manual_lifetime&&) = delete;
 
 			template<typename... Args>
-			std::enable_if_t<std::is_constructible<T, Args&&...>::value> construct(Args&&... args)
+			enable_if_t<std::is_constructible<T, Args&&...>::value> construct(Args&&... args)
 				noexcept(std::is_nothrow_constructible<T, Args&&...>::value)
 			{
 				::new (static_cast<void*>(std::addressof(m_value))) T(static_cast<Args&&>(args)...);

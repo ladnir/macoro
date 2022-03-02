@@ -42,7 +42,7 @@ namespace macoro
 	class sequence_barrier
 	{
 		static_assert(
-			std::is_integral_v<SEQUENCE>,
+			std::is_integral<SEQUENCE>::value,
 			"sequence_barrier requires an integral sequence type");
 
 		using awaiter_t = sequence_barrier_wait_operation_base<SEQUENCE, TRAITS>;
@@ -265,12 +265,12 @@ namespace macoro
 	//		//		}
 
 	//		//		//using await_suspend_result_t = decltype(m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine));
-	//		//		//if constexpr (std::is_void_v<await_suspend_result_t>)
+	//		//		//if constexpr (std::is_void<await_suspend_result_t>::value)
 	//		//		//{
 	//		//		//	m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine);
 	//		//		//	return;
 	//		//		//}
-	//		//		//else if constexpr (std::is_same_v<await_suspend_result_t, bool>)
+	//		//		//else if constexpr (std::is_same<await_suspend_result_t, bool>::value)
 	//		//		//{
 	//		//		//	if (m_scheduleAwaiter->await_suspend(this->m_awaitingCoroutine))
 	//		//		//	{

@@ -8,9 +8,11 @@
 
 #include <functional>
 #include <utility>
-#include <type_traits>
+#include "macoro/type_traits.h"
+#include "macoro/optional.h"
 #include <atomic>
 #include <cstdint>
+#include <memory>
 
 namespace macoro
 {
@@ -48,7 +50,7 @@ namespace macoro
 		/// If registration failed due to insufficient memory available.
 		template<
 			typename FUNC,
-			typename = std::enable_if_t<std::is_constructible_v<std::function<void()>, FUNC&&>>>
+			typename = enable_if_t<std::is_constructible<std::function<void()>, FUNC&&>::value>>
 		stop_callback(stop_token token, FUNC&& callback)
 			: m_callback(std::forward<FUNC>(callback))
 		{
@@ -81,5 +83,65 @@ namespace macoro
 		detail::stop_callback_list_chunk* m_chunk;
 		std::uint32_t m_entryIndex;
 	};
+
+	namespace detail
+	{
+
+		//struct RVO_TEST
+		//{
+		//	RVO_TEST(int) {};
+		//	RVO_TEST(const RVO_TEST&) = delete;
+		//	RVO_TEST(RVO_TEST&&) = delete;
+		//};
+
+
+		//inline stop_callback CALL_RVO_TEST2()
+		//{
+		//	return {  };
+		//}
+
+
+		inline void CALL_RVO_TEST1()
+		{
+			optional<stop_callback> t;
+			t.emplace(stop_token{}, []() {});
+		}
+	}
+
+#ifndef MACORO_RVO
+	#if defined(MACORO_CPP20) || defined(_MSC_VER)
+		#define MACORO_RVO 1
+	#else 
+		#define MACORO_RVO 0
+	#endif
+#endif // !MACORO_RVO
+
+#if MACORO_RVO
+	using optional_stop_callback = optional<stop_callback>;
+#else
+	struct optional_stop_callback : std::unique_ptr<stop_callback>
+	{
+		operator bool() const
+		{
+			return get();
+		}
+
+		template<typename... Args>
+		stop_callback& emplace(Args&&... args)
+		{
+			reset(new stop_callback(std::forward<Args>(args)...));
+			return value();
+		}
+
+		bool has_value() const
+		{
+			return *this;
+		}
+
+		stop_callback& value() { return *get(); }
+		const stop_callback& value() const { return *get(); }
+	};
+
+#endif
 }
 

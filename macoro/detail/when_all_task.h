@@ -258,32 +258,6 @@ namespace macoro
 				return std::move(m_coroutine.promise()).result();
 			}
 
-			//decltype(auto) non_void_result()&
-			//{
-			//	if constexpr (std::is_void_v<decltype(this->result())>)
-			//	{
-			//		this->result();
-			//		return empty_state{};
-			//	}
-			//	else
-			//	{
-			//		return this->result();
-			//	}
-			//}
-
-			//decltype(auto) non_void_result()&&
-			//{
-			//	if constexpr (std::is_void_v<decltype(this->result())>)
-			//	{
-			//		std::move(*this).result();
-			//		return empty_state{};
-			//	}
-			//	else
-			//	{
-			//		return std::move(*this).result();
-			//	}
-			//}
-
 		private:
 
 			template<typename TASK_CONTAINER>
@@ -302,7 +276,7 @@ namespace macoro
 		template<
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
-			std::enable_if_t<!std::is_void_v<RESULT>, int> = 0>
+			enable_if_t<!std::is_void<RESULT>::value, int> = 0>
 			when_all_task<RESULT> make_when_all_task(AWAITABLE awaitable)
 		{
 			co_yield co_await static_cast<AWAITABLE&&>(awaitable);
@@ -311,7 +285,7 @@ namespace macoro
 		template<
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
-			std::enable_if_t<std::is_void_v<RESULT>, int> = 0>
+			enable_if_t<std::is_void<RESULT>::value, int> = 0>
 			when_all_task<void> make_when_all_task(AWAITABLE awaitable)
 		{
 			co_await static_cast<AWAITABLE&&>(awaitable);
@@ -320,7 +294,7 @@ namespace macoro
 		template<
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&>::await_result_t,
-			std::enable_if_t<!std::is_void_v<RESULT>, int> = 0>
+			enable_if_t<!std::is_void<RESULT>::value, int> = 0>
 			when_all_task<RESULT> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
 		{
 			co_yield co_await awaitable.get();
@@ -329,7 +303,7 @@ namespace macoro
 		template<
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&>::await_result_t,
-			std::enable_if_t<std::is_void_v<RESULT>, int> = 0>
+			enable_if_t<std::is_void<RESULT>::value, int> = 0>
 			when_all_task<void> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
 		{
 			co_await awaitable.get();
@@ -339,7 +313,7 @@ namespace macoro
 		template<
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
-			std::enable_if_t<!std::is_void_v<RESULT>, int> = 0>
+			enable_if_t<!std::is_void<RESULT>::value, int> = 0>
 			when_all_task<RESULT> make_when_all_task(AWAITABLE a)
 		{
 			MC_BEGIN(when_all_task<RESULT>, awaitable = std::move(a));
@@ -350,7 +324,7 @@ namespace macoro
 		template<
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
-			std::enable_if_t<std::is_void_v<RESULT>, int> = 0>
+			enable_if_t<std::is_void<RESULT>::value, int> = 0>
 			when_all_task<void> make_when_all_task(AWAITABLE a)
 		{
 			MC_BEGIN(when_all_task<void>, awaitable = std::move(a));
@@ -361,7 +335,7 @@ namespace macoro
 		template<
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&>::await_result_t,
-			std::enable_if_t<!std::is_void_v<RESULT>, int> = 0>
+			enable_if_t<!std::is_void<RESULT>::value, int> = 0>
 			when_all_task<RESULT> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
 		{
 
@@ -374,7 +348,7 @@ namespace macoro
 		template<
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&>::await_result_t,
-			std::enable_if_t<std::is_void_v<RESULT>, int> = 0>
+			enable_if_t<std::is_void<RESULT>::value, int> = 0>
 			when_all_task<void> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
 		{
 			MC_BEGIN(when_all_task<void>, awaitable);

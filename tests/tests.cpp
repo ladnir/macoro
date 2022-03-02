@@ -294,7 +294,7 @@ namespace macoro
 		//t.add("when_all_basic_tests               ", when_all_basic_tests);
 		t.add("schedule_after_test                ", schedule_after);
 		t.add("take_until_tests                   ", take_until_tests);
-
+		t.add("schedule_after_cancaled            ", schedule_after_cancaled);
 		t.add("result_basic_store_test            ", result_basic_store_test);
 		t.add("result_co_await_test               ", result_co_await_test);
 		t.add("result_task_wrap_test              ", result_task_wrap_test);

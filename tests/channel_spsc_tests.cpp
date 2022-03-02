@@ -28,7 +28,7 @@ namespace macoro
 				;
 				MC_BEGIN(task<>, &chl, &sched
 					, i = int{}
-					, slot = std::move(spsc::channel_sender<message>::wrapper{})
+					, slot = std::move(spsc::channel_sender<message>::push_wrapper{})
 				);
 				for (i = 0; i < n; ++i)
 				{
@@ -56,6 +56,7 @@ namespace macoro
 				MC_BEGIN(task<>, &chl, &sched
 					, i = int{ 0 }
 					, msg = macoro::result<message>{}
+					, msg2 = std::move(macoro::spsc::channel<message>::pop_wrapper{})
 				);
 				while (true)
 				{
@@ -77,8 +78,16 @@ namespace macoro
 					if (msg.value().data != 123)
 						throw MACORO_RTE_LOC;
 
-					MC_AWAIT(chl.pop());
+					MC_AWAIT_SET(msg2, chl.pop());
 					MC_AWAIT(transfer_to(sched));
+					
+					if (msg.value().id != msg2->id)
+						throw MACORO_RTE_LOC;
+					if (msg.value().data != msg2->data)
+						throw MACORO_RTE_LOC;
+
+					msg2.publish();
+
 				}
 				
 				MC_END();
@@ -107,7 +116,6 @@ namespace macoro
 		{
 			inline_scheduler sched;
 			sync_wait(example(sched));
-
 		}
 
 

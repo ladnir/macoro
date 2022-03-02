@@ -392,21 +392,24 @@ namespace macoro
 		}
 
 
-
-		void operator=(detail::OkMvTag<value_type>&& v)
+		template<typename V>
+		void operator=(detail::OkMvTag<V>&& v)
 		{
 			var() = variant<value_type, error_type>{ MACORO_VARIANT_NAMESPACE::in_place_index<0>, std::move(v.mV) };
 		}
-		void operator=(detail::OkTag<value_type>&& v)
+		template<typename V>
+		void operator=(detail::OkTag<V>&& v)
 		{
 			var() = variant<value_type, error_type>{ MACORO_VARIANT_NAMESPACE::in_place_index<0>, v.mV };
 		}
 
-		void operator=(detail::ErrorMvTag<error_type>&& v)
+		template<typename E>
+		void operator=(detail::ErrorMvTag<E>&& v)
 		{
 			var() = variant<value_type, error_type>{ MACORO_VARIANT_NAMESPACE::in_place_index<1>, std::move(v.mE) };
 		}
-		void operator=(detail::ErrorTag<error_type>&& v)
+		template<typename E>
+		void operator=(detail::ErrorTag<E>&& v)
 		{
 			var() = variant<value_type, error_type>{ MACORO_VARIANT_NAMESPACE::in_place_index<1>, v.mE };
 		}

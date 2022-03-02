@@ -104,22 +104,28 @@ namespace macoro
 				stop_token&& token,
 				optional<stop_callback>& reg)
 			{
-				//log("post_after");
-				//mLog.emplace_back("exp-pop", deadline);
+				if (token.stop_requested() == false)
 				{
-					std::unique_lock<std::mutex> lock(mMutex);
-					auto idx = mDelayOpIdx++;
-					mDelayHeap.emplace_back(idx, h, deadline);
-					std::push_heap(mDelayHeap.begin(), mDelayHeap.end());
+					std::size_t idx;
+					{
+						std::unique_lock<std::mutex> lock(mMutex);
+						idx = mDelayOpIdx++;
+						mDelayHeap.emplace_back(idx, h, deadline);
+						std::push_heap(mDelayHeap.begin(), mDelayHeap.end());
+					}
 
 					if (token.stop_possible())
 					{
-						reg.emplace(token, [idx, this] {
+						reg.emplace(std::move(token), [idx, this] {
 							cancel_delay_op(idx);
 							});
 					}
+					mCondition.notify_one();
 				}
-				mCondition.notify_one();
+				else
+				{
+					post(h);
+				}
 			}
 
 
@@ -154,8 +160,9 @@ namespace macoro
 			bool await_ready() const noexcept { return false; }
 
 			template<typename H>
-			void await_suspend(H h) const { 
-				mPool->post(coroutine_handle<void>(h)); }
+			void await_suspend(H h) const {
+				mPool->post(coroutine_handle<void>(h));
+			}
 
 			void await_resume() const noexcept {}
 		};
@@ -223,10 +230,10 @@ namespace macoro
 			work(const work&) = delete;
 			work(work&& w) : mEx(std::exchange(w.mEx, nullptr)) {}
 			work& operator=(const work&) = delete;
-			work& operator=(work&& w) { 
+			work& operator=(work&& w) {
 				reset();
 				mEx = std::exchange(w.mEx, nullptr);
-				return *this; 
+				return *this;
 			}
 
 			void reset()
@@ -260,7 +267,7 @@ namespace macoro
 		thread_pool(thread_pool&&) = default;
 		thread_pool& operator=(thread_pool&&) = default;
 
-		thread_pool(std::size_t number_of_threads, work & w)
+		thread_pool(std::size_t number_of_threads, work& w)
 			: mState(new detail::thread_pool_state)
 		{
 			w = make_work();

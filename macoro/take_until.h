@@ -18,9 +18,9 @@ namespace macoro
 
 	template<typename AWAITABLE, typename UNTIL,
 		enable_if_t<std::is_void<awaitable_result_t<AWAITABLE>>::value == false, int> = 0>
-	task<awaitable_result_t<AWAITABLE>> take_until(AWAITABLE a, UNTIL t)
+		task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>> take_until(AWAITABLE a, UNTIL t)
 	{
-		using return_type = awaitable_result_t<AWAITABLE>;
+		using return_type = remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>;
 		MC_BEGIN(task<return_type>,
 			awaitable = std::move(a),
 			until = std::move(t),
@@ -28,14 +28,14 @@ namespace macoro
 			w = result<void>{});
 
 		MC_AWAIT_TRY(v, std::move(awaitable));
-		
+
 		request_stop(until);
 
 		MC_AWAIT_TRY(w, std::move(until));
 
 		if (v.has_error())
 			std::rethrow_exception(v.error());
-		MC_RETURN(v.value());
+		MC_RETURN(static_cast<awaitable_result_t<AWAITABLE>>(v.value()));
 		MC_END();
 	}
 

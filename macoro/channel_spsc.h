@@ -4,36 +4,7 @@
 
 namespace macoro
 {
-	namespace detail
-	{
-		const int tab64[64] = {
-			63,  0, 58,  1, 59, 47, 53,  2,
-			60, 39, 48, 27, 54, 33, 42,  3,
-			61, 51, 37, 40, 49, 18, 28, 20,
-			55, 30, 34, 11, 43, 14, 22,  4,
-			62, 57, 46, 52, 38, 26, 32, 41,
-			50, 36, 17, 19, 29, 10, 13, 21,
-			56, 45, 25, 31, 35, 16,  9, 12,
-			44, 24, 15,  8, 23,  7,  6,  5 };
 
-
-		std::uint64_t log2floor(std::uint64_t value)
-		{
-			value |= value >> 1;
-			value |= value >> 2;
-			value |= value >> 4;
-			value |= value >> 8;
-			value |= value >> 16;
-			value |= value >> 32;
-			return tab64[((std::uint64_t)((value - (value >> 1)) * 0x07EDD5E59A4E28C2)) >> 58];
-		}
-
-		std::uint64_t log2ceil(std::uint64_t value)
-		{
-			auto floor = log2floor(value);
-			return floor + (value > (1ull << floor));
-		}
-	}
 
 	struct channel_closed_exception : public std::exception
 	{
@@ -57,41 +28,107 @@ namespace macoro
 			std::size_t mIndexMask = 0, mFrontIndex = 0;
 			std::vector<optional<T>> mData;
 
-		public:
-			class wrapper
+			class wrapper_base
 			{
+			protected:
 				channel* mChl = nullptr;
 				std::size_t mIndex;
+				bool mPop;
 			public:
 
-				wrapper() = default;
-				wrapper(const wrapper&) = delete;
-				wrapper(wrapper&& o) : mChl(std::exchange(o.mChl, nullptr)), mIndex(o.mIndex) {};
-				wrapper& operator=(wrapper&& o) 
-				{ 
-					if (mChl)
-						mChl->mSequence.publish(mIndex);
-
+				wrapper_base() = default;
+				wrapper_base(const wrapper_base&) = delete;
+				wrapper_base(wrapper_base&& o) : mChl(std::exchange(o.mChl, nullptr)), mIndex(o.mIndex), mPop(o.mPop) {};
+				wrapper_base& operator=(wrapper_base&& o)
+				{
+					publish();
 					mChl = std::exchange(o.mChl, nullptr);
 					mIndex = o.mIndex;
+					mPop = o.mPop;
 					return *this;
 				}
 
-				~wrapper()
-				{
-					if (mChl)
-						mChl->mSequence.publish(mIndex);
-				}
-
-				wrapper(channel* c, std::size_t i)
-					: mChl(c), mIndex(i)
+				wrapper_base(channel* c, std::size_t i, bool pop)
+					: mChl(c), mIndex(i), mPop(pop)
 				{}
 
+				~wrapper_base()
+				{
+					publish();
+				}
+
+				void publish()
+				{
+
+					if (mChl)
+					{
+						if (mPop)
+						{
+							assert(mIndex == mChl->mFrontIndex);
+							mChl->mData[mChl->mFrontIndex & mChl->mIndexMask].reset();
+							mChl->mBarrier.publish(mChl->mFrontIndex);
+							++mChl->mFrontIndex;
+						}
+						else
+						{
+							mChl->mSequence.publish(mIndex);
+						}
+						mChl = nullptr;
+					}
+				}
+
+			};
+		public:
+
+
+			struct pop_wrapper : public wrapper_base
+			{
+				pop_wrapper() = default;
+				pop_wrapper(const pop_wrapper&) = delete;
+				pop_wrapper(pop_wrapper&& o) = default;
+				pop_wrapper& operator=(pop_wrapper&& o) = default;
+
+				pop_wrapper(channel* c, std::size_t i)
+					: wrapper_base(c, i, true)
+				{}
+
+
+
+				operator T && ()
+				{
+					assert(mChl);
+					auto& slot = mChl->mData[mChl->mIndexMask & mIndex];
+					if (!slot)
+						slot.emplace();
+					return std::move(slot.value());
+				}
+
+				T&& operator*()
+				{
+					return operator T && ();
+				}
+
+				T* operator->()
+				{
+					auto& t = this->operator T && ();
+					return &t;
+				}
+			};
+
+			struct push_wrapper : public wrapper_base
+			{
+				push_wrapper() = default;
+				push_wrapper(const push_wrapper&) = delete;
+				push_wrapper(push_wrapper&& o) = default;
+				push_wrapper& operator=(push_wrapper&& o) = default;
+				push_wrapper(channel* c, std::size_t i)
+					: wrapper_base(c, i, false)
+				{}
 
 				template<typename U>
 				T& operator=(U&& u)
 				{
-					auto& slot = mChl->mData[mChl->mIndexMask & mIndex];
+					auto& slot = this->mChl->mData[this->mChl->mIndexMask & this->mIndex];
 					if (slot)
 						*slot = std::forward<U>(u);
 					else
@@ -99,26 +136,52 @@ namespace macoro
 					return *slot;
 				}
 
-				operator T&()
+				operator T& ()
 				{
-					auto& slot = mChl->mData[mChl->mIndexMask & mIndex];
+					auto& slot = this->mChl->mData[this->mChl->mIndexMask & this->mIndex];
 					if (!slot)
 						slot.emplace();
 					return slot.value();
 				}
 			};
 
-
 			channel(std::size_t capacity)
 				: mSequence(mBarrier, capacity)
 				, mData(capacity)
 			{
-				if (capacity != 1ull << detail::log2ceil(capacity))
+				auto powOf2 = (capacity > 0 && (capacity & (capacity - 1)) == 0);
+				if (!powOf2)
 					throw std::runtime_error("capacity must be a power of 2");
 				mIndexMask = capacity - 1;
 			}
 
+			auto push(T&& t)
+			{
+				struct push_awaitable
+				{
+					using inner = decltype(mSequence.claim_one());
+					inner mInner;
+					channel* mChl;
+					T mT;
+					push_awaitable(inner&& in, channel* chl, T&& t)
+						: mInner(std::move(in))
+						, mChl(chl)
+						, mT(std::forward<T>(t))
+					{}
 
+					bool await_ready() { return mInner.await_ready(); }
+
+					auto await_suspend(coroutine_handle<> h) {
+						return mInner.await_suspend(h);
+					}
+					auto await_resume() {
+						auto idx = mInner.await_resume();
+						mChl->mData[idx & mChl->mIndexMask].emplace(std::forward<T>(mT));
+						mChl->mSequence.publish(idx);
+					}
+				};
+				return push_awaitable(mSequence.claim_one(), this, std::forward<T>(t));
+			}
 
 			auto push()
 			{
@@ -140,7 +203,7 @@ namespace macoro
 					}
 					auto await_resume() {
 						auto idx = mInner.await_resume();
-						return wrapper(mChl, idx);
+						return push_wrapper(mChl, idx);
 					}
 				};
 
@@ -224,13 +287,10 @@ namespace macoro
 					{}
 
 
-					auto await_resume() {
+					pop_wrapper await_resume() {
 						auto available = mInner.await_resume();
 						assert(available >= mChl->mFrontIndex);
-						mChl->mData[mChl->mFrontIndex & mChl->mIndexMask].reset();
-						mChl->mBarrier.publish(mChl->mFrontIndex);
-						++mChl->mFrontIndex;
-						return;
+						return pop_wrapper(mChl, mChl->mFrontIndex);
 					}
 				};
 
@@ -244,7 +304,7 @@ namespace macoro
 		{
 			std::shared_ptr<channel<T>> mBase;
 		public:
-			using wrapper = typename channel<T>::wrapper;
+			using push_wrapper = typename channel<T>::push_wrapper;
 
 			channel_sender(std::shared_ptr<channel<T>> b)
 				:mBase(std::move(b))
@@ -293,7 +353,7 @@ namespace macoro
 			}
 		};
 
-		
+
 		template<typename T>
 		auto make_channel(std::size_t capcaity)
 		{

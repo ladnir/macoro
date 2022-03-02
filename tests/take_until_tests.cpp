@@ -124,6 +124,30 @@ namespace macoro
 			s.join();
 		}
 
+		void schedule_after_cancaled()
+		{
+			
+			macoro::thread_pool s;
+			auto w = s.make_work();
+			s.create_thread();
+			stop_source src;
+			auto token = src.get_token();
+			src.request_stop();
+			auto t = [](thread_pool& s, stop_token token) 
+			{
+				MC_BEGIN(task<>, &s, token);
+
+				MC_AWAIT(s.schedule_after(std::chrono::milliseconds(1), token));
+
+				MC_END();
+			}(s, token);
+
+			sync_wait(t);
+
+		}
+
+
+
 		void take_until_tests()
 		{
 			timeout_test();

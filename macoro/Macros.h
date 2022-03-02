@@ -210,6 +210,7 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ::macoro::coroutine_trai
 			MC_UNHANDLED_EXCEPTION;																				\
 		}																										\
 		/*final suspend*/																						\
+goto MACORO_FINAL_SUSPEND_BEGIN; /*prevents unused warning*/													\
 MACORO_FINAL_SUSPEND_BEGIN:																						\
 		_macoro_frame_->final_suspend();																		\
 		IMPL_MC_AWAIT_CORE_NS(_macoro_frame_->promise.final_suspend(), MACORO_FINAL_SUSPEND_IDX)				\

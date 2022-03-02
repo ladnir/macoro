@@ -10,6 +10,7 @@
 #include "stop.h"
 #include <algorithm>
 #include <sstream>
+#include <condition_variable>
 namespace macoro
 {
 	namespace detail

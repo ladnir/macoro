@@ -96,8 +96,8 @@ namespace macoro
 
 				operator T && ()
 				{
-					assert(mChl);
-					auto& slot = mChl->mData[mChl->mIndexMask & mIndex];
+					assert(this->mChl);
+					auto& slot = this->mChl->mData[this->mChl->mIndexMask & this->mIndex];
 					if (!slot)
 						slot.emplace();
 					return std::move(slot.value());
@@ -110,7 +110,7 @@ namespace macoro
 
 				T* operator->()
 				{
-					auto& t = this->operator T && ();
+					auto&& t = this->operator T && ();
 					return &t;
 				}
 			};
@@ -265,9 +265,9 @@ namespace macoro
 					{}
 
 					auto& await_resume() {
-						auto available = mInner.await_resume();
-						assert(available >= mChl->mFrontIndex);
-						auto& slot = mChl->mData[mChl->mFrontIndex & mChl->mIndexMask];
+						auto available = this->mInner.await_resume();
+						assert(available >= this->mChl->mFrontIndex);
+						auto& slot = this->mChl->mData[this->mChl->mFrontIndex & this->mChl->mIndexMask];
 						if (!slot)
 							throw channel_closed_exception{};
 						return slot.value();
@@ -288,9 +288,9 @@ namespace macoro
 
 
 					pop_wrapper await_resume() {
-						auto available = mInner.await_resume();
-						assert(available >= mChl->mFrontIndex);
-						return pop_wrapper(mChl, mChl->mFrontIndex);
+						auto available = this->mInner.await_resume();
+						assert(available >= this->mChl->mFrontIndex);
+						return pop_wrapper(this->mChl, this->mChl->mFrontIndex);
 					}
 				};
 

@@ -10,10 +10,10 @@
 namespace macoro
 {
 #ifdef MACORO_OPTIONAL_LITE_V
-	template<typename T>
-	using optional = nonstd::optional<T>;
+	using nonstd::optional;
+	using nonstd::optional_lite::nullopt;
 #else
-	template<typename T>
-	using optional = std::optional<T>;
+	using std::optional;
+	using std::nullopt;
 #endif
 }

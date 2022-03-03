@@ -113,7 +113,7 @@ namespace macoro
 	task<result<
 		remove_rvalue_reference_t<awaitable_result_t<awaitable>>
 		>>
-		wrap(awaitable t)
+		wrap(awaitable&& t)
 	{
 		using T = remove_rvalue_reference_t<awaitable_result_t<awaitable>>;
 		MC_BEGIN(task<result<T>>

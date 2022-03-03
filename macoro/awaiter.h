@@ -2,6 +2,7 @@
 #include "macoro/coroutine_handle.h"
 #include "macoro/type_traits.h"
 #include <stdexcept>
+#include <string>
 
 namespace macoro
 {

@@ -1,5 +1,5 @@
 
-#include "Tests.h"
+#include "tests.h"
 #include "await_lifetime_tests.h"
 #include "eager_task_tests.h"
 #include "result_tests.h"
@@ -102,7 +102,7 @@ namespace macoro
 		} });
 	}
 
-	TestCollection::Result TestCollection::runOne(uint64_t idx, CLP const* cmd)
+	TestCollection::Result TestCollection::runOne(std::size_t idx, CLP const* cmd)
 	{
 		if (idx >= mTests.size())
 		{

@@ -136,7 +136,7 @@ namespace macoro
             if (failMessage != "")
                 std::cout << failMessage << std::endl;
 
-            throw error(std::vector<std::string>(names.data(), names.size()));
+            throw error(names);
 
         }
 
@@ -234,7 +234,7 @@ namespace macoro
             if (failMessage != "")
                 std::cout << failMessage << std::endl;
 
-            throw error(std::vector<std::string>(names.data(), names.size()));
+            throw error(names);
         }
 
 

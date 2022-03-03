@@ -109,7 +109,7 @@ namespace macoro
 	}
 
 #ifndef MACORO_RVO
-	#if defined(MACORO_CPP20) || defined(_MSC_VER)
+	#if defined(MACORO_CPP20) 
 		#define MACORO_RVO 1
 	#else 
 		#define MACORO_RVO 0

@@ -610,30 +610,72 @@ namespace macoro
 		co_return co_await static_cast<AWAITABLE&&>(awaitable);
 	}
 	template<typename AWAITABLE>
-	auto make_eager_task(AWAITABLE awaitable)
+	auto make_eager(AWAITABLE awaitable)
 		-> eager_task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>
 	{
 		co_return co_await static_cast<AWAITABLE&&>(awaitable);
 	}
 #else	
-	template<typename AWAITABLE>
-	auto make_task(AWAITABLE a)
+	template<typename AWAITABLE,
+		enable_if_t<!std::is_void<awaitable_result_t<AWAITABLE>>::value, int> = 0
+	>
+		auto make_task(AWAITABLE a)
 		-> task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>
 	{
 		MC_BEGIN(task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>, awaitable = std::move(a));
 		MC_RETURN_AWAIT(static_cast<AWAITABLE&&>(awaitable));
 		MC_END();
 	}
-	template<typename AWAITABLE>
-	auto make_eager_task(AWAITABLE a)
+
+	template<typename AWAITABLE,
+		enable_if_t<std::is_void<awaitable_result_t<AWAITABLE>>::value, int> = 0
+	>
+		auto make_task(AWAITABLE a)
+		-> task<void>
+	{
+		MC_BEGIN(task<void>, awaitable = std::move(a));
+		MC_AWAIT(static_cast<AWAITABLE&&>(awaitable));
+		MC_END();
+	}
+
+	template<typename AWAITABLE,
+		enable_if_t<!std::is_void<awaitable_result_t<AWAITABLE>>::value, int> = 0
+	>
+		auto make_eager(AWAITABLE a)
 		-> eager_task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>
 	{
 		MC_BEGIN(eager_task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>>, awaitable = std::move(a));
 		MC_RETURN_AWAIT(static_cast<AWAITABLE&&>(awaitable));
 		MC_END();
-		//co_return co_await static_cast<AWAITABLE&&>(awaitable);
 	}
 
+	template<typename AWAITABLE,
+		enable_if_t<std::is_void<awaitable_result_t<AWAITABLE>>::value, int> = 0
+	>
+		auto make_eager(AWAITABLE a)
+		-> eager_task<void>
+	{
+		MC_BEGIN(eager_task<void>, awaitable = std::move(a));
+		MC_AWAIT(static_cast<AWAITABLE&&>(awaitable));
+		MC_END();
+	}
 #endif
+	namespace detail
+	{
+		struct make_eager_tag
+		{
+		};
+	}
+	inline detail::make_eager_tag make_eager()
+	{
+		return {};
+	}
+
+	template<typename AWAITABLE>
+	inline auto operator|(AWAITABLE&& a, detail::make_eager_tag)
+	{
+		return make_eager(std::forward<AWAITABLE>(a));
+	}
+
 }
 

@@ -35,7 +35,7 @@ namespace macoro
 				>
 			>
 			(std::make_tuple(
-				detail::make_when_all_task(
+				detail::make_when_all_task<Awaitables>(
 					std::forward<Awaitables>(awaitables)
 				)...
 			)

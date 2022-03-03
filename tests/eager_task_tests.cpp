@@ -19,7 +19,7 @@ namespace macoro
 
 			auto t = foo();
 
-			auto e = make_eager_task(std::move(t));
+			auto e = make_eager(std::move(t));
 			auto i = sync_wait(e);
 			assert(i == 42);
 
@@ -42,7 +42,7 @@ namespace macoro
 
 			auto t = foo();
 
-			auto e = make_eager_task(std::move(t));
+			auto e = make_eager(std::move(t));
 
 			tp.run();
 
@@ -67,7 +67,7 @@ namespace macoro
 
 			auto t = foo();
 
-			auto e = make_eager_task(std::move(t));
+			auto e = make_eager(std::move(t));
 
 			tp.run();
 
@@ -99,7 +99,7 @@ namespace macoro
 			auto t = foo()
 				| start_on(tp);
 
-			auto e = make_eager_task(std::move(t));
+			auto e = make_eager(std::move(t));
 
 			tp.run();
 

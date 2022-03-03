@@ -1,5 +1,5 @@
 #pragma once
-#include "macoro/eager_task.h"
+#include "macoro/task.h"
 #include "macoro/type_traits.h"
 #include "macoro/transfer_to.h"
 

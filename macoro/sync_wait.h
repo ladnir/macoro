@@ -55,9 +55,6 @@ namespace macoro
 				return { };
 			}
 
-			void return_void() {}
-
-
 			void unhandled_exception() noexcept
 			{
 				exception = std::current_exception();
@@ -73,11 +70,9 @@ namespace macoro
 			blocking_task<T> macoro_get_return_object() noexcept;
 
 			using reference_type = T&&;
-			suspend_always yield_value(reference_type v) noexcept
+			void return_value(reference_type v) noexcept
 			{
 				mVal = std::addressof(v);
-				this->set();
-				return { };
 			}
 
 			reference_type value()
@@ -93,6 +88,8 @@ namespace macoro
 		{
 			blocking_task<void> get_return_object() noexcept;
 			blocking_task<void> macoro_get_return_object() noexcept;
+
+			void return_void() {}
 
 			void value()
 			{
@@ -156,9 +153,7 @@ namespace macoro
 			co_await awaiter;
 #else
 			MC_BEGIN(blocking_task<ResultType>, &awaitable);
-
-			// co_yield co_await static_cast<Awaitable&&>(awaitable)
-			MC_YIELD_AWAIT(static_cast<Awaitable&&>(awaitable));
+			MC_RETURN_AWAIT(static_cast<Awaitable&&>(awaitable));
 			MC_END();
 
 #endif

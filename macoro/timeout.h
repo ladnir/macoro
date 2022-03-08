@@ -13,14 +13,24 @@ namespace macoro
 	struct timeout
 	{
 		optional<stop_source> mSrc;
-		optional<stop_callback> mReg;
-		eager_task<> t;
+		std::unique_ptr<stop_callback> mReg;
+		eager_task<> mTask;
 
 		timeout() = default;
 		timeout(const timeout&) = delete;
-		timeout(timeout&& o) : mSrc(o.mSrc), t(std::move(o.t)) {}
+		timeout(timeout&& o)
+			: mSrc(o.mSrc) // required to be copy so that the token can still be used.
+			, mReg(std::move(o.mReg))
+			, mTask(std::move(o.mTask))
+		{}
+
 		timeout& operator=(const timeout&) = delete;
-		timeout& operator=(timeout&& o) { mSrc = o.mSrc; t = std::move(o.t); return *this; };
+		timeout& operator=(timeout&& o) {
+			mSrc = o.mSrc; // required to be copy so that the token can still be used.
+			mReg = std::move(o.mReg);
+			mTask = std::move(o.mTask);
+			return *this;
+		};
 
 
 		template<typename Scheduler, typename Rep, typename Per>
@@ -39,9 +49,13 @@ namespace macoro
 		{
 			mSrc.emplace();
 			if (token.stop_possible())
-				mReg.emplace(token, [src = mSrc.value()]() mutable { src.request_stop(); });
+			{
+				mReg.reset(new stop_callback(token, [src = mSrc.value()]() mutable {
+					src.request_stop();
+				}));
+			}
 
-			t = make_task(s, mSrc.value(), d);
+			mTask = make_task(s, mSrc.value(), d);
 		}
 
 		void request_stop() {
@@ -54,7 +68,7 @@ namespace macoro
 
 		auto MACORO_OPERATOR_COAWAIT()
 		{
-			return t.MACORO_OPERATOR_COAWAIT();
+			return mTask.MACORO_OPERATOR_COAWAIT();
 		}
 
 	private:

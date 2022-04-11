@@ -3,6 +3,6 @@
 include("${CMAKE_CURRENT_LIST_DIR}/macoroTargets.cmake")
 
 # compile the library with c++20 support
-set(MACORO_CPP20 @MACORO_CPP20@)
+set(MACORO_CPP_20 @MACORO_CPP_20@)
 
 include("${CMAKE_CURRENT_LIST_DIR}/macoroFindDeps.cmake")

@@ -2,7 +2,10 @@
 
 include("${CMAKE_CURRENT_LIST_DIR}/macoroTargets.cmake")
 
-# compile the library with c++20 support
-set(MACORO_CPP_20 @MACORO_CPP_20@)
+# compile the library with c++ standard support
+set(MACORO_CPP_VER @MACORO_CPP_VER@)
+
+set(MACORO_CPP_VER @MACORO_CPP_VER@)
+set(MACORO_CPP_VER @MACORO_CPP_VER@)
 
 include("${CMAKE_CURRENT_LIST_DIR}/macoroFindDeps.cmake")

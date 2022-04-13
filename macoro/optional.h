@@ -11,7 +11,7 @@ namespace macoro
 {
 #ifdef MACORO_OPTIONAL_LITE_V
 	using nonstd::optional;
-	using nonstd::optional_lite::nullopt;
+	using nonstd::nullopt;
 #else
 	using std::optional;
 	using std::nullopt;

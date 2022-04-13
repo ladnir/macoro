@@ -36,21 +36,13 @@ if(MACORO_VARIANT_LITE_V)
     target_link_Libraries(macoro PUBLIC nonstd::variant-lite)
 endif()
 
-if(MACORO_CPP_20)
-    set(MACORO_STD_VAL 20)
-else()
-    set(MACORO_STD_VAL 14)
-endif()
-
-message("MACORO_STD_VAL ${MACORO_STD_VAL}")
-
 if(APPLE OR UNIX)
     target_compile_options( macoro PUBLIC
-        "-std=c++${MACORO_STD_VAL}"
+        "-std=c++${MACORO_CPP_VER}"
     )
 elseif(MSVC)
     target_compile_options( macoro PUBLIC
-        "/std:c++${MACORO_STD_VAL}"
+        "/std:c++${MACORO_CPP_VER}"
         "/D_ENABLE_EXTENDED_ALIGNED_STORAGE"
     )
 
@@ -58,7 +50,7 @@ elseif(MSVC)
 else()
     set_target_properties( macoro 
         PROPERTIES
-            CXX_STANDARD 20
+            CXX_STANDARD ${MACORO_CPP_VER}
             CXX_STANDARD_REQUIRED YES
             CXX_EXTENSIONS NO
     )

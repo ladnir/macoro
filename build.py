@@ -122,7 +122,7 @@ def parseInstallArgs(args):
             doInstall = True
         if x == "--install":
             idx = args.index(x)
-            argv[idx] = ""
+            args[idx] = ""
             doInstall = True
 
     return (args, doInstall)

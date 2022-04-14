@@ -11,7 +11,10 @@ def getParallel(args):
             par = int(val)
             if par < 1:
                 par = 1
-    return par
+            idx = args.index(x)
+            args[idx] = ""
+    return (args,par)
+
 
 def replace(list, find, replace):
     if find in list:
@@ -19,12 +22,15 @@ def replace(list, find, replace):
         list[idx] = replace;
     return list
 
-def Build(projectName, argv, install, par, sudo):
+def Build(projectName, argv, install, par, sudo, noConfig):
 
     osStr = (platform.system())
     buildDir = ""
     config = ""
     buildType = ""
+    setup = "--setup" in argv;
+    argv = replace(argv, "--setup", "")
+
     if "--debug" in argv:
         buildType = "Debug"
     else:
@@ -68,30 +74,36 @@ def Build(projectName, argv, install, par, sudo):
 
     
     print("\n\n====== build.py ("+projectName+") ========")
-    print(mkDirCmd)
-    print(CMakeCmd)
-    print(BuildCmd)
-    if len(InstallCmd):
-        print(InstallCmd)
+    if not noConfig:
+        print(mkDirCmd)
+        print(CMakeCmd)
+
+    if not setup:
+        print(BuildCmd)
+        if len(InstallCmd):
+            print(InstallCmd)
     print("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n\n")
 
-    os.system(mkDirCmd)
-    os.system(CMakeCmd)
-    os.system(BuildCmd)
+    if not noConfig:
+        os.system(mkDirCmd)
+        os.system(CMakeCmd)
 
-    if len(sudo) > 0:
-        print("installing "+projectName+": {0}".format(InstallCmd))
+    if not setup:
+        os.system(BuildCmd)
 
-    os.system(InstallCmd)
+        if len(sudo) > 0:
+            print("installing "+projectName+": {0}\n".format(InstallCmd))
+
+        os.system(InstallCmd)
 
 
 
 def help():
 
-
     print(" --install \n\tInstructs the script to install whatever is currently being built to the default location.")
     print(" --install=prefix  \n\tinstall to the provided predix.")
     print(" --sudo  \n\twhen installing, use sudo. May require password.")
+    print(" --par=n  \n\twhen building do use parallel  builds with n threads. default = num cores.")
     print(" --noauto  \n\twhen building do not automaticly fetch dependancies.")
     print(" --par=n  \n\twhen building do use parallel  builds with n threads. default = num cores.")
     print(" --debug  \n\tdebug build.")
@@ -99,17 +111,14 @@ def help():
 
     print("-build the library")
     print("     python build.py")
-    print("-build the library with debug ")
-    print("     python build.py --debug ")
-    print("-build the library with cmake configurations ")
-    print("     python build.py -DMACORO_CPP_VER=14")
+    print("-build the library with cmake configurations")
+    print("     python build.py --debug -DENABLE_SSE=ON")
     print("-build the library and install with sudo")
     print("     python build.py --install --sudo")
     print("-build the library and install to prefix")
     print("     python build.py --install=~/my/install/dir ")
 
 
-    
 
 def parseInstallArgs(args):
     prefix = ""
@@ -134,7 +143,7 @@ def parseInstallArgs(args):
 
 def main(projectName, argv):
 
-    if "--help" in argv or "-h" in argv:
+    if "--help" in argv:
         help()
         return 
 
@@ -142,16 +151,20 @@ def main(projectName, argv):
 
     if "--noauto" in argv:
         argv = replace(argv, "--noauto", "")
-        argv.append("-DMACORO_FETCH_AUTO=OFF")
+        argv.append("-DFETCH_AUTO=OFF")
     else:
-        argv.append("-DMACORO_FETCH_AUTO=ON")
+        argv.append("-DFETCH_AUTO=ON")
 
+    argv = replace(argv, "--sudo", "-DSUDO_FETCH=ON")
+        
     argv, install = parseInstallArgs(argv)
-    par = getParallel(argv)
+    argv, par = getParallel(argv)
 
-    #argv.append("-DPARALLEL_FETCH="+str(par))
+    noConfig = "--nc" in argv
+    argv = replace(argv, "--nc", "")
 
-    Build(projectName, argv, install, par, sudo)
+
+    Build(projectName, argv, install, par, sudo, noConfig)
 
 if __name__ == "__main__":
 

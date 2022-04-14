@@ -152,4 +152,4 @@ def main(projectName, argv):
 
 if __name__ == "__main__":
 
-    main("coproto", sys.argv)
+    main("macoro", sys.argv)

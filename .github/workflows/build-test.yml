@@ -33,7 +33,7 @@ jobs:
               
       - name: unit test
         run: |
-          ./out/build/linux/frontend/frontend -u
+          ./out/build/linux/frontend/macoroFrontend -u
           
       - name: find source tree
         run: |
@@ -93,7 +93,7 @@ jobs:
               
       - name: unit test
         run: |
-          ./out/build/osx/frontend/frontend -u
+          ./out/build/osx/frontend/macoroFrontend -u
           
       - name: find source tree
         run: |
@@ -155,7 +155,7 @@ jobs:
       
       - name: unit test
         run: |
-          ./out/build/x64-Release/frontend/frontend.exe -u
+          ./out/build/x64-Release/frontend/macoroFrontend.exe -u
           
       - name: find source tree
         run: |

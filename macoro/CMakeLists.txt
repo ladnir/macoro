@@ -76,6 +76,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 configure_file("${CMAKE_CURRENT_LIST_DIR}/../cmake/macoroFindDeps.cmake" "macoroFindDeps.cmake" COPYONLY)
+configure_file("${CMAKE_CURRENT_LIST_DIR}/../cmake/macoroPreamble.cmake" "macoroPreamble.cmake" COPYONLY)
 # generate the config file that is includes the exports
 configure_package_config_file(
   "${CMAKE_CURRENT_LIST_DIR}/../cmake/Config.cmake.in"
@@ -103,6 +104,7 @@ install(FILES
           "${CMAKE_CURRENT_BINARY_DIR}/macoroConfig.cmake"
           "${CMAKE_CURRENT_BINARY_DIR}/macoroConfigVersion.cmake"
           "${CMAKE_CURRENT_BINARY_DIR}/macoroFindDeps.cmake"
+          "${CMAKE_CURRENT_BINARY_DIR}/macoroPreamble.cmake"
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/macoro
 )
 

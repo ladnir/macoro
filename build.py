@@ -150,4 +150,4 @@ def main(projectName, argv):
 
 if __name__ == "__main__":
 
-    main("macoro", sys.argv)
+    main("macoro", sys.argv[1:])

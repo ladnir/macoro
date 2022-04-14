@@ -66,8 +66,6 @@ def Build(projectName, argv, install, par, sudo):
         InstallCmd = sudo
         InstallCmd += "cmake --install {0} {1} ".format(buildDir, config)
 
-        if len(prefix):
-            InstallCmd += " --prefix {0} ".format(prefix)
     
     print("\n\n====== build.py ("+projectName+") ========")
     print(mkDirCmd)

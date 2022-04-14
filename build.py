@@ -151,9 +151,9 @@ def main(projectName, argv):
 
     if "--noauto" in argv:
         argv = replace(argv, "--noauto", "")
-        argv.append("-DFETCH_AUTO=OFF")
+        argv.append("-DMACORO_FETCH_AUTO=OFF")
     else:
-        argv.append("-DFETCH_AUTO=ON")
+        argv.append("-DMACORO_FETCH_AUTO=ON")
 
     argv = replace(argv, "--sudo", "-DSUDO_FETCH=ON")
         

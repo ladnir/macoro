@@ -110,6 +110,7 @@ def help():
 
 
     
+
 def parseInstallArgs(args):
     prefix = ""
     doInstall = False
@@ -122,7 +123,11 @@ def parseInstallArgs(args):
             doInstall = True
         if x == "--install":
             idx = args.index(x)
-            args[idx] = ""
+            osStr = (platform.system())
+            if osStr == "Windows":
+                args[idx] = "-DCMAKE_INSTALL_PREFIX=c:/lib"
+            else:
+                args[idx] = "-DCMAKE_INSTALL_PREFIX=/usr/local"
             doInstall = True
 
     return (args, doInstall)

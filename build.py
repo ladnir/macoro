@@ -104,7 +104,7 @@ def help():
     print("-build the library with debug ")
     print("     python build.py --debug ")
     print("-build the library with cmake configurations ")
-    print("     python build.py -DCOPROTO_CPP_VER=14 -DCOPROTO_ENABLE_ASSERTS=ON")
+    print("     python build.py -DMACORO_CPP_VER=14")
     print("-build the library and install with sudo")
     print("     python build.py --install --sudo")
     print("-build the library and install to prefix")
@@ -139,9 +139,9 @@ def main(projectName, argv):
 
     if "--noauto" in argv:
         argv = replace(argv, "--noauto", "")
-        argv.append("-DCOPROTO_FETCH_AUTO=OFF")
+        argv.append("-DMACORO_FETCH_AUTO=OFF")
     else:
-        argv.append("-DCOPROTO_FETCH_AUTO=ON")
+        argv.append("-DMACORO_FETCH_AUTO=ON")
 
     argv, install = parseInstallArgs(argv)
     par = getParallel(argv)

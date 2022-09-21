@@ -2,6 +2,7 @@
 
 #include "macoro/config.h"
 #ifdef MACORO_OPTIONAL_LITE_V
+#define optional_CONFIG_SELECT_OPTIONAL 1
 #include "nonstd/optional.hpp"
 #else
 #include <optional>

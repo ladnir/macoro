@@ -2,6 +2,7 @@
 
 #include "macoro/config.h"
 #ifdef MACORO_VARIANT_LITE_V
+#define variant_CONFIG_SELECT_VARIANT 1
 #include "nonstd/variant.hpp"
 #else
 #include <variant>

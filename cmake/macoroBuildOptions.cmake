@@ -16,6 +16,9 @@ message("MACORO_CPP_VER         = ${MACORO_CPP_VER}\t  ~ cpp standard version")
 
 message("---------------------------\n")
 
+
+option(MACORO_PIC "build with -FPIC on unix" OFF)
+
 if(${MACORO_CPP_VER} EQUAL 20)
     set(MACORO_CPP_20 ON)
 else()

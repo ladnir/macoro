@@ -40,6 +40,12 @@ if(APPLE OR UNIX)
     target_compile_options( macoro PUBLIC
         "-std=c++${MACORO_CPP_VER}"
     )
+
+    if(MACORO_PIC)
+        target_compile_options(macoro PUBLIC
+            "-fPIC"
+        )
+    endif()
 elseif(MSVC)
     target_compile_options( macoro PUBLIC
         "/std:c++${MACORO_CPP_VER}"

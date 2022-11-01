@@ -1,10 +1,12 @@
 
 
+include("${CMAKE_CURRENT_LIST_DIR}/macoroPreamble.cmake")
+
 
 set(MACORO_BUILD ON)
 message("\nOptions\n---------------------------")
 
-option(MACORO_FETCH_AUTO OFF)
+option(MACORO_FETCH_AUTO "" OFF)
 message("MACORO_FETCH_AUTO      = ${MACORO_FETCH_AUTO}\t  ~ automatically fetch dependencies as needed")
 message("MACORO_FETCH_OPTIONAL  = ${MACORO_FETCH_OPTIONAL}  \t  ~ fetch optional-lite")
 message("MACORO_FETCH_VARIANT   = ${MACORO_FETCH_VARIANT}  \t  ~ fetch variant-lite")
@@ -18,6 +20,11 @@ message("---------------------------\n")
 
 
 option(MACORO_PIC "build with -FPIC on unix" OFF)
+option(MACORO_INSTALL_THIRDPARTY "dont install third party" ON)
+
+if(NOT DEFINED MACORO_THIRDPARTY_CLONE_DIR)
+    set(MACORO_THIRDPARTY_CLONE_DIR "${CMAKE_CURRENT_LIST_DIR}/../out/")
+endif()
 
 if(${MACORO_CPP_VER} EQUAL 20)
     set(MACORO_CPP_20 ON)
@@ -45,3 +52,20 @@ else()
     endif()
 endif()
 
+
+if(NOT DEFINED MACORO_STAGE)
+
+    if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/Config.cmake.in)
+        # we currenty are in the macoro source tree, macoro/cmake
+		set(MACORO_STAGE "${CMAKE_CURRENT_LIST_DIR}/../out/install/${MACORO_CONFIG}")
+    else()
+        # we currenty are in install tree, <install-prefix>/lib/cmake/macoro
+        set(MACORO_STAGE "${CMAKE_CURRENT_LIST_DIR}/../../..")
+    endif()
+
+    get_filename_component(MACORO_STAGE ${MACORO_STAGE} ABSOLUTE)
+endif()
+
+if(DEFINED MACORO_BUILD)
+    message(STATUS "Option: MACORO_STAGE = ${MACORO_STAGE}")
+endif()

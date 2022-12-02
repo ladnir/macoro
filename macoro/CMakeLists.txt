@@ -37,8 +37,8 @@ if(MACORO_VARIANT_LITE_V)
 endif()
 
 if(APPLE OR UNIX)
-    target_compile_options( macoro PUBLIC
-        "-std=c++${MACORO_CPP_VER}"
+    target_compile_options( macoro PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-std=c++${MACORO_CPP_VER}>
     )
 
     if(MACORO_PIC)
@@ -47,10 +47,14 @@ if(APPLE OR UNIX)
         )
     endif()
 elseif(MSVC)
+
+    target_compile_options( macoro PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:/std:c++${MACORO_CPP_VER}>
+    )
     target_compile_options( macoro PUBLIC
-        "/std:c++${MACORO_CPP_VER}"
         "/D_ENABLE_EXTENDED_ALIGNED_STORAGE"
     )
+
 
     target_link_libraries(macoro PUBLIC ws2_32.lib)
 else()

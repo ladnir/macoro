@@ -11,3 +11,15 @@ find_package(macoro REQUIRED HINTS ${MACORO_HINT})
 
 target_link_libraries(main macoro::macoro)
 
+
+option(MACORO_CPP_VER "cpp version" 14)
+
+if(MSVC)
+    target_compile_options( main PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:/std=c++${MACORO_CPP_VER}>
+    )
+else()
+    target_compile_options( main PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-std=c++${MACORO_CPP_VER}>
+    )
+endif()

@@ -16,3 +16,18 @@ add_library(macoroTests
 	"channel_spsc_tests.cpp")
 
 target_link_libraries(macoroTests macoro)
+
+
+if(MSVC)
+
+    target_compile_options( macoroTests PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:/std=c++${MACORO_CPP_VER}>
+    )
+else()
+
+
+
+    target_compile_options( macoroTests PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-std=c++${MACORO_CPP_VER}>
+    )
+endif()

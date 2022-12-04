@@ -6,7 +6,6 @@ cmake_policy(SET CMP0074 NEW)
 include("${CMAKE_CURRENT_LIST_DIR}/macoroPreamble.cmake")
 
 
-
 set(PUSHED_CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH})
 set(CMAKE_PREFIX_PATH "${MACORO_STAGE};${CMAKE_PREFIX_PATH}")
 

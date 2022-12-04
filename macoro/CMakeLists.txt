@@ -70,7 +70,17 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND MACORO_CPP_20)
         "-fcoroutines"
         )
 endif()
-
+if(MACORO_ASAN)
+    message("Warning: ASAN is enabled for macoro.")
+    if(MSVC)
+        target_compile_options(macoro PRIVATE 
+            "/fsanitize=address")
+    else()
+        target_compile_options(macoro PRIVATE 
+            "-fsanitize=address")
+        target_link_options(macoro PUBLIC "-fsanitize=address")
+    endif()
+endif()
 
 find_package (Threads)
 target_link_libraries(macoro PUBLIC Threads::Threads)
@@ -85,8 +95,11 @@ target_link_libraries(macoro PUBLIC Threads::Threads)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
+configure_file("${CMAKE_CURRENT_LIST_DIR}/../cmake/macoroConfigVersion.cmake.in" "macoroConfigVersion.cmake" COPYONLY)
 configure_file("${CMAKE_CURRENT_LIST_DIR}/../cmake/macoroFindDeps.cmake" "macoroFindDeps.cmake" COPYONLY)
 configure_file("${CMAKE_CURRENT_LIST_DIR}/../cmake/macoroPreamble.cmake" "macoroPreamble.cmake" COPYONLY)
+configure_file("${CMAKE_CURRENT_LIST_DIR}/../cmake/macoroBuildOptions.cmake.in" "macoroBuildOptions.cmake")
+
 # generate the config file that is includes the exports
 configure_package_config_file(
   "${CMAKE_CURRENT_LIST_DIR}/../cmake/Config.cmake.in"
@@ -111,6 +124,7 @@ write_basic_package_version_file(
 
 # install the configuration file
 install(FILES
+          "${CMAKE_CURRENT_BINARY_DIR}/macoroBuildOptions.cmake"
           "${CMAKE_CURRENT_BINARY_DIR}/macoroConfig.cmake"
           "${CMAKE_CURRENT_BINARY_DIR}/macoroConfigVersion.cmake"
           "${CMAKE_CURRENT_BINARY_DIR}/macoroFindDeps.cmake"

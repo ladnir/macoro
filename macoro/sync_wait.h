@@ -188,4 +188,19 @@ namespace macoro
 	}
 
 
+	struct sync_wait_t
+	{
+	};
+
+	inline sync_wait_t sync_wait()
+	{
+		return {};
+	}
+
+
+	template<typename awaitable>
+	decltype(auto) operator|(awaitable&& a, sync_wait_t)
+	{
+		return sync_wait(std::forward<awaitable>(a));
+	}
 }

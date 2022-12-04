@@ -1,7 +1,6 @@
 
 cmake_minimum_required(VERSION 3.15)
-project(macoro VERSION 0.1)
-
+project(macoro VERSION 0.1.1)
 include(cmake/macoroBuildOptions.cmake)
 include(cmake/macoroFindDeps.cmake)
 

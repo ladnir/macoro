@@ -1,0 +1,23 @@
+
+set(macoro_VERSION_MAJOR     @macoro_VERSION_MAJOR@)
+set(macoro_VERSION_MINOR     @macoro_VERSION_MINOR@)
+set(macoro_VERSION_PATCH     @macoro_VERSION_PATCH@)
+
+# compile the library with c++20 support
+set(MACORO_CPP_20 @MACORO_CPP_20@)
+
+
+set(MACORO_CPP_VER @MACORO_CPP_VER@)
+set(MACORO_ENABLE_ASSERTS @MACORO_ENABLE_ASSERTS@)
+
+set(MACORO_ASAN @MACORO_ASAN@)
+set(MACORO_PIC @MACORO_PIC@)
+
+set(MACORO_VARIANT_LITE_V @MACORO_VARIANT_LITE_V@)
+set(MACORO_OPTIONAL_LITE_V @MACORO_OPTIONAL_LITE_V@)
+
+set(macoro_cpp_20_FOUND ${MACORO_CPP_20})
+set(macoro_asan_FOUND ${MACORO_ASAN})
+set(macoro_pic_FOUND ${MACORO_PIC})
+set(macoro_optional_lite_FOUND ${MACORO_OPTIONAL_LITE_V})
+set(macoro_variant_lite_FOUND ${MACORO_VARIANT_LITE_V})

@@ -115,13 +115,6 @@ endif()
 
 set_property(TARGET macoro PROPERTY VERSION ${macoro_VERSION})
 
-# generate the version file for the config file
-write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/macoroConfigVersion.cmake"
-  VERSION "${macoro_VERSION_MAJOR}.${macoro_VERSION_MINOR}.${macoro_VERSION_PATCH}"
-  COMPATIBILITY AnyNewerVersion
-)
-
 # install the configuration file
 install(FILES
           "${CMAKE_CURRENT_BINARY_DIR}/macoroBuildOptions.cmake"

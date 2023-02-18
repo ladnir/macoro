@@ -48,6 +48,7 @@ endif()
 message("\nOptions\n---------------------------")
 
 message("CMAKE_BUILD_TYPE       = ${CMAKE_BUILD_TYPE}\t  ~ build type")
+message("MACORO_NO_SYSTEM_PATH  = ${MACORO_NO_SYSTEM_PATH}\t  ~ do not look in system paths for dependencies")
 message("MACORO_FETCH_AUTO      = ${MACORO_FETCH_AUTO}\t  ~ automatically fetch dependencies as needed")
 message("MACORO_FETCH_OPTIONAL  = ${MACORO_FETCH_OPTIONAL}  \t  ~ fetch optional-lite")
 message("MACORO_FETCH_VARIANT   = ${MACORO_FETCH_VARIANT}  \t  ~ fetch variant-lite")

@@ -9,31 +9,60 @@ include("${CMAKE_CURRENT_LIST_DIR}/macoroPreamble.cmake")
 set(PUSHED_CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH})
 set(CMAKE_PREFIX_PATH "${MACORO_STAGE};${CMAKE_PREFIX_PATH}")
 
-## optional-lite and variant-lite
+## optional-lite 
 ###########################################################################
-if(MACORO_OPTIONAL_LITE_V)
-    if(MACORO_FETCH_AUTO AND NOT DEFINED MACORO_FETCH_OPTIONAL AND MACORO_BUILD)
-        set(MACORO_FETCH_OPTIONAL ON)
+macro(FIND_OPTIONAL)
+    set(ARGS ${ARGN})
+
+    #explicitly asked to fetch optional
+    if(MACORO_FETCH_OPTIONAL)
+        list(APPEND ARGS NO_DEFAULT_PATH PATHS ${MACORO_STAGE})
+    elseif(${MACORO_NO_SYSTEM_PATH})
+        list(APPEND ARGS NO_CMAKE_SYSTEM_PATH)
     endif()
     
-    if (MACORO_FETCH_OPTIONAL)
-        find_package(optional-lite QUIET)
-        include("${CMAKE_CURRENT_LIST_DIR}/../thirdparty/getOptionalLite.cmake")
-    endif()
-    find_package(optional-lite REQUIRED)
-endif()
+    find_package(optional-lite ${ARGS})
 
-if(MACORO_VARIANT_LITE_V)
-    if(MACORO_FETCH_AUTO AND NOT DEFINED MACORO_FETCH_VARIANT AND MACORO_BUILD)
-        set(MACORO_FETCH_VARIANT ON)
+endmacro()
+
+if((MACORO_FETCH_AUTO OR MACORO_FETCH_OPTIONAL) AND MACORO_BUILD)
+    if(NOT MACORO_FETCH_OPTIONAL)
+        FIND_OPTIONAL(QUIET)
     endif()
-    if (MACORO_FETCH_VARIANT)
-        find_package(variant-lite QUIET)
-        include("${CMAKE_CURRENT_LIST_DIR}/../thirdparty/getVariantLite.cmake")
+    include("${CMAKE_CURRENT_LIST_DIR}/../thirdparty/getOptionalLite.cmake")
+endif()
+FIND_OPTIONAL(REQUIRED)
+
+
+## variant-lite
+###########################################################################
+
+macro(FIND_VARIANT)
+    set(ARGS ${ARGN})
+
+    #explicitly asked to fetch variant
+    if(MACORO_FETCH_VARIANT)
+        list(APPEND ARGS NO_DEFAULT_PATH PATHS ${MACORO_STAGE})
+    elseif(${MACORO_NO_SYSTEM_PATH})
+        list(APPEND ARGS NO_CMAKE_SYSTEM_PATH)
+    endif()
+    
+    find_package(variant-lite ${ARGS})
+
+endmacro()
+
+if((MACORO_FETCH_AUTO OR MACORO_FETCH_OPTIONAL) AND MACORO_BUILD)
+    if(NOT MACORO_FETCH_VARIANT)
+        FIND_VARIANT(QUIET)
     endif()
 
-    find_package(variant-lite REQUIRED)
+    include("${CMAKE_CURRENT_LIST_DIR}/../thirdparty/getVariantLite.cmake")
 endif()
+FIND_VARIANT(REQUIRED)
+
+
+
+###########################################################################
 
 # resort the previous prefix path
 set(CMAKE_PREFIX_PATH ${PUSHED_CMAKE_PREFIX_PATH})

@@ -4,7 +4,7 @@ set(GIT_REPOSITORY      https://github.com/martinmoene/variant-lite.git)
 set(GIT_TAG             "9499655b9c263eaef735efeeb53892c770d447e1" )
 
 set(CLONE_DIR "${MACORO_THIRDPARTY_CLONE_DIR}/${DEP_NAME}")
-set(BUILD_DIR "${CLONE_DIR}/build/${MACORO_CONFIG}")
+set(BUILD_DIR "${CLONE_DIR}/out/build/${MACORO_CONFIG}")
 set(LOG_FILE  "${CMAKE_CURRENT_LIST_DIR}/log-${DEP_NAME}.txt")
 set(CONFIG    --config ${CMAKE_BUILD_TYPE})
 

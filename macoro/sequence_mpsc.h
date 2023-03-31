@@ -58,6 +58,7 @@ namespace macoro
 	class sequence_mpsc
 	{
 	public:
+		static constexpr bool multi_sender = true;
 
 		sequence_mpsc(
 			const sequence_barrier<SEQUENCE, TRAITS>& consumerBarrier,
@@ -295,6 +296,7 @@ namespace macoro
 	class sequence_mpsc_claim_one_operation
 	{
 	public:
+		using Awaiter = sequence_mpsc_claim_one_awaiter<SEQUENCE, TRAITS>;
 
 		sequence_mpsc_claim_one_operation(
 			sequence_mpsc<SEQUENCE, TRAITS>& sequencer) noexcept
@@ -377,11 +379,14 @@ namespace macoro
 			m_lastKnownPublished = lastKnownPublished;
 			if (m_readyToResume.exchange(true, std::memory_order_release))
 			{
-				this->m_awaitingCoroutine.resume();
+				resume_impl();
 			}
 		}
 
-		virtual void resume_impl() noexcept = 0;
+		void resume_impl() noexcept
+		{
+			this->m_awaitingCoroutine.resume();
+		};
 
 		const sequence_mpsc<SEQUENCE, TRAITS>& m_sequencer;
 		SEQUENCE m_targetSequence;

@@ -22,7 +22,7 @@ namespace macoro
 	class sequence_spsc
 	{
 	public:
-
+		static constexpr bool multi_sender = false;
 		using size_type = typename sequence_range<SEQUENCE, TRAITS>::size_type;
 
 		sequence_spsc(
@@ -110,13 +110,20 @@ namespace macoro
 			return m_producerBarrier.wait_until_published(targetSequence);
 		}
 
+		[[nodiscard]]
+		auto wait_until_published(SEQUENCE targetSequence, SEQUENCE lastKnown) const noexcept
+		{
+			return wait_until_published(targetSequence);
+		}
+
+
 	private:
 
 		template<typename SEQUENCE2, typename TRAITS2>
 		friend class sequence_spsc_claim_operation;
 
 		template<typename SEQUENCE2, typename TRAITS2>
-		friend class sequence_spsc_claim_one_operation;
+		friend class sequence_spsc_claim_one_awaiter;
 
 #if _MSC_VER
 # pragma warning(push)
@@ -136,18 +143,20 @@ namespace macoro
 #endif
 	};
 
+
 	template<typename SEQUENCE, typename TRAITS>
-	class sequence_spsc_claim_one_operation
+	class sequence_spsc_claim_one_awaiter
 	{
 	public:
 
-		sequence_spsc_claim_one_operation(
+		sequence_spsc_claim_one_awaiter(
 			sequence_spsc<SEQUENCE, TRAITS>& sequencer) noexcept
 			: m_consumerWaitOperation(
 				sequencer.m_consumerBarrier,
 				static_cast<SEQUENCE>(sequencer.m_nextToClaim - sequencer.m_bufferSize))
 			, m_sequencer(sequencer)
 		{}
+
 
 		bool await_ready() const noexcept
 		{
@@ -175,6 +184,26 @@ namespace macoro
 		sequence_barrier_wait_operation_base<SEQUENCE, TRAITS> m_consumerWaitOperation;
 		sequence_spsc<SEQUENCE, TRAITS>& m_sequencer;
 
+	};
+
+	template<typename SEQUENCE, typename TRAITS>
+	class sequence_spsc_claim_one_operation
+	{
+	public:
+
+		sequence_spsc_claim_one_operation(
+			sequence_spsc<SEQUENCE, TRAITS>& sequencer) noexcept
+			: m_sequencer(sequencer)
+		{}
+
+
+		sequence_spsc_claim_one_awaiter<SEQUENCE,TRAITS> MACORO_OPERATOR_COAWAIT() noexcept
+		{
+			return m_sequencer;
+		}
+
+	private:
+		sequence_spsc<SEQUENCE, TRAITS>& m_sequencer;
 	};
 
 	template<typename SEQUENCE, typename TRAITS>

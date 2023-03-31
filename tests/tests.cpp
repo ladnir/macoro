@@ -8,6 +8,7 @@
 #include "when_all_tests.h"
 #include "sequence_tests.h"
 #include "channel_spsc_tests.h"
+#include "channel_mpsc_tests.h"
 
 #ifdef _MSC_VER
 #include <windows.h>
@@ -325,6 +326,8 @@ namespace macoro
 		t.add("sequence_spsc_test                 ", sequence_spsc_test);
 		t.add("spsc_channel_test                  ", spsc_channel_test);
 		t.add("spsc_channel_ex_test               ", spsc_channel_ex_test);
+		t.add("mpsc_channel_test                  ", mpsc_channel_test);
+		t.add("mpsc_channel_ex_test               ", mpsc_channel_ex_test);
 		
 		});
 }

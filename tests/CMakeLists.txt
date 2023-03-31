@@ -13,7 +13,8 @@ add_library(macoroTests
 	"sequence_tests.cpp"
 	"CLP.cpp" 
 	"CLP.h" 
-	"channel_spsc_tests.cpp")
+	"channel_spsc_tests.cpp" 
+	"channel_mpsc_tests.cpp")
 
 target_link_libraries(macoroTests macoro)
 

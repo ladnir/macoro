@@ -1,3 +1,4 @@
+
 #include "channel_spsc_tests.h"
 #include "macoro/channel_spsc.h"
 #include "macoro/task.h"
@@ -38,6 +39,8 @@ namespace macoro
 
 					//std::cout << "pushing " << i << std::endl;
 					slot = message{ i, 123 };
+
+					slot.publish();
 				}
 
 				// Publish a sentinel
@@ -80,7 +83,7 @@ namespace macoro
 
 					MC_AWAIT_SET(msg2, chl.pop());
 					MC_AWAIT(transfer_to(sched));
-					
+
 					if (msg.value().id != msg2->id)
 						throw MACORO_RTE_LOC;
 					if (msg.value().data != msg2->data)
@@ -89,14 +92,14 @@ namespace macoro
 					msg2.publish();
 
 				}
-				
+
 				MC_END();
 			}
 
 			template<typename Scheduler>
 			task<void> example(Scheduler& sched)
 			{
-		
+
 				auto s_r = spsc::make_channel<message>(8);
 
 				MC_BEGIN(task<void>, &sched

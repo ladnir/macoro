@@ -1,4 +1,4 @@
-
+#pragma once
 #include "macoro/sequence_mpsc.h"
 #include "macoro/sequence_spsc.h"
 #include <vector>

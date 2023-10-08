@@ -3,6 +3,7 @@
 #include "macoro/sequence_spsc.h"
 #include <vector>
 #include <stdexcept>
+#include <utility>
 
 namespace macoro
 {

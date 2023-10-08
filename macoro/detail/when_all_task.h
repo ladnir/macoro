@@ -12,6 +12,7 @@
 #include "macoro/macros.h"
 
 #include <cassert>
+#include <utility>
 
 namespace macoro
 {

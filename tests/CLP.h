@@ -7,6 +7,7 @@
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <cinttypes>
 
 namespace macoro
 {

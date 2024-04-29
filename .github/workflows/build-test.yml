@@ -97,11 +97,19 @@ jobs:
             submodules: recursive
 
       # Runs a set of commands using the runners shell          
-      - name: build library
+      - name: build library 20
         run: |
-          python3 build.py 
+          python3 build.py  -DMACORO_CPP_VER=20
               
-      - name: unit test
+      - name: unit test 20
+        run: |
+          ./out/build/osx/frontend/macoroFrontend -u      
+      
+      - name: build library 14
+        run: |
+          python3 build.py  -DMACORO_CPP_VER=14
+              
+      - name: unit test 14
         run: |
           ./out/build/osx/frontend/macoroFrontend -u
           

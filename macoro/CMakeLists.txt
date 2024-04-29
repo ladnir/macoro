@@ -65,11 +65,12 @@ else()
             CXX_EXTENSIONS NO
     )
 endif()
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND MACORO_CPP_20)
-    target_compile_options( macoro PUBLIC
-        "-fcoroutines"
-        )
-endif()
+#if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND MACORO_CPP_20)
+#    target_compile_options( macoro PUBLIC
+#        "-fcoroutines"
+#        )
+#endif()
+
 if(MACORO_ASAN)
     message("Warning: ASAN is enabled for macoro.")
     if(MSVC)

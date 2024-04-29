@@ -14,6 +14,10 @@
 #include <cassert>
 #include <utility>
 
+#ifdef MACORO_CPP_20
+#define MACORO_CPP_20_WHEN_ALL 1
+#endif
+
 namespace macoro
 {
 	namespace detail

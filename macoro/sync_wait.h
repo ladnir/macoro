@@ -9,6 +9,9 @@
 namespace macoro
 {
 
+#ifdef MACORO_CPP_20
+#define MACORO_MAKE_BLOCKING_20 1
+#endif
 	namespace detail
 	{
 		template<typename T>
@@ -20,14 +23,14 @@ namespace macoro
 		{
 			struct final_awaiter
 			{
-				bool await_ready() { return false; }
+				bool await_ready() noexcept { return false; }
 #ifdef MACORO_CPP_20
 				template<typename P>
-				void await_suspend(std::coroutine_handle<P> h) { h.promise().set(); }
+				void await_suspend(std::coroutine_handle<P> h) noexcept { h.promise().set(); }
 #endif
 				template<typename P>
-				void await_suspend(coroutine_handle<P> h) { h.promise().set(); }
-				void await_resume() {}
+				void await_suspend(coroutine_handle<P> h) noexcept { h.promise().set(); }
+				void await_resume() noexcept {}
 			};
 
 			std::exception_ptr exception;
@@ -142,15 +145,13 @@ namespace macoro
 		template<
 			typename Awaitable,
 			typename ResultType = typename awaitable_traits<Awaitable&&>::await_result>
-			enable_if_t<!std::is_void<ResultType>::value,
+		enable_if_t<!std::is_void<ResultType>::value,
 			blocking_task<ResultType>
-			>
+		>
 			make_blocking_task(Awaitable&& awaitable)
 		{
 #if MACORO_MAKE_BLOCKING_20
-			auto promise = co_await typename blocking_promise<ResultType>::get_promise{};
-			auto awaiter = promise->yield_value(co_await std::forward<Awaitable>(awaitable));
-			co_await awaiter;
+			co_return co_await static_cast<Awaitable&&>(awaitable);
 #else
 			MC_BEGIN(blocking_task<ResultType>, &awaitable);
 			MC_RETURN_AWAIT(static_cast<Awaitable&&>(awaitable));
@@ -162,9 +163,9 @@ namespace macoro
 		template<
 			typename Awaitable,
 			typename ResultType = typename awaitable_traits<Awaitable&&>::await_result>
-			enable_if_t<std::is_void<ResultType>::value,
+		enable_if_t<std::is_void<ResultType>::value,
 			blocking_task<ResultType>
-			>
+		>
 			make_blocking_task(Awaitable&& awaitable)
 		{
 #if MACORO_MAKE_BLOCKING_20

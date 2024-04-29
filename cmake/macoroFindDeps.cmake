@@ -31,8 +31,10 @@ if((MACORO_FETCH_AUTO OR MACORO_FETCH_OPTIONAL) AND MACORO_BUILD)
     endif()
     include("${CMAKE_CURRENT_LIST_DIR}/../thirdparty/getOptionalLite.cmake")
 endif()
-FIND_OPTIONAL(REQUIRED)
 
+if(MACORO_OPTIONAL_LITE)
+    FIND_OPTIONAL(REQUIRED)
+endif()
 
 ## variant-lite
 ###########################################################################
@@ -58,7 +60,9 @@ if((MACORO_FETCH_AUTO OR MACORO_FETCH_OPTIONAL) AND MACORO_BUILD)
 
     include("${CMAKE_CURRENT_LIST_DIR}/../thirdparty/getVariantLite.cmake")
 endif()
-FIND_VARIANT(REQUIRED)
+if(MACORO_VARIANT_LITE)
+    FIND_VARIANT(REQUIRED)
+endif()
 
 
 

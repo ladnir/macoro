@@ -73,7 +73,7 @@ endif()
 if(MACORO_ASAN)
     message("Warning: ASAN is enabled for macoro.")
     if(MSVC)
-        target_compile_options(macoro PRIVATE 
+        target_compile_options(macoro PUBLIC 
             "/fsanitize=address")
     else()
         target_compile_options(macoro PRIVATE 

@@ -27,11 +27,11 @@ jobs:
             submodules: recursive
 
       # Runs a set of commands using the runners shell
-      - name: build library
+      - name: build library cpp14
         run: |
-          python3 build.py 
+          python3 build.py -DMACORO_CPP_VER=14
               
-      - name: unit test
+      - name: unit test cpp14
         run: |
           ./out/build/linux/frontend/macoroFrontend -u
           
@@ -73,6 +73,16 @@ jobs:
             ./out/main
             rm -rf out/
             cd ../..
+      
+      - name: build library cpp20
+        run: |
+          rm -rf out/build
+          rm -rf out/install
+          python3 build.py -DMACORO_CPP_VER=20
+              
+      - name: unit test cpp20
+        run: |
+          ./out/build/linux/frontend/macoroFrontend -u
   
   # This workflow contains a single job called "build"
   build-osx:
@@ -149,11 +159,11 @@ jobs:
 
 
       # Runs a set of commands using the runners shell
-      - name: build library
+      - name: build library cpp14
         run: |
-          python3 build.py -G Ninja
+          python3 build.py -G Ninja -DMACORO_CPP_VER=14
       
-      - name: unit test
+      - name: unit test cpp14
         run: |
           ./out/build/x64-Release/frontend/macoroFrontend.exe -u
           
@@ -185,3 +195,13 @@ jobs:
             ./out/Release/main.exe
             rm -r -fo out/
             cd ../..
+                  
+      - name: build library cpp20
+        run: |
+          rm -re -fo out/
+          python3 build.py -G Ninja -DMACORO_CPP_VER=20
+      
+      - name: unit test cpp20
+        run: |
+          ./out/build/x64-Release/frontend/macoroFrontend.exe -u
+          

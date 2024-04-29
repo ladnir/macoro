@@ -25,16 +25,14 @@ macro(FIND_OPTIONAL)
 
 endmacro()
 
-if((MACORO_FETCH_AUTO OR MACORO_FETCH_OPTIONAL) AND MACORO_BUILD)
-    message("FETCH OPTIONAL")
-    if(NOT MACORO_FETCH_OPTIONAL)
-        FIND_OPTIONAL(QUIET)
-    endif()
-    include("${CMAKE_CURRENT_LIST_DIR}/../thirdparty/getOptionalLite.cmake")
-endif()
-
 if(MACORO_OPTIONAL_LITE_V)
-    message("FIND OPTIONAL")
+    if((MACORO_FETCH_AUTO OR MACORO_FETCH_OPTIONAL) AND MACORO_BUILD)
+        if(NOT MACORO_FETCH_OPTIONAL)
+            FIND_OPTIONAL(QUIET)
+        endif()
+        include("${CMAKE_CURRENT_LIST_DIR}/../thirdparty/getOptionalLite.cmake")
+    endif()
+
     FIND_OPTIONAL(REQUIRED)
 endif()
 
@@ -55,14 +53,15 @@ macro(FIND_VARIANT)
 
 endmacro()
 
-if((MACORO_FETCH_AUTO OR MACORO_FETCH_OPTIONAL) AND MACORO_BUILD)
-    if(NOT MACORO_FETCH_VARIANT)
-        FIND_VARIANT(QUIET)
+if(MACORO_VARIANT_LITE_V)
+    if((MACORO_FETCH_AUTO OR MACORO_FETCH_OPTIONAL) AND MACORO_BUILD)
+        if(NOT MACORO_FETCH_VARIANT)
+            FIND_VARIANT(QUIET)
+        endif()
+
+        include("${CMAKE_CURRENT_LIST_DIR}/../thirdparty/getVariantLite.cmake")
     endif()
 
-    include("${CMAKE_CURRENT_LIST_DIR}/../thirdparty/getVariantLite.cmake")
-endif()
-if(MACORO_VARIANT_LITE_V)
     FIND_VARIANT(REQUIRED)
 endif()
 

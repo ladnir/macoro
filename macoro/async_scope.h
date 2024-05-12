@@ -9,6 +9,10 @@
 
 namespace macoro
 {
+	// a scoped_task is eagerly started but has its lifetime 
+	// tied to some scoped object, e.g. async_scope or 
+	// when_all_scope. scoped_task can be fire and forget but
+	// will always be joined then the scope object is awaited.
 	template<typename T = void>
 	struct scoped_task
 	{

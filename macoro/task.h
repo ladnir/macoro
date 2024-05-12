@@ -231,7 +231,7 @@ namespace macoro
 
 			template<
 				typename VALUE,
-				typename = enable_if_t<std::is_convertible<VALUE&&, T>::value>>
+				typename = enable_if_t<std::is_constructible<T, VALUE&&>::value>>
 				void return_value(VALUE&& value)
 				noexcept(std::is_nothrow_constructible<T, VALUE&&>::value)
 			{

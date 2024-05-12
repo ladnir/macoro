@@ -216,6 +216,18 @@ namespace macoro
 			public basic_traceable
 		{
 		public:
+			//// can be used to check if it allocates
+			//void* operator new(std::size_t n) noexcept
+			//{
+			//	std::cout << "scoped_task_promise alloc" << std::endl;
+			//	return std::malloc(n);
+			//}
+			//void operator delete(void* ptr, std::size_t sz)
+			//{
+			//	std::free(ptr);
+			//}
+
+
 			using value_type = T;
 
 			friend struct final_awaitable;

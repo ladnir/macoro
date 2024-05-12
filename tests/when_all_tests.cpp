@@ -86,26 +86,54 @@ namespace macoro
 		}
 
 
-		void when_all_scope_test()
-		{
-
-			auto tr = []()->when_all_scope {
-
-				scoped_task<int> r = co_await f();
-
-				int i = co_await std::move(r);
-				co_return;
-
-				}
-			();
-
-			sync_wait(std::move(tr));
-			using namespace macoro;
-			using Awaitable = task<int>;
-			Awaitable a = f();
-			auto t = detail::make_when_all_task<Awaitable>(std::move(a));
-
-		}
+  void when_all_scope_test()
+    {
+      auto f = []() -> task<int> {
+        co_return 42;
+        };
+  
+      auto g = []() -> task<std::unique_ptr<int>> {
+        co_return new int{ 10 };
+        };
+  
+      // a coroutine with RAII eager subtasks.
+      // the eager subtasks will be joined before
+      // the scope exits.
+      auto t = [&]()->task<> {
+  
+        int q = co_await f();
+  
+        // start a eager scope. All scoped
+        // tasks in the when_all_scope will 
+        // be joined before scope exit.
+        co_await [&]()->when_all_scope {
+  
+          // start the work eagerly
+          scoped_task<int> r = co_await scoped(f());
+  
+          // start the work eagerly
+          scoped_task<std::unique_ptr<int>> h = co_await scoped(g());
+  
+          // join one of them
+          int i = co_await std::move(r);
+  
+          if (i == 42)
+            throw std::runtime_error("meaning of life");
+  
+          // h wont be joined explicitly if i == 42. However, 
+          // when_all_scope will suspend until h completes. 
+          // exceptions will be propegated out of the scope.
+          std::unique_ptr<int> j = co_await std::move(h);
+          }
+        ();
+  
+        // h has been joined and an exception containing 
+        // "meaning of life" will be thrown.
+        }
+      ();
+  
+      sync_wait(std::move(t));
+    }
 	}
 }
 

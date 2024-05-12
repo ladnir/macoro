@@ -5,6 +5,35 @@
 
 namespace macoro
 {
+	template<typename awaitable>
+	struct scoped_t;
+
+	template<>
+	struct scoped_t<void>
+	{};
+
+	template<typename awaitable>
+	struct scoped_t
+	{
+		using awaitable_type = awaitable;
+		using storage_type = remove_rvalue_reference_t<awaitable>;
+
+		storage_type m_awaitable;
+	};
+
+	inline scoped_t<void> scoped() { return {}; }
+
+	template<typename awaitable>
+	auto scoped(awaitable&& a)
+	{
+		return scoped_t<awaitable>(std::forward<awaitable>(a));
+	}
+
+	template<typename awaitable>
+	decltype(auto) operator|(awaitable&& a, scoped_t<void>)
+	{
+		return scoped(std::forward<awaitable>(a));
+	}
 
 	struct when_all_scope 
 	{
@@ -40,16 +69,16 @@ namespace macoro
 
 			void return_void() noexcept {};
 
-			//template<typename A>
-			//decltype(auto) await_transform(A&& a) noexcept
-			//{
-			//	return std::forward<A>(a);
-			//}
+			template<typename A>
+			decltype(auto) await_transform(A&& a) noexcept
+			{
+				return std::forward<A>(a);
+			}
 
 			template<typename A>
-			decltype(auto) await_transform(A&& a, std::source_location loc = std::source_location::current()) noexcept
+			decltype(auto) await_transform(scoped_t<A>&& a, std::source_location loc = std::source_location::current()) noexcept
 			{
-				using scoped_task_of_a = scoped_task<int>;// decltype(m_scope.add(std::forward<A>(a)));
+				using scoped_task_of_a = decltype(m_scope.add(std::forward<typename scoped_t<A>::awaitable_type>(a.m_awaitable), loc));
 				struct awaiter
 				{
 					scoped_task_of_a m_scoped_task;
@@ -60,25 +89,25 @@ namespace macoro
 						return std::move(m_scoped_task);
 					}
 				};
-				return awaiter{ m_scope.add(std::forward<A>(a), loc) };
+				return awaiter{ m_scope.add(std::forward<typename scoped_t<A>::awaitable_type>(a.m_awaitable), loc) };
 			}
 
 
-			template<typename T>
-			decltype(auto) await_transform(scoped_task<T>& a) 
-			{
-				if (a.m_coroutine.promise().m_scope != &m_scope)
-					throw std::runtime_error("in a when_all_scope, only awaiting scoped_task's from this scope is supported.");
-				return a; 
-			}
-			template<typename T>
-			decltype(auto) await_transform(scoped_task<T>&& a)  
-			{ 
-				auto& prom = a.m_coroutine.promise();
-				if (prom.m_scope != &m_scope)
-					throw std::runtime_error("in a when_all_scope, only awaiting scoped_task's from this scope is supported.");
-				return std::move(a); 
-			}
+			//template<typename T>
+			//decltype(auto) await_transform(scoped_task<T>& a) 
+			//{
+			//	if (a.m_coroutine.promise().m_scope != &m_scope)
+			//		throw std::runtime_error("in a when_all_scope, only awaiting scoped_task's from this scope is supported.");
+			//	return a; 
+			//}
+			//template<typename T>
+			//decltype(auto) await_transform(scoped_task<T>&& a)  
+			//{ 
+			//	auto& prom = a.m_coroutine.promise();
+			//	if (prom.m_scope != &m_scope)
+			//		throw std::runtime_error("in a when_all_scope, only awaiting scoped_task's from this scope is supported.");
+			//	return std::move(a); 
+			//}
 
 			traceable* get_traceable()
 			{

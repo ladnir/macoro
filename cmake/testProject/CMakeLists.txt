@@ -12,7 +12,7 @@ find_package(macoro REQUIRED HINTS ${MACORO_HINT})
 target_link_libraries(main macoro::macoro)
 
 
-option(MACORO_CPP_VER "cpp version" 14)
+option(MACORO_CPP_VER "cpp version" 20)
 
 if(MSVC)
     target_compile_options( main PRIVATE

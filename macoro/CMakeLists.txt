@@ -14,7 +14,7 @@ if(MSVC)
     detail/win32.cpp)
 endif()
 
-add_library(macoro STATIC ${SRC})
+add_library(macoro STATIC ${SRC} "trace.h" "barrier.h")
 
 
 

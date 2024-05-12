@@ -9,6 +9,7 @@
 #include <atomic>
 #include "macoro/coroutine_handle.h"
 #include "when_all_counter.h"
+#include "macoro/trace.h"
 
 #ifdef MACORO_CPP_20
 #include <coroutine>
@@ -18,6 +19,49 @@ namespace macoro
 {
 	namespace detail
 	{
+
+
+		class when_all_ready_awaitable_base : public traceable
+		{
+		public:
+
+			when_all_ready_awaitable_base(std::size_t count) noexcept
+				: m_count(count + 1)
+				, m_awaitingCoroutine(nullptr)
+			{}
+
+			bool is_ready() const noexcept
+			{
+				// We consider this complete if we're asking whether it's ready
+				// after a coroutine has already been registered.
+				return static_cast<bool>(m_awaitingCoroutine);
+			}
+
+			bool try_await(coroutine_handle<> awaitingCoroutine) noexcept
+			{
+				m_awaitingCoroutine = awaitingCoroutine;
+				return m_count.fetch_sub(1, std::memory_order_acq_rel) > 1;
+			}
+
+			void notify_awaitable_completed() noexcept
+			{
+				if (m_count.fetch_sub(1, std::memory_order_acq_rel) == 1)
+				{
+					m_awaitingCoroutine.resume();
+				}
+			}
+
+		protected:
+
+			std::atomic<std::size_t> m_count;
+			coroutine_handle<> m_awaitingCoroutine;
+
+		};
+
+		template <typename> struct is_tuple : std::false_type {};
+
+		template <typename ...T> struct is_tuple<std::tuple<T...>> : std::true_type {};
+
 		template<typename TASK_CONTAINER>
 		class when_all_ready_awaitable;
 
@@ -38,247 +82,176 @@ namespace macoro
 
 		};
 
-		template<typename... TASKS>
-		class when_all_ready_awaitable<std::tuple<TASKS...>>
-		{
-		public:
-
-			explicit when_all_ready_awaitable(TASKS&&... tasks)
-				noexcept(conjunction<std::is_nothrow_move_constructible<TASKS>...>::value)
-				: m_counter(sizeof...(TASKS))
-				, m_tasks(std::move(tasks)...)
-			{}
-
-			explicit when_all_ready_awaitable(std::tuple<TASKS...>&& tasks)
-				noexcept(std::is_nothrow_move_constructible<std::tuple<TASKS...>>::value)
-				: m_counter(sizeof...(TASKS))
-				, m_tasks(std::move(tasks))
-			{}
-
-			when_all_ready_awaitable(when_all_ready_awaitable&& other) noexcept
-				: m_counter(sizeof...(TASKS))
-				, m_tasks(std::move(other.m_tasks))
-			{}
-
-			auto MACORO_OPERATOR_COAWAIT() & noexcept
-			{
-				struct awaiter
-				{
-					awaiter(when_all_ready_awaitable& awaitable) noexcept
-						: m_awaitable(awaitable)
-					{}
-
-					bool await_ready() const noexcept
-					{
-						return m_awaitable.is_ready();
-					}
-
-#ifdef MACORO_CPP_20
-					bool await_suspend(std::coroutine_handle<> awaitingCoroutine) noexcept
-					{
-						return await_suspend(coroutine_handle<>(awaitingCoroutine));
-					}
-#endif
-					bool await_suspend(coroutine_handle<> awaitingCoroutine) noexcept
-					{
-						return m_awaitable.try_await(awaitingCoroutine);
-					}
-
-					std::tuple<TASKS...>& await_resume() noexcept
-					{
-						return m_awaitable.m_tasks;
-					}
-
-				private:
-
-					when_all_ready_awaitable& m_awaitable;
-
-				};
-
-				return awaiter{ *this };
-			}
-
-			auto MACORO_OPERATOR_COAWAIT() && noexcept
-			{
-				struct awaiter
-				{
-					awaiter(when_all_ready_awaitable& awaitable) noexcept
-						: m_awaitable(awaitable)
-					{}
-
-					bool await_ready() const noexcept
-					{
-						return m_awaitable.is_ready();
-					}
-#ifdef MACORO_CPP_20
-					bool await_suspend(std::coroutine_handle<> awaitingCoroutine) noexcept
-					{
-						return await_suspend(coroutine_handle<>(awaitingCoroutine));
-					}
-#endif
-					bool await_suspend(coroutine_handle<> awaitingCoroutine) noexcept
-					{
-						return m_awaitable.try_await(awaitingCoroutine);
-					}
-
-					std::tuple<TASKS...>&& await_resume() noexcept
-					{
-						return std::move(m_awaitable.m_tasks);
-					}
-
-				private:
-
-					when_all_ready_awaitable& m_awaitable;
-
-				};
-
-				return awaiter{ *this };
-			}
-
-		private:
-
-			bool is_ready() const noexcept
-			{
-				return m_counter.is_ready();
-			}
-
-			bool try_await(coroutine_handle<> awaitingCoroutine) noexcept
-			{
-				start_tasks(std::make_integer_sequence<std::size_t, sizeof...(TASKS)>{});
-				return m_counter.try_await(awaitingCoroutine);
-			}
-
-			template<std::size_t... INDICES>
-			void start_tasks(std::integer_sequence<std::size_t, INDICES...>) noexcept
-			{
-				(void)std::initializer_list<int>{
-					(std::get<INDICES>(m_tasks).start(m_counter), 0)...
-				};
-			}
-
-			when_all_counter m_counter;
-			std::tuple<TASKS...> m_tasks;
-
-		};
-
+		// the when_all_read awaitable that holds all the tasks.
+		// TASK_CONTAINER should be either an std::tuple or vector like 
+		// container that contains when_all_task<T>.
 		template<typename TASK_CONTAINER>
-		class when_all_ready_awaitable
+		class when_all_ready_awaitable : public when_all_ready_awaitable_base
 		{
 		public:
+
+			size_t tasks_size(TASK_CONTAINER& tasks)
+			{
+				if constexpr (is_tuple<TASK_CONTAINER>::value)
+					return std::tuple_size<TASK_CONTAINER>::value;
+				else
+					return tasks.size();
+			}
+
 
 			explicit when_all_ready_awaitable(TASK_CONTAINER&& tasks) noexcept
-				: m_counter(tasks.size())
+				: when_all_ready_awaitable_base(tasks_size(tasks))
 				, m_tasks(std::forward<TASK_CONTAINER>(tasks))
 			{}
 
 			when_all_ready_awaitable(when_all_ready_awaitable&& other)
 				noexcept(std::is_nothrow_move_constructible<TASK_CONTAINER>::value)
-				: m_counter(other.m_tasks.size())
+				: when_all_ready_awaitable_base(tasks_size(other.m_tasks))
 				, m_tasks(std::move(other.m_tasks))
 			{}
 
 			when_all_ready_awaitable(const when_all_ready_awaitable&) = delete;
 			when_all_ready_awaitable& operator=(const when_all_ready_awaitable&) = delete;
 
-			auto MACORO_OPERATOR_COAWAIT() & noexcept
+			class lval_awaiter
 			{
-				class awaiter
+			public:
+
+				lval_awaiter(when_all_ready_awaitable& awaitable)
+					: m_awaitable(awaitable)
+				{}
+
+				bool await_ready() const noexcept
 				{
-				public:
-
-					awaiter(when_all_ready_awaitable& awaitable)
-						: m_awaitable(awaitable)
-					{}
-
-					bool await_ready() const noexcept
-					{
-						return m_awaitable.is_ready();
-					}
+					return m_awaitable.is_ready();
+				}
 
 #ifdef MACORO_CPP_20
-					bool await_suspend(std::coroutine_handle<> awaitingCoroutine) noexcept
-					{
-						return await_suspend(coroutine_handle<>(awaitingCoroutine));
-					}
+				template<typename Promise>
+				bool await_suspend(std::coroutine_handle<Promise> awaitingCoroutine, std::source_location loc = std::source_location::current()) noexcept
+				{
+					m_awaitable.set_parent(get_traceable(awaitingCoroutine), loc);
+					return await_suspend(coroutine_handle<>(awaitingCoroutine), loc);
+				}
 #endif
-					bool await_suspend(coroutine_handle<> awaitingCoroutine) noexcept
-					{
-						return m_awaitable.try_await(awaitingCoroutine);
-					}
+				template<typename Promise>
+				bool await_suspend(coroutine_handle<Promise> awaitingCoroutine, std::source_location loc = std::source_location::current()) noexcept
+				{
+					m_awaitable.set_parent(get_traceable(awaitingCoroutine), loc);
+					return m_awaitable.try_await(awaitingCoroutine, loc);
+				}
 
-					TASK_CONTAINER& await_resume() noexcept
-					{
-						return m_awaitable.m_tasks;
-					}
+				TASK_CONTAINER& await_resume() noexcept
+				{
+					return m_awaitable.m_tasks;
+				}
 
-				private:
+			private:
 
-					when_all_ready_awaitable& m_awaitable;
+				when_all_ready_awaitable& m_awaitable;
 
-				};
+			};
 
-				return awaiter{ *this };
+			auto MACORO_OPERATOR_COAWAIT() & noexcept
+			{
+				return lval_awaiter{ *this };
 			}
 
+
+			class rval_awaiter
+			{
+			public:
+
+				rval_awaiter(when_all_ready_awaitable& awaitable)
+					: m_awaitable(awaitable)
+				{}
+
+				bool await_ready() const noexcept
+				{
+					return m_awaitable.is_ready();
+				}
+
+#ifdef MACORO_CPP_20
+				template<typename Promise>
+				bool await_suspend(std::coroutine_handle<Promise> awaitingCoroutine, std::source_location loc = std::source_location::current()) noexcept
+				{
+					m_awaitable.set_parent(get_traceable(awaitingCoroutine), loc);
+					return m_awaitable.try_await(coroutine_handle<>(awaitingCoroutine));
+
+					//return await_suspend(coroutine_handle<>(awaitingCoroutine), loc);
+				}
+#endif
+				template<typename Promise>
+				bool await_suspend(coroutine_handle<Promise> awaitingCoroutine, std::source_location loc = std::source_location::current()) noexcept
+				{
+					m_awaitable.set_parent(get_traceable(awaitingCoroutine), loc);
+					return m_awaitable.try_await(awaitingCoroutine);
+				}
+
+				TASK_CONTAINER&& await_resume() noexcept
+				{
+					return std::move(m_awaitable.m_tasks);
+				}
+
+			private:
+
+				when_all_ready_awaitable& m_awaitable;
+
+			};
 
 			auto MACORO_OPERATOR_COAWAIT() && noexcept
 			{
-				class awaiter
-				{
-				public:
-
-					awaiter(when_all_ready_awaitable& awaitable)
-						: m_awaitable(awaitable)
-					{}
-
-					bool await_ready() const noexcept
-					{
-						return m_awaitable.is_ready();
-					}
-
-#ifdef MACORO_CPP_20
-					bool await_suspend(std::coroutine_handle<> awaitingCoroutine) noexcept
-					{
-						return await_suspend(coroutine_handle<>(awaitingCoroutine));
-					}
-#endif
-					bool await_suspend(coroutine_handle<> awaitingCoroutine) noexcept
-					{
-						return m_awaitable.try_await(awaitingCoroutine);
-					}
-
-					TASK_CONTAINER&& await_resume() noexcept
-					{
-						return std::move(m_awaitable.m_tasks);
-					}
-
-				private:
-
-					when_all_ready_awaitable& m_awaitable;
-
-				};
-
-				return awaiter{ *this };
+				return rval_awaiter{ *this };
 			}
 
-		private:
 
-			bool is_ready() const noexcept
+
+			void add_child(traceable* child) final override
 			{
-				return m_counter.is_ready();
+				assert(0);
+			}
+
+			void remove_child(traceable* child) final override
+			{
+				assert(0);
+			}
+
+		//private:
+
+			//bool is_ready() const noexcept
+			//{
+			//	return m_counter.is_ready();
+			//}
+
+			template<std::size_t... INDICES>
+			void start_tasks(std::integer_sequence<std::size_t, INDICES...>) noexcept
+			{
+				if constexpr (is_tuple<TASK_CONTAINER>::value)
+				{
+					(void)std::initializer_list<int>{
+						(std::get<INDICES>(m_tasks).start(*this), 0)...
+					};
+				}
 			}
 
 			bool try_await(coroutine_handle<> awaitingCoroutine) noexcept
 			{
-				for (auto&& task : m_tasks)
+				if constexpr (is_tuple<TASK_CONTAINER>::value)
 				{
-					task.start(m_counter);
+					start_tasks(
+						std::make_integer_sequence<std::size_t, std::tuple_size<TASK_CONTAINER>::value>{});
+				}
+				else
+				{
+					for (auto&& task : m_tasks)
+					{
+						task.start(*this);
+					}
 				}
 
-				return m_counter.try_await(awaitingCoroutine);
+				return when_all_ready_awaitable_base::try_await(awaitingCoroutine);
 			}
 
-			when_all_counter m_counter;
 			TASK_CONTAINER m_tasks;
 
 		};

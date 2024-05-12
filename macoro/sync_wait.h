@@ -18,158 +18,155 @@ namespace macoro
 		struct blocking_task;
 
 
-		template<typename T>
-		struct blocking_promise_base
+		template<typename Awaitable>
+		struct blocking_promise : basic_traceable
 		{
+
+			// can be used to check if it allocates
+			//void* operator new(std::size_t n) noexcept
+			//{
+			//	return std::malloc(n);
+			//}
+			//void operator delete(void* ptr, std::size_t sz)
+			//{
+			//	std::free(ptr);
+			//}
+
+			// construct the awaiter in the promise
+			template<typename A>
+			blocking_promise(A&&a, std::source_location& loc)
+				: m_awaiter(get_awaiter(std::forward<Awaitable>(a)))
+			{
+				set_parent(nullptr, loc);
+			}
+
+			using inner_awaiter = decltype(get_awaiter(std::declval<Awaitable&&>()));
+
+			// the promise will hold the awaiter. this way when
+			// we return the value, you can directly get it
+			// by calling m_awaiter.await_resume()
+			inner_awaiter m_awaiter;
+			
+			// any active exceptions that is thrown.
+			std::exception_ptr m_exception;
+
+			// mutex and cv to block until the caller until the result is ready.
+			std::mutex m_mutex;
+			std::condition_variable m_cv;
+			bool m_is_set = false;
+
+			// block the caller.
+			void wait()
+			{
+				std::unique_lock<std::mutex> lock(m_mutex);
+				m_cv.wait(lock, [this] { return m_is_set; });
+			}
+
+			// notify the caller.
+			void set()
+			{
+				assert(m_is_set == false);
+				std::lock_guard<std::mutex> lock(this->m_mutex);
+				this->m_is_set = true;
+				this->m_cv.notify_all();
+			}
+
+			void return_void() {}
+
 			struct final_awaiter
 			{
-				bool await_ready() noexcept { return false; }
-#ifdef MACORO_CPP_20
-				template<typename P>
-				void await_suspend(std::coroutine_handle<P> h) noexcept { h.promise().set(); }
-#endif
-				template<typename P>
-				void await_suspend(coroutine_handle<P> h) noexcept { h.promise().set(); }
+				bool await_ready() noexcept { return false; };
+
+				template<typename C>
+				void await_suspend(C c) noexcept { c.promise().set(); }
+
 				void await_resume() noexcept {}
 			};
 
-			std::exception_ptr exception;
-			std::mutex mutex;
-			std::condition_variable cv;
-			bool is_set = false;
-
-			void wait()
-			{
-				std::unique_lock<std::mutex> lock(mutex);
-				cv.wait(lock, [this] { return is_set; });
-			}
-
-			void set()
-			{
-				assert(is_set == false);
-				std::lock_guard<std::mutex> lock(this->mutex);
-				this->is_set = true;
-				this->cv.notify_all();
-			}
-
-
 			suspend_always initial_suspend() noexcept { return{}; }
 			final_awaiter final_suspend() noexcept {
-				return { };
+				return {};
 			}
 
 			void unhandled_exception() noexcept
 			{
-				exception = std::current_exception();
+				m_exception = std::current_exception();
+			}
+
+			blocking_task<Awaitable> get_return_object() noexcept;
+			blocking_task<Awaitable> macoro_get_return_object() noexcept;
+
+			// intercept the dummy co_await and manually co_await m_awaiter.
+			auto& await_transform(Awaitable&& a)
+			{
+				return *this; 
+			}
+
+			// forward to m_awaiter
+			bool await_ready() //noexcept(std::declval<inner_awaiter>().await_ready())
+			{
+				return m_awaiter.await_ready();
+			}
+
+			// forward to m_awaiter
+			auto await_suspend(std::coroutine_handle<blocking_promise> c) //noexcept(macoro::await_suspend(m_awaiter, c))
+			{
+				return m_awaiter.await_suspend(c);
+			}
+
+			// onces m_awaiter completes, notify the caller that they 
+			// can get the result. this will happen by calling m_awaiter.await_resume();
+			void await_resume() { }
+
+			// get the value out of m_awaiter.
+			decltype(auto) value()
+			{
+				if (this->m_exception)
+					std::rethrow_exception(this->m_exception);
+				assert(m_is_set);
+
+				return m_awaiter.await_resume();
 			}
 		};
 
-		template<typename T>
-		struct blocking_promise : public blocking_promise_base<T>
-		{
-			typename std::remove_reference<T>::type* mVal = nullptr;
 
-			blocking_task<T> get_return_object() noexcept;
-			blocking_task<T> macoro_get_return_object() noexcept;
-
-			using reference_type = T&&;
-			void return_value(reference_type v) noexcept
-			{
-				mVal = std::addressof(v);
-			}
-
-			reference_type value()
-			{
-				if (this->exception)
-					std::rethrow_exception(this->exception);
-				return static_cast<reference_type>(*mVal);
-			}
-		};
-
-		template<>
-		struct blocking_promise<void> : public blocking_promise_base<void>
-		{
-			blocking_task<void> get_return_object() noexcept;
-			blocking_task<void> macoro_get_return_object() noexcept;
-
-			void return_void() {}
-
-			void value()
-			{
-				if (this->exception)
-					std::rethrow_exception(this->exception);
-			}
-		};
-
-
-		template<typename T>
+		template<typename awaitable>
 		struct blocking_task
 		{
-			using promise_type = blocking_promise<T>;
-			coroutine_handle<promise_type> handle;
+			using promise_type = blocking_promise<awaitable>;
+			coroutine_handle<promise_type> m_handle;
 			blocking_task(coroutine_handle<promise_type> h)
-				: handle(h)
+				: m_handle(h)
 			{}
 
 			blocking_task() = delete;
-			blocking_task(blocking_task&& h) noexcept :handle(std::exchange(h.handle, std::nullptr_t{})) {}
-			blocking_task& operator=(blocking_task&& h) { handle = std::exchange(h.handle, std::nullptr_t{}); }
+			//blocking_task(blocking_task&& h) noexcept :m_handle(std::exchange(h.m_handle, std::nullptr_t{})) {}
+			//blocking_task& operator=(blocking_task&& h) { m_handle = std::exchange(h.m_handle, std::nullptr_t{}); }
 
 			~blocking_task()
 			{
-				if (handle)
-					handle.destroy();
-			}
-
-			void start()
-			{
-				handle.resume();
+				m_handle.destroy();
 			}
 
 			decltype(auto) get()
 			{
-				handle.promise().wait();
-				return handle.promise().value();
+				m_handle.resume();
+				m_handle.promise().wait();
+				return m_handle.promise().value();
 			}
 		};
 
+		template<typename Awaitable>
+		blocking_task<Awaitable> blocking_promise<Awaitable>::get_return_object() noexcept { return { coroutine_handle<blocking_promise>::from_promise(*this, coroutine_handle_type::std) }; }
+		template<typename Awaitable>
+		blocking_task<Awaitable> blocking_promise<Awaitable>::macoro_get_return_object() noexcept { return { coroutine_handle<blocking_promise>::from_promise(*this, coroutine_handle_type::macoro) }; }
 
-
-		template<typename T>
-		inline blocking_task<T> blocking_promise<T>::get_return_object() noexcept { return { coroutine_handle<blocking_promise<T>>::from_promise(*this, coroutine_handle_type::std) }; }
-		template<typename T>
-		inline blocking_task<T> blocking_promise<T>::macoro_get_return_object() noexcept { return { coroutine_handle<blocking_promise<T>>::from_promise(*this, coroutine_handle_type::macoro) }; }
-		inline blocking_task<void> blocking_promise<void>::get_return_object() noexcept { return { coroutine_handle<blocking_promise<void>>::from_promise(*this, coroutine_handle_type::std) }; }
-		inline blocking_task<void> blocking_promise<void>::macoro_get_return_object() noexcept { return { coroutine_handle<blocking_promise<void>>::from_promise(*this, coroutine_handle_type::macoro) }; }
-
-		template<
-			typename Awaitable,
-			typename ResultType = typename awaitable_traits<Awaitable&&>::await_result>
-		enable_if_t<!std::is_void<ResultType>::value,
-			blocking_task<ResultType>
-		>
-			make_blocking_task(Awaitable&& awaitable)
+		template<typename Awaitable>
+		auto make_blocking_task(Awaitable&& awaitable, std::source_location loc)
+			-> blocking_task<Awaitable>
 		{
 #if MACORO_MAKE_BLOCKING_20
-			co_return co_await static_cast<Awaitable&&>(awaitable);
-#else
-			MC_BEGIN(blocking_task<ResultType>, &awaitable);
-			MC_RETURN_AWAIT(static_cast<Awaitable&&>(awaitable));
-			MC_END();
-
-#endif
-		}
-
-		template<
-			typename Awaitable,
-			typename ResultType = typename awaitable_traits<Awaitable&&>::await_result>
-		enable_if_t<std::is_void<ResultType>::value,
-			blocking_task<ResultType>
-		>
-			make_blocking_task(Awaitable&& awaitable)
-		{
-#if MACORO_MAKE_BLOCKING_20
-			co_await std::forward<Awaitable>(awaitable);
+			co_await static_cast<Awaitable&&>(awaitable);
 #else
 			MC_BEGIN(blocking_task<ResultType>, &awaitable);
 			MC_AWAIT(static_cast<Awaitable&&>(awaitable));
@@ -180,23 +177,13 @@ namespace macoro
 
 
 	template<typename Awaitable>
-	typename awaitable_traits<Awaitable&&>::await_result
-		sync_wait(Awaitable&& awaitable)
+	decltype(auto) sync_wait(Awaitable&& awaitable, std::source_location loc = std::source_location::current())
 	{
-		auto task = detail::make_blocking_task<Awaitable&&>(std::forward<Awaitable>(awaitable));
-		task.start();
-		return task.get();
+		return detail::make_blocking_task(std::forward<Awaitable>(awaitable), loc).get();
 	}
 
-
-	struct sync_wait_t
-	{
-	};
-
-	inline sync_wait_t sync_wait()
-	{
-		return {};
-	}
+	struct sync_wait_t { };
+	inline sync_wait_t sync_wait() { return {}; }
 
 
 	template<typename awaitable>

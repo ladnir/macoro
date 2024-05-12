@@ -14,7 +14,7 @@ add_library(macoroTests
 	"CLP.cpp" 
 	"CLP.h" 
 	"channel_spsc_tests.cpp" 
-	"channel_mpsc_tests.cpp")
+	"channel_mpsc_tests.cpp" "async_scope_tests.cpp" "async_scope_tests.h")
 
 target_link_libraries(macoroTests macoro)
 

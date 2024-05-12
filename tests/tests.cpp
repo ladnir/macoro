@@ -9,6 +9,7 @@
 #include "sequence_tests.h"
 #include "channel_spsc_tests.h"
 #include "channel_mpsc_tests.h"
+#include "async_scope_tests.h"
 
 #ifdef _MSC_VER
 #include <windows.h>
@@ -292,7 +293,12 @@ namespace macoro
 		t.add("task_blocking_ex_test              ", task_blocking_ex_test);
 		t.add("task_blocking_cancel_test          ", task_blocking_cancel_test);
 
-		//t.add("when_all_basic_tests               ", when_all_basic_tests);
+		t.add("scoped_task_test                   ", scoped_task_test);
+		t.add("async_scope_test                   ", async_scope_test);
+
+		t.add("when_all_basic_tests               ", when_all_basic_tests);
+		t.add("when_all_scope_test                ", when_all_scope_test);
+		
 		t.add("schedule_after_test                ", schedule_after);
 		t.add("take_until_tests                   ", take_until_tests);
 		t.add("schedule_after_cancaled            ", schedule_after_cancaled);

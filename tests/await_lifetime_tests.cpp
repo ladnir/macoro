@@ -13,6 +13,9 @@
                      + __GNUC_PATCHLEVEL__)
 #endif
 
+#define test_assert(X) if(!(X)) throw std::runtime_error(MACORO_LOCATION)
+
+
 namespace macoro
 {
 
@@ -535,7 +538,8 @@ namespace macoro
 		// gcc has a bug that the awaiter is moved when it shouldnt be. This makes some tests fail.
 #ifdef GCC_VERSION
 #ifndef __llvm__
-#define HAS_GCC_MOVE_AWAITER_BUG (GCC_VERSION < 12 * 10000)
+#define HAS_GCC_MOVE_AWAITER_BUG 0
+//#define HAS_GCC_MOVE_AWAITER_BUG (GCC_VERSION < 12 * 10000)
 #else
 #define HAS_GCC_MOVE_AWAITER_BUG 0
 #endif
@@ -618,7 +622,7 @@ namespace macoro
 					{
 						print(log, exp);
 					}
-					assert(log == exp);
+					test_assert(log == exp);
 				}
 				else
 				{
@@ -635,7 +639,7 @@ namespace macoro
 					};
 					//std::cout << "n";
 					//print(log);
-					assert(log == exp);
+					test_assert(log == exp);
 				}
 			}
 
@@ -738,7 +742,7 @@ namespace macoro
 						{"del promise_type", 0, 0},
 						{"del test_value", 5, 0}
 					};
-					assert(log == exp);
+					test_assert(log == exp);
 				}
 				else
 				{
@@ -754,7 +758,7 @@ namespace macoro
 						{"del promise_type", 1, 0},
 						{"del promise_type", 0, 0}
 					};
-					assert(log == exp);
+					test_assert(log == exp);
 				}
 			}
 			//std::cout << "      passed " << std::endl;;
@@ -808,7 +812,7 @@ namespace macoro
 				gg.h.resume();
 
 			}
-			assert(done);
+			test_assert(done);
 
 			auto log1 = getLog();
 			if (!(log1 == exp))
@@ -816,7 +820,7 @@ namespace macoro
 				print(log1, exp);
 			}
 
-			assert(log1 == exp);
+			test_assert(log1 == exp);
 #endif
 			counter = 0;
 			done = false;
@@ -825,7 +829,7 @@ namespace macoro
 				auto r = f();
 				r.h.resume();
 			}
-			assert(done);
+			test_assert(done);
 			auto log2 = getLog();
 
 
@@ -834,7 +838,7 @@ namespace macoro
 			{
 				print(log2, exp);
 			}
-			assert(log2 == exp);
+			test_assert(log2 == exp);
 			//std::cout << "  passed " << std::endl;;
 
 		}
@@ -895,7 +899,7 @@ namespace macoro
 				gg.h.resume();
 
 			}
-			assert(done);
+			test_assert(done);
 
 			auto log1 = getLog();
 
@@ -904,14 +908,14 @@ namespace macoro
 				print(log1, exp);
 			}
 
-			assert(log1 == exp);
+			test_assert(log1 == exp);
 #endif
 			done = false;
 			{
 				auto r = f();
 				r.h.resume();
 			}
-			assert(done);
+			test_assert(done);
 			auto log2 = getLog();
 
 
@@ -919,7 +923,7 @@ namespace macoro
 			{
 				print(log2, exp);
 			}
-			assert(log2 == exp);
+			test_assert(log2 == exp);
 			//std::cout << "  passed " << std::endl;;
 
 #endif
@@ -994,7 +998,7 @@ namespace macoro
 				gg.h.resume();
 
 			}
-			assert(done);
+			test_assert(done);
 
 			auto log1 = getLog();
 			//std::cout << "\n\n";
@@ -1004,7 +1008,7 @@ namespace macoro
 			{
 				print(log1, exp20);
 			}
-			assert(log1 == exp20);
+			test_assert(log1 == exp20);
 
 			//print(log1);
 #endif
@@ -1013,7 +1017,7 @@ namespace macoro
 				auto r = f();
 				r.h.resume();
 			}
-			assert(done);
+			test_assert(done);
 			auto log2 = getLog();
 
 
@@ -1021,7 +1025,7 @@ namespace macoro
 			{
 				print(log2, exp);
 			}
-			assert(log2 == exp);
+			test_assert(log2 == exp);
 			//std::cout << "  passed " << std::endl;;
 		}
 
@@ -1095,7 +1099,7 @@ namespace macoro
 				gg.h.resume();
 
 			}
-			assert(done);
+			test_assert(done);
 
 			auto log1 = getLog();
 			//print(log1);
@@ -1106,14 +1110,14 @@ namespace macoro
 				print(log1, exp20);
 			}
 
-			assert(log1 == exp20);
+			test_assert(log1 == exp20);
 #endif
 			done = false;
 			{
 				auto r = f();
 				r.h.resume();
 			}
-			assert(done);
+			test_assert(done);
 			auto log2 = getLog();
 
 
@@ -1122,7 +1126,7 @@ namespace macoro
 			{
 				print(log2, exp);
 			}
-			assert(log2 == exp);
+			test_assert(log2 == exp);
 			//std::cout << "  passed " << std::endl;;
 		}
 	}

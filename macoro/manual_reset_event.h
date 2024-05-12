@@ -88,6 +88,7 @@ namespace macoro
 
 		bool await_ready() const noexcept;
 		bool await_suspend(coroutine_handle<> awaiter) noexcept;
+		bool await_suspend(std::coroutine_handle<> awaiter) noexcept;
 		void await_resume() const noexcept {}
 
 	private:
@@ -191,6 +192,12 @@ namespace macoro
 		return true;
 	}
 
+
+	inline bool async_manual_reset_event_operation::await_suspend(
+		std::coroutine_handle<> awaiter) noexcept
+	{
+		return await_suspend(coroutine_handle<>(awaiter));
+	}
 }
 
 #endif

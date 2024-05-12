@@ -6,10 +6,11 @@
 
 
 #include "macoro/coroutine_handle.h"
-#include "when_all_counter.h"
+#include "when_all_awaitable.h"
 
 #include "macoro/type_traits.h"
 #include "macoro/macros.h"
+#include "macoro/trace.h"
 
 #include <cassert>
 #include <utility>
@@ -72,7 +73,7 @@ namespace macoro
 
 					void await_suspend(coroutine_handle_t coro) const noexcept
 					{
-						coro.promise().m_counter->notify_awaitable_completed();
+						coro.promise().m_awaitable->notify_awaitable_completed();
 					}
 
 					void await_resume() const noexcept {}
@@ -101,9 +102,9 @@ namespace macoro
 				return final_suspend();
 			}
 
-			void start(when_all_counter& counter) noexcept
+			void start(when_all_ready_awaitable_base& awaitable) noexcept
 			{
-				m_counter = &counter;
+				m_awaitable = &awaitable;
 				coroutine_handle_t::from_promise(*this, m_type).resume();
 			}
 
@@ -119,7 +120,8 @@ namespace macoro
 				return std::forward<RESULT>(*m_result);
 			}
 
-		private:
+
+		//private:
 
 			void rethrow_if_exception()
 			{
@@ -129,8 +131,13 @@ namespace macoro
 				}
 			}
 
+			traceable* get_traceable()
+			{
+				return m_awaitable;
+			}
+
 			coroutine_handle_type m_type;
-			when_all_counter* m_counter;
+			when_all_ready_awaitable_base* m_awaitable = nullptr;
 			std::exception_ptr m_exception;
 			std::add_pointer_t<RESULT> m_result;
 
@@ -174,13 +181,13 @@ namespace macoro
 #ifdef MACORO_CPP_20
 					void await_suspend(std_coroutine_handle_t coro) const noexcept
 					{
-						coro.promise().m_counter->notify_awaitable_completed();
+						coro.promise().m_awaitable->notify_awaitable_completed();
 					}
 #endif
 
 					void await_suspend(coroutine_handle_t coro) const noexcept
 					{
-						coro.promise().m_counter->notify_awaitable_completed();
+						coro.promise().m_awaitable->notify_awaitable_completed();
 					}
 
 					void await_resume() const noexcept {}
@@ -199,9 +206,9 @@ namespace macoro
 			{
 			}
 
-			void start(when_all_counter& counter) noexcept
+			void start(when_all_ready_awaitable_base& awaitable) noexcept
 			{
-				m_counter = &counter;
+				m_awaitable = &awaitable;
 				coroutine_handle_t::from_promise(*this, m_type).resume();
 			}
 
@@ -213,10 +220,11 @@ namespace macoro
 				}
 			}
 
-		private:
+		//private:
 
+			when_all_ready_awaitable_base* m_awaitable;
 			coroutine_handle_type m_type;
-			when_all_counter* m_counter;
+			//when_all_counter* m_counter;
 			std::exception_ptr m_exception;
 
 		};
@@ -263,14 +271,14 @@ namespace macoro
 				return std::move(m_coroutine.promise()).result();
 			}
 
-		private:
+		//private:
 
 			template<typename TASK_CONTAINER>
 			friend class when_all_ready_awaitable;
 
-			void start(when_all_counter& counter) noexcept
+			void start(when_all_ready_awaitable_base& awaiter) noexcept
 			{
-				m_coroutine.promise().start(counter);
+				m_coroutine.promise().start(awaiter);
 			}
 
 			coroutine_handle_t m_coroutine;

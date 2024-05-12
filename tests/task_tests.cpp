@@ -4,14 +4,12 @@
 #include "macoro/stop.h"
 #include <chrono>
 #include <thread>
+#include <memory>
 namespace
 {
 #ifdef MACORO_CPP_20
 	macoro::task<int> taskInt20()
 	{
-		//assert(0);
-		//throw std::runtime_error("");
-
 		co_return 42;
 	}
 #endif
@@ -30,7 +28,6 @@ namespace macoro
 
 		void task_int_test()
 		{
-			//std::cout << "task_int_test       ";
 #ifdef MACORO_CPP_20
 			{
 				task<int> t = taskInt20();
@@ -168,9 +165,6 @@ namespace macoro
 				++taskRef_val;
 				assert(v == 43);
 			}
-
-
-			//std::cout << "passed" << std::endl;
 		}
 
 		namespace {
@@ -316,6 +310,7 @@ namespace macoro
 			//std::cout << "task_blocking_int_test  ";
 #ifdef MACORO_CPP_20
 			{
+				auto l = std::source_location::current();
 				task<int> t = taskInt20();
 				int i = sync_wait(t);
 				assert(i == 42);
@@ -446,17 +441,17 @@ namespace macoro
 
 
 			auto t = [](stop_token t) -> task<void>
-			{
-				MC_BEGIN(task<>, t);
-				while (true)
 				{
-					if (t.stop_requested())
-						throw operation_cancelled();
-				}
+					MC_BEGIN(task<>, t);
+					while (true)
+					{
+						if (t.stop_requested())
+							throw operation_cancelled();
+					}
 
-				MC_RETURN_VOID();
-				MC_END();
-			};
+					MC_RETURN_VOID();
+					MC_END();
+				};
 
 
 			stop_source mSrc;

@@ -10,8 +10,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "MACORO_FETCH_AUTO": "ON",
-        "MACORO_CPP_20": false, 
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+        "MACORO_CPP_VER": "20",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
         //"CMAKE_C_COMPILER": "clang-12",
         //"CMAKE_CXX_COMPILER": "clang++-12"
       },
@@ -33,7 +33,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "MACORO_FETCH_AUTO": "ON",
-        "MACORO_CPP_VER": "14",
+        "MACORO_CPP_VER": "20",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
       "vendor": { "microsoft.com/VisualStudioSettings/CMake/1.0": { "hostOS": [ "Windows" ] } }

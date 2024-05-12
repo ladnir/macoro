@@ -55,6 +55,8 @@ namespace macoro
 			assert(value);
 			return value;
 		}
+
+		auto return_value() { return get_handle(); }
 	};
 
 	template<>
@@ -70,6 +72,9 @@ namespace macoro
 		{
 			return noop_coroutine();
 		}
+
+		auto return_value() { return value; }
+
 	};
 
 	template<bool macoro, typename T>

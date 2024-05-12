@@ -18,10 +18,34 @@
 #include "macoro/awaiter.h"
 #include "macoro/type_traits.h"
 #include "macoro/macros.h"
+#include "macoro/trace.h"
 
 namespace macoro
 {
 	template<typename T = void, bool lazy = true> class task;
+
+	struct getPromise
+	{
+		template<typename Promise>
+		struct awaitable
+		{
+			bool await_ready() const noexcept { return true; }
+#ifdef MACORO_CPP_20
+			void await_suspend(std::coroutine_handle<> coro) noexcept
+			{
+				assert(0);
+			}
+#endif
+
+			void await_suspend(
+				coroutine_handle<> coro) noexcept
+			{
+				assert(0);
+			}
+			Promise& await_resume() noexcept { return *mProm; }
+			Promise* mProm;
+		};
+	};
 
 	namespace detail
 	{
@@ -32,7 +56,7 @@ namespace macoro
 		struct task_awaitable_base;
 
 		template<>
-		class task_promise_base<true>
+		class task_promise_base<true> : public basic_traceable
 		{
 			friend struct final_awaitable;
 
@@ -64,7 +88,8 @@ namespace macoro
 		public:
 
 			task_promise_base() noexcept
-			{}
+			{
+			}
 
 			auto initial_suspend() noexcept
 			{
@@ -77,24 +102,30 @@ namespace macoro
 			}
 
 #ifdef MACORO_CPP_20
-			void set_continuation(std::coroutine_handle<> continuation) noexcept
+			template<typename Promise>
+			void set_continuation(std::coroutine_handle<Promise> continuation, std::source_location l) noexcept
 			{
 				assert(!m_continuation);
 				m_continuation = coroutine_handle<>(continuation);
+				set_parent(get_traceable(continuation), l);
 			}
 #endif
-			void set_continuation(coroutine_handle<> continuation) noexcept
+			template<typename Promise>
+			void set_continuation(coroutine_handle<Promise> continuation, std::source_location l) noexcept
 			{
 				assert(!m_continuation);
 				m_continuation = continuation;
+				set_parent(get_traceable(continuation), l);
 			}
 
 		private:
 			coroutine_handle<> m_continuation;
 		};
-
+		
+		//static_assert(has_async_stack_frame < task_promise_base<true>>);
+		
 		template<>
-		class task_promise_base<false>
+		class task_promise_base<false> : public basic_traceable
 		{
 			friend struct final_awaitable;
 
@@ -220,18 +251,18 @@ namespace macoro
 				return m_value;
 			}
 
-			// HACK: Need to have co_await of task<int> return prvalue rather than
-			// rvalue-reference to work around an issue with MSVC where returning
-			// rvalue reference of a fundamental type from await_resume() will
-			// cause the value to be copied to a temporary. This breaks the
-			// sync_wait() implementation.
-			// See https://github.com/lewissbaker/cppcoro/issues/40#issuecomment-326864107
-			using rvalue_type = typename std::conditional<
-				std::is_arithmetic<T>::value || std::is_pointer<T>::value,
-				T,
-				T&&>::type;
+			//// HACK: Need to have co_await of task<int> return prvalue rather than
+			//// rvalue-reference to work around an issue with MSVC where returning
+			//// rvalue reference of a fundamental type from await_resume() will
+			//// cause the value to be copied to a temporary. This breaks the
+			//// sync_wait() implementation.
+			//// See https://github.com/lewissbaker/cppcoro/issues/40#issuecomment-326864107
+			//using rvalue_type = typename std::conditional<
+			//	std::is_arithmetic<T>::value || std::is_pointer<T>::value,
+			//	T,
+			//	T&&>::type;
 
-			rvalue_type result()&&
+			T result()&&
 			{
 				if (m_resultType == result_type::exception)
 				{
@@ -243,6 +274,23 @@ namespace macoro
 				return std::move(m_value);
 			}
 
+			getPromise::awaitable<task_promise> await_transform(getPromise) noexcept
+			{
+				return getPromise::awaitable<task_promise>{this};
+			}
+
+
+			auto await_transform(get_trace&& t) noexcept
+			{
+				return get_trace::awaitable(trace(t.location, *this));
+			}
+
+
+			template<typename A>
+			decltype(auto) await_transform(A&&a) noexcept
+			{
+				return std::forward<A>(a);
+			}
 		private:
 
 			enum class result_type { empty, value, exception };
@@ -283,6 +331,23 @@ namespace macoro
 				}
 			}
 
+			getPromise::awaitable<task_promise> await_transform(getPromise)noexcept
+			{
+				return getPromise::awaitable<task_promise>{this};
+			}
+
+
+			auto await_transform(get_trace&& t) noexcept
+			{
+				return get_trace::awaitable(trace(t.location, *this));
+			}
+
+
+			template<typename A>
+			decltype(auto) await_transform(A&& a) noexcept
+			{
+				return std::forward<A>(a);
+			}
 		private:
 
 			std::exception_ptr m_exception;
@@ -319,6 +384,21 @@ namespace macoro
 				return *m_value;
 			}
 
+			getPromise::awaitable<task_promise> await_transform(getPromise)noexcept
+			{
+				return getPromise::awaitable<task_promise>{this};
+			}
+
+			auto await_transform(get_trace&& t) noexcept
+			{
+				return get_trace::awaitable(trace(t.location, *this));
+			}
+
+			template<typename A>
+			decltype(auto) await_transform(A&& a) noexcept
+			{
+				return std::forward<A>(a);
+			}
 		private:
 
 			T* m_value = nullptr;
@@ -329,7 +409,7 @@ namespace macoro
 
 
 		template<typename T>
-		struct task_awaitable_base<T,true>
+		struct task_awaitable_base<T, true>
 		{
 			using promise_type = task_promise<T, true>;
 			coroutine_handle<promise_type> m_coroutine;
@@ -348,18 +428,22 @@ namespace macoro
 			}
 
 #ifdef MACORO_CPP_20
+			template<typename Promise>
 			std::coroutine_handle<> await_suspend(
-				std::coroutine_handle<> awaitingCoroutine) noexcept
+				std::coroutine_handle<Promise> awaitingCoroutine,
+				std::source_location l = std::source_location::current()) noexcept
 			{
-				m_coroutine.promise().set_continuation(awaitingCoroutine);
+				auto& prom = m_coroutine.promise();
+				prom.set_continuation(awaitingCoroutine, l);
 				return m_coroutine.std_cast();
 			}
 #endif
-
+			template<typename Promise>
 			coroutine_handle<> await_suspend(
-				coroutine_handle<> awaitingCoroutine) noexcept
+				coroutine_handle<Promise> awaitingCoroutine, 
+				std::source_location l = std::source_location::current()) noexcept
 			{
-				m_coroutine.promise().set_continuation(awaitingCoroutine);
+				m_coroutine.promise().set_continuation(awaitingCoroutine, l);
 				return m_coroutine;
 			}
 		};
@@ -385,16 +469,18 @@ namespace macoro
 			}
 
 #ifdef MACORO_CPP_20
+			template<typename Promise>
 			std::coroutine_handle<> await_suspend(
-				std::coroutine_handle<> awaitingCoroutine) noexcept
+				std::coroutine_handle<Promise> awaitingCoroutine) noexcept
 			{
 				return await_suspend(
 					coroutine_handle<>(awaitingCoroutine)).std_cast();
 			}
 #endif
 
+			template<typename Promise>
 			coroutine_handle<> await_suspend(
-				coroutine_handle<> awaitingCoroutine) noexcept
+				coroutine_handle<Promise> awaitingCoroutine) noexcept
 			{
 				// release our continuation. acquire their result (if they beat us).
 				auto b = m_coroutine.promise().try_set_continuation(awaitingCoroutine);
@@ -431,9 +517,6 @@ namespace macoro
 		using promise_type = detail::task_promise<T, lazy>;
 
 		using value_type = T;
-
-	private:
-
 
 	public:
 
@@ -477,8 +560,7 @@ namespace macoro
 					m_coroutine.destroy();
 				}
 
-				m_coroutine = other.m_coroutine;
-				other.m_coroutine = nullptr;
+				m_coroutine = std::exchange(other.m_coroutine, nullptr);
 			}
 
 			return *this;
@@ -490,7 +572,7 @@ namespace macoro
 		/// Awaiting a task that is ready is guaranteed not to block/suspend.
 		bool is_ready() const noexcept
 		{
-			return !m_coroutine || m_coroutine.done();
+			return m_coroutine && m_coroutine.done();
 		}
 
 		struct ref_awaitable : detail::task_awaitable_base<T,lazy>
@@ -507,9 +589,9 @@ namespace macoro
 				return this->m_coroutine.promise().result();
 			}
 		};
+
 		auto MACORO_OPERATOR_COAWAIT() const& noexcept
 		{
-
 			return ref_awaitable{ m_coroutine };
 		}
 
@@ -539,6 +621,7 @@ namespace macoro
 
 			void await_resume() const noexcept {}
 		};
+
 		/// \brief
 		/// Returns an awaitable that will await completion of the task without
 		/// attempting to retrieve the result.
@@ -555,7 +638,6 @@ namespace macoro
 	private:
 
 		coroutine_handle<promise_type> m_coroutine;
-
 	};
 
 

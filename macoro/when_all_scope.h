@@ -19,6 +19,11 @@ namespace macoro
 		using storage_type = remove_rvalue_reference_t<awaitable>;
 
 		storage_type m_awaitable;
+
+		template<typename awaitable2>
+		scoped_t(awaitable2&& a)
+			: m_awaitable(std::forward<awaitable2>(a))
+		{}
 	};
 
 	inline scoped_t<void> scoped() { return {}; }

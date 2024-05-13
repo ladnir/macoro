@@ -5,134 +5,72 @@
 #include "macoro/macros.h"
 namespace macoro
 {
+	template<typename awaitable = void>
+	struct wrap_t;
 
-#ifdef MACORO_CPP_20
+	template<>
+	struct wrap_t<void> { };
+
+
 	template<typename awaitable>
-	enable_if_t<!std::is_void<awaitable_result_t<awaitable>>::value,
-		task<
-		result<
-		remove_rvalue_reference_t<awaitable_result_t<awaitable>>
-		>
-		>
-	>
-		wrap(awaitable& t)
+	struct wrap_t
 	{
-		try
+		using traits = awaitable_traits<awaitable>;
+		using awaitable_type = awaitable;
+		using awaiter_stoage = remove_rvalue_reference_t<typename traits::awaiter>;
+		using awaitar_result = remove_rvalue_reference_t<typename traits::await_result>;
+		awaiter_stoage m_awaiter;
+
+
+		bool await_ready()
 		{
-			co_return Ok(co_await t);
+			return m_awaiter.await_ready();
 		}
-		catch (...)
+
+		template<typename promise>
+		auto await_suspend(std::coroutine_handle<promise> h, std::source_location loc = std::source_location::current()) 
 		{
-			co_return Err(std::current_exception());
+			if constexpr (requires(awaiter_stoage m_awaiter) { { m_awaiter.await_suspend(h, loc) } -> std::convertible_to<int>; })
+			{
+				return m_awaiter.await_suspend(h, loc);
+			}
+			else
+			{
+				return m_awaiter.await_suspend(h);
+			}
 		}
+
+		result<awaitar_result> await_resume() noexcept
+		{
+			try
+			{
+				if constexpr (std::is_same_v<awaitar_result, void>)
+				{
+					m_awaiter.await_resume();
+					return Ok();
+				}
+				else
+				{
+					return Ok(m_awaiter.await_resume());
+				}
+			}
+			catch (...)
+			{
+				return Err(std::current_exception());
+			}
+		}
+
+	};
+
+	inline auto wrap() { return wrap_t<>{}; }
+
+	template<typename awaitable>
+	auto wrap(awaitable&& a) {
+		return wrap_t<awaitable>{ get_awaiter(std::forward<awaitable>(a)) };
 	}
 
 	template<typename awaitable>
-	enable_if_t<!std::is_void<awaitable_result_t<awaitable>>::value,
-		task<
-		result<
-		remove_rvalue_reference_t<awaitable_result_t<awaitable>>
-		>
-		>
-	>
-		wrap(awaitable t)
-	{
-		try
-		{
-			co_return Ok(co_await std::move(t));
-		}
-		catch (...)
-		{
-			co_return Err(std::current_exception());
-		}
-	}
-
-
-	template<typename awaitable>
-	enable_if_t<std::is_void<awaitable_result_t<awaitable>>::value,
-		task<
-		result<
-		remove_rvalue_reference_t<awaitable_result_t<awaitable>>
-		>
-		>
-	>
-		wrap(awaitable& t)
-	{
-		try
-		{
-			co_await t;
-			co_return Ok();
-		}
-		catch (...)
-		{
-			co_return Err(std::current_exception());
-		}
-	}
-
-	template<typename awaitable>
-	enable_if_t<std::is_void<awaitable_result_t<awaitable>>::value,
-		task<
-		result<
-		remove_rvalue_reference_t<awaitable_result_t<awaitable>>
-		>
-		>
-	>
-		wrap(awaitable t)
-	{
-		try
-		{
-			co_await std::move(t);
-			co_return Ok();
-		}
-		catch (...)
-		{
-			co_return Err(std::current_exception());
-		}
-	}
-
-#else
-
-	template<typename awaitable>
-	task<result<
-		remove_rvalue_reference_t<awaitable_result_t<awaitable>>
-		>>
-		wrap(awaitable& t)
-	{
-		using T = remove_rvalue_reference_t<awaitable_result_t<awaitable>>;
-		MC_BEGIN(task<result<T>>
-			, &t
-			, v = result<T>{});
-
-		MC_AWAIT_TRY(v, t);
-		MC_RETURN(std::move(v));
-		MC_END();
-	}
-
-
-	template<typename awaitable>
-	task<result<
-		remove_rvalue_reference_t<awaitable_result_t<awaitable>>
-		>>
-		wrap(awaitable&& t)
-	{
-		using T = remove_rvalue_reference_t<awaitable_result_t<awaitable>>;
-		MC_BEGIN(task<result<T>>
-			, tt = std::move(t)
-			, v = result<T>{});
-
-		MC_AWAIT_TRY(v, std::move(tt));
-		MC_RETURN(std::move(v));
-		MC_END();
-	}
-
-#endif // MACORO_CPP_20
-
-
-	struct wrap_t { };
-	inline auto wrap() { return wrap_t{}; }
-
-	template<typename awaitable>
-	decltype(auto) operator|(awaitable&& a, const wrap_t&)
+	decltype(auto) operator|(awaitable&& a, const wrap_t<>&)
 	{
 		return wrap(std::forward<awaitable>(a));
 	}

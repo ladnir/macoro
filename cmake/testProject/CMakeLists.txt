@@ -16,7 +16,7 @@ option(MACORO_CPP_VER "cpp version" 20)
 
 if(MSVC)
     target_compile_options( main PRIVATE
-        $<$<COMPILE_LANGUAGE:CXX>:/std=c++${MACORO_CPP_VER}>
+        $<$<COMPILE_LANGUAGE:CXX>:/std:c++${MACORO_CPP_VER}>
     )
 else()
     target_compile_options( main PRIVATE

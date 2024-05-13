@@ -6,7 +6,7 @@
 namespace macoro
 {
 
-#ifdef MACORO_CPP_20_WRAP
+#ifdef MACORO_CPP_20
 	template<typename awaitable>
 	enable_if_t<!std::is_void<awaitable_result_t<awaitable>>::value,
 		task<

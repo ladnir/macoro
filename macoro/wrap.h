@@ -40,6 +40,19 @@ namespace macoro
 			}
 		}
 
+		template<typename promise>
+		auto await_suspend(coroutine_handle<promise> h, std::source_location loc = std::source_location::current())
+		{
+			if constexpr (requires(awaiter_stoage m_awaiter) { { m_awaiter.await_suspend(h, loc) } -> std::convertible_to<int>; })
+			{
+				return m_awaiter.await_suspend(h, loc);
+			}
+			else
+			{
+				return m_awaiter.await_suspend(h);
+			}
+		}
+
 		result<awaitar_result> await_resume() noexcept
 		{
 			try

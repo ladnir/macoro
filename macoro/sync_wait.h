@@ -12,10 +12,12 @@ namespace macoro
 #ifdef MACORO_CPP_20
 #define MACORO_MAKE_BLOCKING_20 1
 #endif
+
+	template<typename T>
+	struct blocking_task;
+
 	namespace detail
 	{
-		template<typename T>
-		struct blocking_task;
 
 
 		template<typename Awaitable>
@@ -34,11 +36,17 @@ namespace macoro
 
 			// construct the awaiter in the promise
 			template<typename A>
-			blocking_promise(A&&a, std::source_location& loc)
+			blocking_promise(A&& a, std::source_location& loc)
 				: m_awaiter(get_awaiter(std::forward<Awaitable>(a)))
 			{
+				//std::cout << "blocking_promise" << std::endl;
 				set_parent(nullptr, loc);
 			}
+
+			//~blocking_promise()
+			//{
+			//	std::cout << "~blocking_promise" << std::endl;
+			//}
 
 			using inner_awaiter = decltype(get_awaiter(std::declval<Awaitable&&>()));
 
@@ -46,7 +54,7 @@ namespace macoro
 			// we return the value, you can directly get it
 			// by calling m_awaiter.await_resume()
 			inner_awaiter m_awaiter;
-			
+
 			// any active exceptions that is thrown.
 			std::exception_ptr m_exception;
 
@@ -83,7 +91,7 @@ namespace macoro
 				void await_resume() noexcept {}
 			};
 
-			suspend_always initial_suspend() noexcept { return{}; }
+			suspend_never initial_suspend() noexcept { return{}; }
 			final_awaiter final_suspend() noexcept {
 				return {};
 			}
@@ -99,7 +107,7 @@ namespace macoro
 			// intercept the dummy co_await and manually co_await m_awaiter.
 			auto& await_transform(Awaitable&& a)
 			{
-				return *this; 
+				return *this;
 			}
 
 			// forward to m_awaiter
@@ -128,58 +136,78 @@ namespace macoro
 				return m_awaiter.await_resume();
 			}
 		};
-
-
-		template<typename awaitable>
-		struct blocking_task
-		{
-			using promise_type = blocking_promise<awaitable>;
-			coroutine_handle<promise_type> m_handle;
-			blocking_task(coroutine_handle<promise_type> h)
-				: m_handle(h)
-			{}
-
-			blocking_task() = delete;
-			//blocking_task(blocking_task&& h) noexcept :m_handle(std::exchange(h.m_handle, std::nullptr_t{})) {}
-			//blocking_task& operator=(blocking_task&& h) { m_handle = std::exchange(h.m_handle, std::nullptr_t{}); }
-
-			~blocking_task()
-			{
-				m_handle.destroy();
-			}
-
-			decltype(auto) get()
-			{
-				m_handle.resume();
-				m_handle.promise().wait();
-				return m_handle.promise().value();
-			}
-		};
-
-		template<typename Awaitable>
-		blocking_task<Awaitable> blocking_promise<Awaitable>::get_return_object() noexcept { return { coroutine_handle<blocking_promise>::from_promise(*this, coroutine_handle_type::std) }; }
-		template<typename Awaitable>
-		blocking_task<Awaitable> blocking_promise<Awaitable>::macoro_get_return_object() noexcept { return { coroutine_handle<blocking_promise>::from_promise(*this, coroutine_handle_type::macoro) }; }
-
-		template<typename Awaitable>
-		auto make_blocking_task(Awaitable&& awaitable, std::source_location loc)
-			-> blocking_task<Awaitable>
-		{
-#if MACORO_MAKE_BLOCKING_20
-			co_await static_cast<Awaitable&&>(awaitable);
-#else
-			MC_BEGIN(blocking_task<ResultType>, &awaitable);
-			MC_AWAIT(static_cast<Awaitable&&>(awaitable));
-			MC_END();
-#endif
-		}
 	}
 
+	template<typename awaitable>
+	struct blocking_task
+	{
+		using promise_type = detail::blocking_promise<awaitable>;
+		coroutine_handle<promise_type> m_handle;
+		blocking_task(coroutine_handle<promise_type> h)
+			: m_handle(h)
+		{}
+
+		blocking_task() = default;
+		blocking_task(blocking_task&& other)
+			: m_handle(std::exchange(other.m_handle, nullptr))
+		{}
+		blocking_task& operator=(blocking_task&& h) {
+			this->~blocking_task();
+			m_handle = std::exchange(h.m_handle, std::nullptr_t{});
+			return *this;
+		}
+
+		~blocking_task()
+		{
+			if (m_handle)
+				m_handle.destroy();
+		}
+
+		decltype(auto) get()
+		{
+			assert(m_handle);
+			m_handle.promise().wait();
+			return m_handle.promise().value();
+		}
+	};
+
+	template<typename Awaitable>
+	blocking_task<Awaitable> detail::blocking_promise<Awaitable>::get_return_object() noexcept { return { coroutine_handle<blocking_promise>::from_promise(*this, coroutine_handle_type::std) }; }
+	template<typename Awaitable>
+	blocking_task<Awaitable> detail::blocking_promise<Awaitable>::macoro_get_return_object() noexcept { return { coroutine_handle<blocking_promise>::from_promise(*this, coroutine_handle_type::macoro) }; }
+
+	template<typename Awaitable>
+	auto make_blocking(Awaitable awaitable, std::source_location loc = std::source_location::current())
+		-> blocking_task<Awaitable>
+	{
+#if MACORO_MAKE_BLOCKING_20
+		co_await static_cast<Awaitable&&>(awaitable);
+#else
+		MC_BEGIN(blocking_task<ResultType>, &awaitable);
+		MC_AWAIT(static_cast<Awaitable&&>(awaitable));
+		MC_END();
+#endif
+	}
+
+
+	struct make_blocking_t { };
+	inline make_blocking_t make_blocking() { return {}; }
+
+	template<typename awaitable>
+	decltype(auto) operator|(awaitable&& a, make_blocking_t)
+	{
+		return make_blocking(std::forward<awaitable>(a));
+	}
 
 	template<typename Awaitable>
 	decltype(auto) sync_wait(Awaitable&& awaitable, std::source_location loc = std::source_location::current())
 	{
-		return detail::make_blocking_task(std::forward<Awaitable>(awaitable), loc).get();
+		if constexpr (std::is_reference_v<Awaitable>)
+			return make_blocking<std::remove_reference_t<Awaitable>&>(
+				std::forward<Awaitable>(awaitable), loc).get();
+		else
+			return make_blocking<std::remove_reference_t<Awaitable>&&>(
+				std::forward<Awaitable>(awaitable), loc).get();
 	}
 
 	struct sync_wait_t { };

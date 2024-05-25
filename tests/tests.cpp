@@ -308,6 +308,10 @@ namespace macoro
 		t.add("result_task_wrap_pipe_test         ", result_task_wrap_pipe_test);
 		t.add("result_void_test                   ", result_void_test);
 
+		t.add("result_unique_awaiter_test         ", result_unique_awaiter_test);
+		t.add("result_ref_awaiter_test            ", result_ref_awaiter_test);
+		t.add("result_suspend_test                ", result_suspend_test);
+
 		t.add("make_eager_test                    ", make_eager_test);
 		t.add("thread_pool_post_test              ", thread_pool_post_test);
 		t.add("thread_pool_dispatch_test          ", thread_pool_dispatch_test);

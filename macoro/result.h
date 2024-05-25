@@ -124,12 +124,16 @@ namespace macoro
 		return detail::OkMvTag<remove_cvref_t<T>>(t);
 	}
 
+
 	template<typename E>
 	void result_rethrow(E&& e)
 	{
-		std::rethrow_exception(e);
+		if constexpr (std::is_same_v<E, std::exception_ptr>)
+			std::rethrow_exception(e);
+		else
+			throw e;
 	}
-	
+
 	namespace detail
 	{
 		template<typename R, typename AWAITER>

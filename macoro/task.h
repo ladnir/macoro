@@ -87,9 +87,15 @@ namespace macoro
 
 		public:
 
-			task_promise_base() noexcept
-			{
-			}
+			//task_promise_base() noexcept
+			//{
+			//	std::cout << "task" << std::endl;
+			//}
+
+			//~task_promise_base() noexcept
+			//{
+			//	std::cout << "~task" << std::endl;
+			//}
 
 			auto initial_suspend() noexcept
 			{
@@ -166,8 +172,14 @@ namespace macoro
 
 			task_promise_base() noexcept
 				: has_completed_or_continutation(false)
-			{}
+			{
+				//std::cout << "eager" << std::endl;
+			}
 
+			//~task_promise_base() noexcept
+			//{
+			//	std::cout << "~eager" << std::endl;
+			//}
 
 			auto initial_suspend() noexcept
 			{

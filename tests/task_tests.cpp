@@ -21,6 +21,8 @@ namespace
 	}
 }
 
+#define TEST(X) if(!(X)) throw MACORO_RTE_LOC
+
 namespace macoro
 {
 	namespace tests
@@ -33,28 +35,28 @@ namespace macoro
 				task<int> t = taskInt20();
 
 				auto awaiter = t.operator co_await();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 
 				auto st = awaiter.await_suspend(noop_coroutine());
 
 				st.resume();
 
 				auto v = awaiter.await_resume();
-				assert(v == 42);
+				TEST(v == 42);
 			}
 #endif
 			{
 				task<int> t = taskInt14();
 
 				auto awaiter = t.MACORO_OPERATOR_COAWAIT();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 
 				auto st = awaiter.await_suspend(noop_coroutine());
 
 				st.resume();
 
 				auto v = awaiter.await_resume();
-				assert(v == 42);
+				TEST(v == 42);
 			}
 			//std::cout << "passed" << std::endl;
 		}
@@ -83,14 +85,14 @@ namespace macoro
 				task<void> t = taskVoid20();
 
 				auto awaiter = t.operator co_await();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 
 				auto st = awaiter.await_suspend(noop_coroutine());
 
 				st.resume();
 
 				awaiter.await_resume();
-				assert(taskVoid_called);
+				TEST(taskVoid_called);
 			}
 #endif
 			{
@@ -98,14 +100,14 @@ namespace macoro
 				task<void> t = taskVoid14();
 
 				auto awaiter = t.MACORO_OPERATOR_COAWAIT();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 
 				auto st = awaiter.await_suspend(noop_coroutine());
 
 				st.resume();
 
 				awaiter.await_resume();
-				assert(taskVoid_called);
+				TEST(taskVoid_called);
 			}
 
 			//std::cout << "passed" << std::endl;
@@ -116,7 +118,7 @@ namespace macoro
 #ifdef MACORO_CPP_20
 		task<int&> taskRef20()
 		{
-			//assert(0);
+			//TEST(0);
 			//throw std::runtime_error("");
 			co_return taskRef_val;
 		}
@@ -137,16 +139,16 @@ namespace macoro
 				task<int&> t = taskRef20();
 
 				auto awaiter = t.operator co_await();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 
 				auto st = awaiter.await_suspend(noop_coroutine());
 
 				st.resume();
 
 				auto& v = awaiter.await_resume();
-				assert(v == 42);
+				TEST(v == 42);
 				++taskRef_val;
-				assert(v == 43);
+				TEST(v == 43);
 			}
 #endif
 			{
@@ -154,16 +156,16 @@ namespace macoro
 				task<int&> t = taskRef14();
 
 				auto awaiter = t.MACORO_OPERATOR_COAWAIT();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 
 				auto st = awaiter.await_suspend(noop_coroutine());
 
 				st.resume();
 
 				auto& v = awaiter.await_resume();
-				assert(v == 42);
+				TEST(v == 42);
 				++taskRef_val;
-				assert(v == 43);
+				TEST(v == 43);
 			}
 		}
 
@@ -199,40 +201,40 @@ namespace macoro
 			{
 				task<move_only> t = taskmove20();
 				auto awaiter = t.operator co_await();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 				auto st = awaiter.await_suspend(noop_coroutine());
 				st.resume();
 				auto v = std::move(awaiter.await_resume());
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 			{
 				task<move_only> t = taskmove20();
 
 				auto awaiter = std::move(t).operator co_await();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 				auto st = awaiter.await_suspend(noop_coroutine());
 				st.resume();
 				auto v = awaiter.await_resume();
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 #endif
 			{
 				task<move_only> t = taskmove14();
 				auto awaiter = t.MACORO_OPERATOR_COAWAIT();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 				auto st = awaiter.await_suspend(noop_coroutine());
 				st.resume();
 				auto v = std::move(awaiter.await_resume());
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 			{
 				task<move_only> t = taskmove14();
 				auto awaiter = std::move(t).MACORO_OPERATOR_COAWAIT();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 				auto st = awaiter.await_suspend(noop_coroutine());
 				st.resume();
 				auto v = awaiter.await_resume();
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 
 			//std::cout << "passed" << std::endl;
@@ -264,7 +266,7 @@ namespace macoro
 			{
 				task<int> t = taskThrows20();
 				auto awaiter = t.operator co_await();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 
 				auto st = awaiter.await_suspend(noop_coroutine());
 				st.resume();
@@ -275,9 +277,9 @@ namespace macoro
 				catch (std::runtime_error& re)
 				{
 					didThrow = true;
-					assert(re.what() == std::string("42"));
+					TEST(re.what() == std::string("42"));
 				}
-				assert(didThrow);
+				TEST(didThrow);
 			}
 #endif
 			{
@@ -285,7 +287,7 @@ namespace macoro
 
 				task<int> t = taskThrows14();
 				auto awaiter = t.MACORO_OPERATOR_COAWAIT();
-				assert(awaiter.await_ready() == false);
+				TEST(awaiter.await_ready() == false);
 
 				auto st = awaiter.await_suspend(noop_coroutine());
 				st.resume();
@@ -296,11 +298,11 @@ namespace macoro
 				catch (std::runtime_error& re)
 				{
 					didThrow = true;
-					assert(re.what() == std::string("42"));
+					TEST(re.what() == std::string("42"));
 				}
-				assert(didThrow);
+				TEST(didThrow);
 			}
-			//assert(v.v == 42);
+			//TEST(v.v == 42);
 
 
 		}
@@ -313,13 +315,13 @@ namespace macoro
 				auto l = std::source_location::current();
 				task<int> t = taskInt20();
 				int i = sync_wait(t);
-				assert(i == 42);
+				TEST(i == 42);
 			}
 #endif
 			{
 				task<int> t = taskInt14();
 				int i = sync_wait(t);
-				assert(i == 42);
+				TEST(i == 42);
 			}
 			//std::cout << "passed" << std::endl;
 		}
@@ -333,14 +335,14 @@ namespace macoro
 				taskVoid_called = false;
 				task<void> t = taskVoid20();
 				sync_wait(t);
-				assert(taskVoid_called);
+				TEST(taskVoid_called);
 			}
 #endif
 			{
 				taskVoid_called = false;
 				task<void> t = taskVoid14();
 				sync_wait(t);
-				assert(taskVoid_called);
+				TEST(taskVoid_called);
 			}
 			//std::cout << "passed" << std::endl;
 		}
@@ -353,18 +355,18 @@ namespace macoro
 				taskRef_val = 42;
 				task<int&> t = taskRef20();
 				int& i = sync_wait(t);
-				assert(i == 42);
+				TEST(i == 42);
 				++taskRef_val;
-				assert(i == 43);
+				TEST(i == 43);
 			}
 #endif
 			{
 				taskRef_val = 42;
 				task<int&> t = taskRef14();
 				int& i = sync_wait(t);
-				assert(i == 42);
+				TEST(i == 42);
 				++taskRef_val;
-				assert(i == 43);
+				TEST(i == 43);
 			}
 			//std::cout << "passed" << std::endl;
 		}
@@ -379,23 +381,23 @@ namespace macoro
 			{
 				task<move_only> t = taskmove20();
 				auto v = std::move(sync_wait(t));
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 			{
 				task<move_only>&& f();
 				auto v = sync_wait(taskmove20());
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 #endif
 			{
 				task<move_only> t = taskmove14();
 				auto v = std::move(sync_wait(t));
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 			{
 				task<move_only>&& f();
 				auto v = sync_wait(taskmove14());
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 			//std::cout << "passed" << std::endl;
 		}
@@ -414,9 +416,9 @@ namespace macoro
 				catch (std::runtime_error& re)
 				{
 					didThrow = true;
-					assert(re.what() == std::string("42"));
+					TEST(re.what() == std::string("42"));
 				}
-				assert(didThrow);
+				TEST(didThrow);
 			}
 #endif
 			{
@@ -428,9 +430,9 @@ namespace macoro
 				catch (std::runtime_error& re)
 				{
 					didThrow = true;
-					assert(re.what() == std::string("42"));
+					TEST(re.what() == std::string("42"));
 				}
-				assert(didThrow);
+				TEST(didThrow);
 			}
 			//std::cout << "passed" << std::endl;
 		}

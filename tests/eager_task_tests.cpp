@@ -5,11 +5,13 @@
 #include "macoro/when_all.h"
 namespace macoro
 {
+#define TEST(X) if(!(X)) throw MACORO_RTE_LOC
+
 	namespace tests {
 		void make_eager_test()
 		{
 			//std::cout << "make_eager_test         ";
-			//assert(0);
+			//TEST(0);
 			auto foo = []() -> task<int>
 			{
 				MC_BEGIN(task<int>);
@@ -21,7 +23,7 @@ namespace macoro
 
 			auto e = make_eager(std::move(t));
 			auto i = sync_wait(e);
-			assert(i == 42);
+			TEST(i == 42);
 
 			//std::cout << "   passed" << std::endl;
 		}
@@ -47,7 +49,7 @@ namespace macoro
 			tp.run();
 
 			auto i = sync_wait(e);
-			assert(i == 42);
+			TEST(i == 42);
 
 			//std::cout << "   passed" << std::endl;
 		}
@@ -72,16 +74,12 @@ namespace macoro
 			tp.run();
 
 			auto i = sync_wait(e);
-			assert(i == 42);
+			TEST(i == 42);
 
-			//std::cout << "   passed" << std::endl;
 		}
 
 		void thread_pool_start_on_test()
 		{
-			//std::cout << "thread_pool_start_on_test         ";
-			//assert(0);
-
 			thread_pool tp;
 
 			auto foo = []()->task<int>
@@ -104,7 +102,7 @@ namespace macoro
 			tp.run();
 
 			auto i = sync_wait(e);
-			assert(i == 42);
+			TEST(i == 42);
 
 			//std::cout << "   passed" << std::endl;
 		}
@@ -116,7 +114,7 @@ namespace macoro
 
 			eager_task<int> eager_taskInt20()
 			{
-				//assert(0);
+				//TEST(0);
 				//throw std::runtime_error("");
 				co_return 42;
 			}
@@ -146,7 +144,7 @@ namespace macoro
 #ifdef MACORO_CPP_20
 			eager_task<int&> eager_taskRef20()
 			{
-				//assert(0);
+				//TEST(0);
 				//throw std::runtime_error("");
 				co_return taskRef_val;
 			}
@@ -207,13 +205,13 @@ namespace macoro
 			{
 				eager_task<int> t = eager_taskInt20();
 				int i = sync_wait(t);
-				assert(i == 42);
+				TEST(i == 42);
 			}
 #endif
 			{
 				eager_task<int> t = eager_taskInt14();
 				int i = sync_wait(t);
-				assert(i == 42);
+				TEST(i == 42);
 			}
 			//std::cout << "passed" << std::endl;
 		}
@@ -227,14 +225,14 @@ namespace macoro
 				taskVoid_called = false;
 				eager_task<void> t = eager_taskVoid20();
 				sync_wait(t);
-				assert(taskVoid_called);
+				TEST(taskVoid_called);
 			}
 #endif
 			{
 				taskVoid_called = false;
 				eager_task<void> t = eager_taskVoid14();
 				sync_wait(t);
-				assert(taskVoid_called);
+				TEST(taskVoid_called);
 			}
 			//std::cout << "passed" << std::endl;
 		}
@@ -247,18 +245,18 @@ namespace macoro
 				taskRef_val = 42;
 				eager_task<int&> t = eager_taskRef20();
 				int& i = sync_wait(t);
-				assert(i == 42);
+				TEST(i == 42);
 				++taskRef_val;
-				assert(i == 43);
+				TEST(i == 43);
 			}
 #endif
 			{
 				taskRef_val = 42;
 				eager_task<int&> t = eager_taskRef14();
 				int& i = sync_wait(t);
-				assert(i == 42);
+				TEST(i == 42);
 				++taskRef_val;
-				assert(i == 43);
+				TEST(i == 43);
 			}
 			//std::cout << "passed" << std::endl;
 		}
@@ -273,23 +271,23 @@ namespace macoro
 			{
 				eager_task<move_only> t = eager_taskmove20();
 				auto v = std::move(sync_wait(t));
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 			{
 				eager_task<move_only>&& f();
 				auto v = sync_wait(eager_taskmove20());
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 #endif
 			{
 				eager_task<move_only> t = eager_taskmove14();
 				auto v = std::move(sync_wait(t));
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 			{
 				eager_task<move_only>&& f();
 				auto v = sync_wait(eager_taskmove14());
-				assert(v.v == 42);
+				TEST(v.v == 42);
 			}
 			//std::cout << "passed" << std::endl;
 		}
@@ -308,9 +306,9 @@ namespace macoro
 				catch (std::runtime_error& re)
 				{
 					didThrow = true;
-					assert(re.what() == std::string("42"));
+					TEST(re.what() == std::string("42"));
 				}
-				assert(didThrow);
+				TEST(didThrow);
 			}
 #endif
 			{
@@ -322,9 +320,9 @@ namespace macoro
 				catch (std::runtime_error& re)
 				{
 					didThrow = true;
-					assert(re.what() == std::string("42"));
+					TEST(re.what() == std::string("42"));
 				}
-				assert(didThrow);
+				TEST(didThrow);
 			}
 			//std::cout << "passed" << std::endl;
 		}
@@ -416,10 +414,10 @@ namespace macoro
 			auto tt = t();
 			auto aa = a(tt);
 
-			assert(!done);
+			TEST(!done);
 
 			tt.handle().resume();
-			assert(done);
+			TEST(done);
 
 
 			//std::cout << "passed" << std::endl;
@@ -452,7 +450,7 @@ namespace macoro
 			auto tt = t();
 			auto aa = a(tt);
 
-			assert(done);
+			TEST(done);
 
 			//std::cout << "passed" << std::endl;
 		}

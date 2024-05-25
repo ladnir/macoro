@@ -9,12 +9,13 @@ namespace macoro
 	{
 		void result_basic_store_test()
 		{
-			//std::cout << "result_basic_store_test     " << std::endl;
-			result<int> r;
-			r = Ok(42);
+			result<int> r = Ok(42);
 
-			assert(r.has_value());
-			assert(r.value() == 42);
+			if (!r.has_value())
+				throw MACORO_RTE_LOC;
+			if(r.value() != 42)
+				throw MACORO_RTE_LOC;
+
 			try {
 				r.error();
 			}
@@ -23,39 +24,26 @@ namespace macoro
 				r = Err(std::current_exception());
 			}
 
-			assert(r.has_error());
-			//std::cout << "   passed" << std::endl;
+			if(!r.has_error())
+				throw MACORO_RTE_LOC;
 		}
 
 
 		void result_co_await_test()
 		{
-			//std::cout << "result_co_await_test     " << std::endl;
-			result<int> r;
-
 			auto foo = []()->result<int>
 			{
-
-				MC_BEGIN(result<int>
-					, b = result<bool>{}
-					, bb = bool{}
-				);
-
-				MC_AWAIT_SET(bb, b);
-
-				using VALUE = macoro::detail::ErrorMvTag<std::exception_ptr>;
-				using T = result<int>;
-				static_assert(std::is_convertible<VALUE&&, T>::value, "");
-
-				MC_RETURN(Ok(bb ? 1 : 42));
-				MC_END();
-
+				auto b = result<bool>{};
+				bool bb = co_await b;
+				co_return Ok(bb ? 1 : 42);
 			};
 
-			r = foo();
+			auto r = foo();
 
-			assert(r.has_value());
-			assert(r.value() == 42);
+			if(!r.has_value())
+				throw MACORO_RTE_LOC;
+			if(r.value() != 42)
+				throw MACORO_RTE_LOC;
 			try {
 				r.error();
 			}
@@ -64,67 +52,191 @@ namespace macoro
 				r = Err(std::current_exception());
 			}
 
-
-			assert(r.has_error());
-			//std::cout << "   passed" << std::endl;
+			if(!r.has_error())
+				throw MACORO_RTE_LOC;
 		}
 
 		void result_task_wrap_test()
 		{
-			//std::cout << "result_task_wrap_test     " << std::endl;
 
 			auto foo = []()->task<int>
 			{
-				MC_BEGIN(task<int>
-					, b = result<bool>{}
-					, bb = std::exception_ptr{}
-				);
-				bb = b.error();
-				MC_RETURN(Ok(42));
-				MC_END();
+				auto b = result<bool>{};
+				auto bb = b.error();
+				co_return 42;
 			};
 
 			result<int> r = sync_wait(wrap(foo()));
-			assert(r.has_error());
-			//std::cout << "   passed" << std::endl;
+			if(!r.has_error())
+				throw MACORO_RTE_LOC;
 		}
 
 
 		void result_task_wrap_pipe_test()
 		{
-			//std::cout << "result_task_wrap_pipe_test     " << std::endl;
-
 			auto foo = []()->task<int>
 			{
-				MC_BEGIN(task<int>
-					, b = result<bool>{}
-					, bb = std::exception_ptr{}
-				);
-				bb = b.error();
-				MC_RETURN(Ok(42));
-				MC_END();
+				auto b = result<bool>{};
+				auto bb = b.error();
+				co_return 42;
 			};
 
 			result<int> r = sync_wait(foo() | wrap());
-			assert(r.has_error());
-			//std::cout << "   passed" << std::endl;
+			if (!r.has_error())
+				throw MACORO_RTE_LOC;
 		}
 
 
 		void result_void_test()
 		{
-			//std::cout << "result_void_test       " << std::endl;
-
 			auto foo = []()->result<void>
 			{
-				MC_BEGIN(result<void>);
-				MC_RETURN(Ok());
-				MC_END();
+				co_return Ok();
 			};
 
 			result<void> r = sync_wait(wrap(foo()));
-			assert(r.has_error() == false);
-			//std::cout << "   passed" << std::endl;
+			if(r.has_error())
+				throw MACORO_RTE_LOC;
+		}
+
+		void result_unique_awaiter_test()
+		{
+			struct awaitable
+			{
+				struct awaiter
+				{
+					awaiter() = delete;
+					awaiter(const awaiter&) = delete;
+					awaiter(awaiter&&) = delete;
+
+					awaiter(int) {}
+					
+					bool await_ready() { return true; }
+					void await_suspend(std::coroutine_handle<> h) {}
+					void await_resume() {}
+				};
+
+				awaitable() = delete;
+				awaitable(const awaitable&) = delete;
+				awaitable(awaitable&&) = default;
+				awaitable(int) {}
+
+				awaiter operator co_await()&&
+				{
+					return { 0 };
+				}
+			};
+
+			auto foo = []()->task<void>{
+				//co_await wrapped_awaitable<awaitable>{awaitable(0)};
+				//co_await wrap(awaitable(0));
+				co_await(awaitable(0) | wrap());
+				};
+
+			sync_wait(foo());
+		}
+
+
+		void result_ref_awaiter_test()
+		{
+			struct awaitable
+			{
+				struct awaiter
+				{
+					awaiter() = delete;
+					awaiter(const awaiter&) = delete;
+					awaiter(awaiter&&) = delete;
+
+					int m_val; 
+					awaiter(int i) : m_val(i) {}
+
+					bool await_ready() { return true; }
+					void await_suspend(std::coroutine_handle<> h) {}
+					auto await_resume() { return m_val; }
+				};
+
+				awaitable() = delete;
+				awaitable(const awaitable&) = delete;
+				awaitable(awaitable&&) = delete;
+				awaitable(int i) : a(i) {}
+
+				awaiter a;
+				awaiter& operator co_await()&
+				{
+					return a;
+				}
+			};
+
+			auto foo = []()->task<void> {
+				auto a = awaitable(42);
+				auto r = co_await(a | wrap());
+
+				if (r.value() != 42)
+					throw MACORO_RTE_LOC;
+				};
+			sync_wait(foo());
+		}
+
+
+		template<typename awaitable>
+		decltype(auto) wrap2(awaitable&& a) {
+			return wrapped_awaitable<awaitable>(std::forward<awaitable>(a));
+		}
+
+
+		void result_suspend_test()
+		{
+			struct awaitable
+			{
+				struct awaiter
+				{
+					awaiter() = delete;
+					awaiter(const awaiter&) = delete;
+					awaiter(awaiter&&) = delete;
+
+					std::unique_ptr<int> m_d;
+					std::coroutine_handle<> m_h;
+					awaiter(std::unique_ptr<int>d) : m_d(std::move(d)) {}
+					~awaiter()
+					{
+						*m_d = 0;
+					}
+
+
+					bool await_ready() { return false; }
+					void await_suspend(std::coroutine_handle<> h) {
+						m_h = h;
+					}
+					auto await_resume() { return m_d.get(); }
+				};
+
+				awaitable() = delete;
+				awaitable(const awaitable&) = delete;
+				awaitable(awaitable&&) = default;
+				std::unique_ptr<int> m_d;
+				awaitable(std::unique_ptr<int> i) : m_d(std::move(i)) {}
+
+				awaiter operator co_await()
+				{
+					return {std::move(m_d)};
+				}
+			};
+
+			//auto a = ;
+			auto foo = [&]()->task<void> {
+				//auto tt = wrapped_awaitable<awaitable>(awaitable(std::unique_ptr<int>{ new int(42) }));
+				//auto bb = wrapped_awaitable<awaitable>(std::forward<awaitable&&>(awaitable(std::unique_ptr<int>{ new int(42) })));
+				//auto dd = wrap2(awaitable(std::unique_ptr<int>{ new int(42) }));
+				auto r = co_await(awaitable(std::unique_ptr<int>{ new int(42) }) | wrap());
+				if (*r.value() != 42)
+					throw MACORO_RTE_LOC;
+				co_return;
+				};
+			auto task = foo();
+			decltype(auto) awaiter = task.operator co_await();
+			awaiter.await_ready();
+			awaiter.await_suspend(std::noop_coroutine());
+			awaiter.m_coroutine.resume();
 		}
 
 

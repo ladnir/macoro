@@ -6,6 +6,7 @@
 #include "type_traits.h"
 #include "result.h"
 #include "macoro/macros.h"
+#include "macoro/wrap.h"
 
 namespace macoro
 {
@@ -78,12 +79,8 @@ namespace macoro
 			stop_source mSrc,
 			std::chrono::duration<Rep, Per> d)
 		{
-			MC_BEGIN(eager_task<>, &s, mSrc = std::move(mSrc), d,
-				r = result<void>{});
-
-			MC_AWAIT_TRY(r, s.schedule_after(d, mSrc.get_token()));
+			co_await(s.schedule_after(d, mSrc.get_token()) | wrap());
 			mSrc.request_stop();
-			MC_END();
 
 		}
 	};

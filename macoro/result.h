@@ -128,7 +128,7 @@ namespace macoro
 	template<typename E>
 	void result_rethrow(E&& e)
 	{
-		if constexpr (std::is_same_v<E, std::exception_ptr>)
+		if constexpr (std::is_same_v<std::remove_cvref_t<E>, std::exception_ptr>)
 			std::rethrow_exception(e);
 		else
 			throw e;

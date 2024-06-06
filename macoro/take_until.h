@@ -18,18 +18,36 @@ namespace macoro
 	}
 
 	template<typename AWAITABLE, typename UNTIL>
-		task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>> take_until(AWAITABLE awaitable, UNTIL until)
+	task<remove_rvalue_reference_t<awaitable_result_t<AWAITABLE>>> take_until(AWAITABLE awaitable, UNTIL until)
 	{
-		auto v = co_await( std::move(awaitable) | wrap());
+		using return_type = awaitable_result_t<AWAITABLE>;
+		constexpr bool is_void = std::is_void<awaitable_result_t<AWAITABLE>>::value;
+		using storage = std::conditional_t< is_void, int, std::optional<return_type>>;
+		storage v;
+		std::exception_ptr ex;
+		try {
+			if constexpr (is_void)
+				co_await std::move(awaitable);
+			else
+				v.emplace(co_await(std::move(awaitable)));
+		}
+		catch (...) {
+			ex = std::current_exception();
+		}
+
 
 		request_stop(until);
 
-		co_await(std::move(until) | wrap());
+		try {
+			co_await std::move(until);
+		}
+		catch(...)
+		{ }
 
-		if (v.has_error())
-			std::rethrow_exception(v.error());
+		if (ex)
+			std::rethrow_exception(ex);
 
-		if constexpr(std::is_void<awaitable_result_t<AWAITABLE>>::value == false)
+		if constexpr (is_void == false)
 			co_return static_cast<awaitable_result_t<AWAITABLE>>(v.value());
 	}
 }

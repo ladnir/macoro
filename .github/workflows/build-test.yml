@@ -151,7 +151,7 @@ jobs:
       # Runs a set of commands using the runners shell
       - name: build library cpp20
         run: |
-          python3 build.py -G Ninja -DMACORO_CPP_VER=20 -DMACORO_ASAN=true
+          python3 build.py -G Ninja -DMACORO_CPP_VER=20 -DMACORO_ASAN=true -DCMAKE_BUILD_TYPE=RelWithDebInfo
       
       - name: unit test cpp20
         run: |

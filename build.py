@@ -22,19 +22,28 @@ def replace(list, find, replace):
         list[idx] = replace;
     return list
 
+def getSuffix(X, prefix):
+    for x in X:
+        if x.startswith(prefix):
+            return x.removeprefix(prefix)
+    return ""
+
 def Build(projectName, argv, install, par, sudo, noConfig):
 
     osStr = (platform.system())
     buildDir = ""
     config = ""
-    buildType = ""
+    buildType = getSuffix(argv, "-DCMAKE_BUILD_TYPE=")
     setup = "--setup" in argv;
     argv = replace(argv, "--setup", "")
 
-    if "--debug" in argv:
-        buildType = "Debug"
-    else:
-        buildType = "Release"
+    if buildType == "":
+        if "--debug" in argv:
+            buildType = "Debug"
+        else:
+            buildType = "Release"
+        argv.append("-DCMAKE_BUILD_TYPE={0}".format(buildType))
+        
     argv = replace(argv, "--debug", "")
 
 
@@ -46,7 +55,6 @@ def Build(projectName, argv, install, par, sudo, noConfig):
     else:
         buildDir = "out/build/linux"
 
-    argv.append("-DCMAKE_BUILD_TYPE={0}".format(buildType))
 
     argStr = ""
     for a in argv:

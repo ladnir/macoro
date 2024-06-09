@@ -151,11 +151,11 @@ jobs:
       # Runs a set of commands using the runners shell
       - name: build library cpp20
         run: |
-          python3 build.py -G Ninja -DMACORO_CPP_VER=20 -DMACORO_ASAN=true -DCMAKE_BUILD_TYPE=Debug
+          python3 build.py -G Ninja -DMACORO_CPP_VER=20 -DMACORO_ASAN=true -DCMAKE_BUILD_TYPE=RelWithDebInfo
       
       - name: unit test cpp20
         run: |
-          ./out/build/x64-Debug/frontend/macoroFrontend.exe -u
+          ./out/build/x64-RelWithDebInfo/frontend/macoroFrontend.exe -u
           
       - name: find source tree
         run: |

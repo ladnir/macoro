@@ -86,7 +86,9 @@ namespace macoro
 				bool await_ready() noexcept { return false; };
 
 				template<typename C>
-				void await_suspend(C c) noexcept { c.promise().set(); }
+				void await_suspend(C c) noexcept {
+					std::cout << "final\n" << std::flush;
+					c.promise().set(); }
 
 				void await_resume() noexcept {}
 			};

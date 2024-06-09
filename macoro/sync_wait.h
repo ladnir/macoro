@@ -77,8 +77,11 @@ namespace macoro
 				std::cout << "set " << (size_t)this << std::endl;
 				assert(m_is_set == false);
 				std::lock_guard<std::mutex> lock(this->m_mutex);
+				std::cout << "lock " << (size_t)this << std::endl;
 				this->m_is_set = true;
+				std::cout << "notify " << (size_t)this << std::endl;
 				this->m_cv.notify_all();
+				std::cout << "done" << (size_t)this << std::endl;
 			}
 
 			void return_void() {}

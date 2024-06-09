@@ -207,13 +207,13 @@ namespace macoro
 	{
 		if constexpr (std::is_reference_v<Awaitable>)
 		{
-			make_blocking<std::remove_reference_t<Awaitable>&> b(
+			auto b = make_blocking<std::remove_reference_t<Awaitable>&>(
 				std::forward<Awaitable>(awaitable), loc);
 			return b.get();
 		}
 		else
 		{
-			make_blocking<std::remove_reference_t<Awaitable>&&> b(
+			auto b = make_blocking<std::remove_reference_t<Awaitable>&&>(
 				std::forward<Awaitable>(awaitable), loc);
 			return b.get();
 		}

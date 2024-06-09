@@ -155,7 +155,7 @@ jobs:
       
       - name: unit test cpp20
         run: |
-          ./out/build/x64-Release/frontend/macoroFrontend.exe -u
+          ./out/build/x64-Debug/frontend/macoroFrontend.exe -u
           
       - name: find source tree
         run: |

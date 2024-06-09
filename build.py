@@ -25,7 +25,7 @@ def replace(list, find, replace):
 def getSuffix(X, prefix):
     for x in X:
         if x.startswith(prefix):
-            return x.removeprefix(prefix)
+            return x[len(prefix):]
     return ""
 
 def Build(projectName, argv, install, par, sudo, noConfig):

@@ -80,9 +80,11 @@ int main(int argc, char** argv)
     _Mutex_base& m = *(_Mutex_base*)&m_mutex;
 
 	{
-        _Mtx_lock(&m._Mtx_storage);
+        //_Mtx_lock(&m._Mtx_storage);
+        m_mutex.lock();
 		std::cout << "pre " << std::endl;
-        _Mtx_unlock(&m._Mtx_storage);
+        m_mutex.unlock();
+        //_Mtx_unlock(&m._Mtx_storage);
 
 	}
 	//macoro::CLP cmd(argc, argv);

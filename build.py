@@ -66,7 +66,7 @@ def Build(projectName, argv, install, par, sudo, noConfig):
 
     mkDirCmd = "mkdir -p {0}".format(buildDir); 
     CMakeCmd = "cmake -S . -B {0} {1}".format(buildDir, argStr)
-    BuildCmd = "cmake --build {0} {1} {2} ".format(buildDir, config, parallel)
+    BuildCmd = "cmake --build {0} {1} {2} -- -verbosity:diagnostic  ".format(buildDir, config, parallel)
 
     
     InstallCmd = ""

@@ -313,8 +313,10 @@ namespace macoro
 		{
 			std::mutex m_mutex;
 			{
-				std::lock_guard lock(m_mutex);
+				m_mutex.lock();
 				std::cout << "pre " << std::endl;
+				m_mutex.unlock();
+
 			}
 
 

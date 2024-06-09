@@ -43,10 +43,10 @@ namespace macoro
 				set_parent(nullptr, loc);
 			}
 
-			//~blocking_promise()
-			//{
-			//	std::cout << "~blocking_promise" << std::endl;
-			//}
+			~blocking_promise()
+			{
+				std::cout << "~blocking_promise " << (size_t)this << std::endl;
+			}
 
 			using inner_awaiter = decltype(get_awaiter(std::declval<Awaitable&&>()));
 
@@ -87,7 +87,7 @@ namespace macoro
 
 				template<typename C>
 				void await_suspend(C c) noexcept {
-					std::cout << "final\n" << std::flush;
+					std::cout << "final" << (size_t)this << std::endl;
 					c.promise().set(); }
 
 				void await_resume() noexcept {}

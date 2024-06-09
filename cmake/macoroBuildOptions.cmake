@@ -10,13 +10,14 @@ option(MACORO_FETCH_AUTO "" OFF)
 option(MACORO_PIC "build with -FPIC on unix" OFF)
 option(MACORO_INSTALL_THIRDPARTY "dont install third party" ON)
 option(MACORO_ASAN "build with asan" OFF)
+option(MACORO_TESTS "build with tests" ON)
 
 if(NOT DEFINED MACORO_THIRDPARTY_CLONE_DIR)
     set(MACORO_THIRDPARTY_CLONE_DIR "${CMAKE_CURRENT_LIST_DIR}/../out/")
 endif()
 
 if(NOT DEFINED MACORO_CPP_VER)
-    set(MACORO_CPP_VER 14)
+    set(MACORO_CPP_VER 20)
 endif()
 if(${MACORO_CPP_VER} EQUAL 20)
     set(MACORO_CPP_20 ON)
@@ -50,6 +51,13 @@ else()
 endif()
 
 
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    # apple clang currently doesnt have stop_token
+    option(MACORO_HAS_STD_STOP_TOKEN "use standard stop token" false)
+else()
+    option(MACORO_HAS_STD_STOP_TOKEN "use standard stop token" true )
+endif()
+
 message("\nOptions\n---------------------------")
 
 message("CMAKE_BUILD_TYPE       = ${CMAKE_BUILD_TYPE}\t  ~ build type")
@@ -63,5 +71,6 @@ message("MACORO_OPTIONAL_LITE   =${MACORO_OPTIONAL_LITE_V}\t  ~ use optional lit
 message("MACORO_VARIANT_LITE    =${MACORO_VARIANT_LITE_V}\t  ~ use variant lite")
 message("MACORO_PIC             =${MACORO_PIC}\t  ~ compile with -fPIC on unix")
 message("MACORO_ASAN            =${MACORO_ASAN}\t  ~ compile with asan")
-
+message("MACORO_TESTS           =${MACORO_TESTS}\t  ~ compile the tests and frontend")
+#message("MACORO_HAS_STD_STOP_TOKEN=${MACORO_HAS_STD_STOP_TOKEN}")
 message("---------------------------\n")

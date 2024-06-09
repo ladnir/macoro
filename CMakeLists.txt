@@ -5,5 +5,8 @@ include(cmake/macoroBuildOptions.cmake)
 include(cmake/macoroFindDeps.cmake)
 
 add_subdirectory(macoro)
-add_subdirectory(tests)
-add_subdirectory(frontend)
+
+if(MACORO_TESTS)
+	add_subdirectory(tests)
+	add_subdirectory(frontend)
+endif()

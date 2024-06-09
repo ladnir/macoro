@@ -3,13 +3,20 @@ set(SRC
     thread_pool.cpp
     )
 
-    
+if (NOT MACORO_HAS_STD_STOP_TOKEN)
+message("adding stop_token impl, ${MACORO_HAS_STD_STOP_TOKEN}")
+    LIST(APPEND SRC 
+        detail/stop_source.cpp
+        detail/stop_state.cpp
+        detail/stop_token.cpp
+    )
+endif()
 if(MSVC)
     LIST(APPEND SRC 
     detail/win32.cpp)
 endif()
 
-add_library(macoro STATIC ${SRC} "trace.h" "barrier.h")
+add_library(macoro STATIC ${SRC} "trace.h" "barrier.h" )
 
 
 

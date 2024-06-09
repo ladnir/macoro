@@ -7,6 +7,8 @@
 //#include <numeric>
 //#include <fstream>
 //#include "tests/tests.h"
+#define _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
+
 #include <mutex>
 
 //using namespace macoro;
@@ -73,6 +75,7 @@
 //        return &_Mtx_storage;
 //    }
 //};
+
 
 int main(int argc, char** argv)
 {

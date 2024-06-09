@@ -206,11 +206,17 @@ namespace macoro
 	decltype(auto) sync_wait(Awaitable&& awaitable, std::source_location loc = std::source_location::current())
 	{
 		if constexpr (std::is_reference_v<Awaitable>)
-			return make_blocking<std::remove_reference_t<Awaitable>&>(
-				std::forward<Awaitable>(awaitable), loc).get();
+		{
+			make_blocking<std::remove_reference_t<Awaitable>&> b(
+				std::forward<Awaitable>(awaitable), loc);
+			return b.get();
+		}
 		else
-			return make_blocking<std::remove_reference_t<Awaitable>&&>(
-				std::forward<Awaitable>(awaitable), loc).get();
+		{
+			make_blocking<std::remove_reference_t<Awaitable>&&> b(
+				std::forward<Awaitable>(awaitable), loc);
+			return b.get();
+		}
 	}
 
 	struct sync_wait_t { };

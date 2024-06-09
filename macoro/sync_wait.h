@@ -40,6 +40,7 @@ namespace macoro
 				: m_awaiter(get_awaiter(std::forward<Awaitable>(a)))
 			{
 				//std::cout << "blocking_promise" << std::endl;
+				std::cout << "blocking_promise " << (size_t)this << std::endl;
 				set_parent(nullptr, loc);
 			}
 
@@ -87,7 +88,7 @@ namespace macoro
 
 				template<typename C>
 				void await_suspend(C c) noexcept {
-					std::cout << "final" << (size_t)this << std::endl;
+					std::cout << "final " << (size_t)this << std::endl;
 					c.promise().set(); }
 
 				void await_resume() noexcept {}

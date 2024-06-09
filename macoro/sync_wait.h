@@ -220,12 +220,6 @@ namespace macoro
 	template<typename Awaitable>
 	decltype(auto) sync_wait(Awaitable&& awaitable, std::source_location loc = std::source_location::current())
 	{
-		std::mutex m_mutex;
-		{
-			std::lock_guard lock(m_mutex);
-			std::cout << "pre " << std::endl;
-		}
-
 		if constexpr (std::is_reference_v<Awaitable>)
 		{
 			auto b = make_blocking<std::remove_reference_t<Awaitable>&>(

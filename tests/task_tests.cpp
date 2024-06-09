@@ -311,6 +311,13 @@ namespace macoro
 
 		void task_blocking_int_test()
 		{
+			std::mutex m_mutex;
+			{
+				std::lock_guard lock(m_mutex);
+				std::cout << "pre " << std::endl;
+			}
+
+
 			//std::cout << "task_blocking_int_test  ";
 #ifdef MACORO_CPP_20
 			{

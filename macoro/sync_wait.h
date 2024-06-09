@@ -74,6 +74,7 @@ namespace macoro
 			// notify the caller.
 			void set()
 			{
+				std::cout << "set " << (size_t)this << std::endl;
 				assert(m_is_set == false);
 				std::lock_guard<std::mutex> lock(this->m_mutex);
 				this->m_is_set = true;
@@ -88,7 +89,6 @@ namespace macoro
 
 				template<typename C>
 				void await_suspend(C c) noexcept {
-					std::cout << "final " << (size_t)this << std::endl;
 					c.promise().set(); }
 
 				void await_resume() noexcept {}

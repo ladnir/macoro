@@ -6,6 +6,8 @@
 #include "macoro/coroutine_handle.h"
 #include <future>
 #include "macros.h"
+#include <mutex>
+
 namespace macoro
 {
 
@@ -41,10 +43,17 @@ namespace macoro
 			{
 				//std::cout << "blocking_promise" << std::endl;
 				std::cout << "blocking_promise " << (size_t)this << std::endl;
-				set_parent(nullptr, loc);
+				{
 
-				std::lock_guard<std::mutex> lock(this->m_mutex);
-				std::cout << "lock " << (size_t)this << std::endl;
+					std::lock_guard<std::mutex> lock(this->m_mutex);
+					std::cout << "lock1 " << (size_t)this << std::endl;
+				}
+				set_parent(nullptr, loc);
+				{
+
+					std::lock_guard<std::mutex> lock(this->m_mutex);
+					std::cout << "lock2 " << (size_t)this << std::endl;
+				}
 			}
 
 			~blocking_promise()

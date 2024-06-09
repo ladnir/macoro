@@ -229,3 +229,8 @@ MACORO_FINAL_SUSPEND_RESUME:																					\
 	handle.resume();																							\
 	return _macoro_ret_;																						\
 } while (0)
+
+
+
+#define MACORO_TRY std::exception_ptr macoro_ePtr; try
+#define MACORO_CATCH(NAME)  catch(...) { macoro_ePtr = std::current_exception(); } if(auto NAME = std::exchange(macoro_ePtr, nullptr))  

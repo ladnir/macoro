@@ -79,7 +79,11 @@ namespace macoro
 			stop_source mSrc,
 			std::chrono::duration<Rep, Per> d)
 		{
-			co_await(s.schedule_after(d, mSrc.get_token()) | wrap());
+			try {
+
+				co_await(s.schedule_after(d, mSrc.get_token()));
+			}
+			catch (...) { }
 			mSrc.request_stop();
 
 		}

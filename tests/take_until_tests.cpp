@@ -17,40 +17,32 @@ namespace macoro
 
 		task<int> makeTask(thread_pool& ex, stop_source s, bool wait)
 		{
-			MC_BEGIN(task<int>, &ex, s, wait);
-
 
 
 			// wait for cancel.
 			if (wait)
 			{
-				MC_AWAIT(s.get_token());
+				co_await (s.get_token());
 				wake = steady_clock::now();
 
 			}
 			else
 			{
-				MC_AWAIT(ex.schedule_after(milliseconds(15)));
+				co_await(ex.schedule_after(milliseconds(15)));
 				wake = steady_clock::now();
 				s.request_stop();
 			}
 
-			MC_RETURN(43);
-			MC_END();
+			co_return(43);
 		}
 
 		task<void> use(thread_pool& ex, bool wait)
 		{
-			MC_BEGIN(task<>, &ex, wait
-				, to = timeout(ex, wait ? 10ms : 100000ms)
-				, i = int{}
-			);
+			auto to = timeout(ex, wait ? 10ms : 100000ms);
 
 			begin = steady_clock::now();
-			MC_AWAIT_SET(i, take_until(makeTask(ex, to.get_source(), wait), std::move(to)));
+			auto i = co_await take_until(makeTask(ex, to.get_source(), wait), std::move(to));
 			end = steady_clock::now();
-
-			MC_END();
 		}
 
 

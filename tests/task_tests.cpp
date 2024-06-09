@@ -5,6 +5,8 @@
 #include <chrono>
 #include <thread>
 #include <memory>
+#include "macoro/detail/operation_cancelled.h"
+
 namespace
 {
 #ifdef MACORO_CPP_20

@@ -124,7 +124,19 @@ namespace macoro
 	}
 
 
+	template<typename Awaiter, typename T>
+	constexpr bool noexcept_await_suspend()
+	{
 
+		if constexpr (requires(Awaiter a, coroutine_handle<T> h) { a.await_suspend(h); })
+		{
+			return noexcept(std::declval<Awaiter>().await_suspend(coroutine_handle<T>{}));
+		}
+		else
+		{
+			return noexcept(std::declval<Awaiter>().await_suspend(std::coroutine_handle<void>{}));
+		}
+	}
 
 	template<typename Awaiter, typename T>
 	auto await_suspend(Awaiter& a, coroutine_handle<T> h,
@@ -136,7 +148,7 @@ namespace macoro
 		!has_void_await_suspend<Awaiter, std::coroutine_handle<void>>::value &&
 		!has_bool_await_suspend<Awaiter, std::coroutine_handle<void>>::value
 #endif
-		, empty_state> = {}) noexcept(noexcept(await_suspend_t<coroutine_handle<typename coroutine_handle_traits<decltype(a.await_suspend(h))>::promise_type>>{ a.await_suspend(h) }))
+		, empty_state> = {}) noexcept(noexcept_await_suspend<Awaiter, T>())
 	{
 
 		//auto h2 = ;
@@ -152,10 +164,19 @@ namespace macoro
 			,
 			"await_suspend() must return 'void', 'bool', or convertible to macoro::coroutine_handle<> or std::coroutine_handle<>.");
 
-		using promise_type = typename coroutine_handle_traits<decltype(a.await_suspend(h))>::promise_type;
-
-		auto ret = a.await_suspend(h);
-		return await_suspend_t<coroutine_handle<promise_type>>{ ret, h != ret  };
+		if constexpr (requires(Awaiter a) { a.await_suspend(h); })
+		{
+			using promise_type = typename coroutine_handle_traits<decltype(a.await_suspend(h))>::promise_type;
+			auto ret = a.await_suspend(h);
+			return await_suspend_t<coroutine_handle<promise_type>>{ ret, h != ret  };
+		}
+		else
+		{
+			auto hstd = h.std_cast();
+			using promise_type = typename coroutine_handle_traits<decltype(a.await_suspend(hstd))>::promise_type;
+			auto ret = a.await_suspend(hstd);
+			return await_suspend_t<coroutine_handle<void>>{ coroutine_handle<void>(ret), hstd != ret  };
+		}
 	}
 
 	// Intended to be equivalent to auto&&. When given

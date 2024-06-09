@@ -1,10 +1,5 @@
 
-set(SRC 
-    detail/stop_callback.cpp
-    detail/stop_source.cpp
-    detail/stop_state.cpp
-    detail/stop_token.cpp
-    
+set(SRC     
     thread_pool.cpp
     )
 

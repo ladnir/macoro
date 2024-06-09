@@ -8,5 +8,5 @@ project(macoro VERSION 0.1.2)
 
 if(MACORO_TESTS)
 	#add_subdirectory(tests)
-	add_subdirectory(frontend)
 endif()
+	add_subdirectory(frontend)

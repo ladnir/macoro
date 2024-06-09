@@ -1,17 +1,15 @@
-//#include "Context.h"
-//#include "macros.h"
-#include "macoro/type_traits.h"
-#include "macoro/macros.h"
-#include "macoro/optional.h"
+//#include "macoro/type_traits.h"
+//#include "macoro/macros.h"
+//#include "macoro/optional.h"
 #include <iostream>
 #include <type_traits>
 #include <chrono>
 #include <numeric>
 #include <fstream>
-#include "tests/tests.h"
+//#include "tests/tests.h"
 #include <mutex>
 
-using namespace macoro;
+//using namespace macoro;
 
 class _Mutex_base { // base class for all mutex types
 public:
@@ -87,8 +85,8 @@ int main(int argc, char** argv)
         _Mtx_unlock(&m._Mtx_storage);
 
 	}
-	macoro::CLP cmd(argc, argv);
-	macoro::testCollection.runIf(cmd);
+	//macoro::CLP cmd(argc, argv);
+	//macoro::testCollection.runIf(cmd);
 	return 0;
 }
 

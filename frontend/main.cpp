@@ -9,12 +9,20 @@
 #include <numeric>
 #include <fstream>
 #include "tests/tests.h"
+#include <mutex>
 
 using namespace macoro;
 
 
 int main(int argc, char** argv)
 {
+	std::mutex m_mutex;
+	{
+		m_mutex.lock();
+		std::cout << "pre " << std::endl;
+		m_mutex.unlock();
+
+	}
 	macoro::CLP cmd(argc, argv);
 	macoro::testCollection.runIf(cmd);
 	return 0;

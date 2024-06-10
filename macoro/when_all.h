@@ -36,7 +36,7 @@ namespace macoro
 				>
 			>
 			(std::make_tuple(
-				detail::make_when_all_task<Awaitables>(
+				detail::make_when_all_task<remove_rvalue_reference_t<Awaitables>>(
 					std::forward<Awaitables>(awaitables)
 				)...
 			)

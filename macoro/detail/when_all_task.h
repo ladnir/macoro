@@ -121,7 +121,7 @@ namespace macoro
 			}
 
 
-		//private:
+			//private:
 
 			void rethrow_if_exception()
 			{
@@ -220,7 +220,7 @@ namespace macoro
 				}
 			}
 
-		//private:
+			//private:
 
 			when_all_ready_awaitable_base* m_awaitable;
 			coroutine_handle_type m_type;
@@ -271,7 +271,7 @@ namespace macoro
 				return std::move(m_coroutine.promise()).result();
 			}
 
-		//private:
+			//private:
 
 			template<typename TASK_CONTAINER>
 			friend class when_all_ready_awaitable;
@@ -287,39 +287,33 @@ namespace macoro
 
 #ifdef MACORO_CPP_20_WHEN_ALL
 		template<
-			typename AWAITABLE,
-			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
-			enable_if_t<!std::is_void<RESULT>::value, int> = 0>
-			when_all_task<RESULT> make_when_all_task(AWAITABLE awaitable)
+			typename AWAITABLE>
+		when_all_task<typename awaitable_traits<AWAITABLE>::await_result_t> make_when_all_task(AWAITABLE awaitable)
 		{
-			co_yield co_await static_cast<AWAITABLE&&>(awaitable);
-		}
-
-		template<
-			typename AWAITABLE,
-			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
-			enable_if_t<std::is_void<RESULT>::value, int> = 0>
-			when_all_task<void> make_when_all_task(AWAITABLE awaitable)
-		{
-			co_await static_cast<AWAITABLE&&>(awaitable);
-		}
-
-		template<
-			typename AWAITABLE,
-			typename RESULT = typename awaitable_traits<AWAITABLE&>::await_result_t,
-			enable_if_t<!std::is_void<RESULT>::value, int> = 0>
-			when_all_task<RESULT> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
-		{
-			co_yield co_await awaitable.get();
-		}
-
-		template<
-			typename AWAITABLE,
-			typename RESULT = typename awaitable_traits<AWAITABLE&>::await_result_t,
-			enable_if_t<std::is_void<RESULT>::value, int> = 0>
-			when_all_task<void> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
-		{
-			co_await awaitable.get();
+			static_assert(std::is_rvalue_reference_v<AWAITABLE> == false, "awaitable must be an value or lvalue reference");
+			using RESULT = typename awaitable_traits<AWAITABLE>::await_result_t;
+			if constexpr(std::is_lvalue_reference_v<AWAITABLE>)
+			{
+				if constexpr (!std::is_void<RESULT>::value)
+				{
+					co_yield co_await awaitable;
+				}
+				else
+				{
+					co_await awaitable;
+				}
+			}
+			else
+			{
+				if constexpr (!std::is_void<RESULT>::value)
+				{
+					co_yield co_await static_cast<AWAITABLE&&>(awaitable);
+				}
+				else
+				{
+					co_await static_cast<AWAITABLE&&>(awaitable);
+				}
+			}
 		}
 
 #else
@@ -327,7 +321,7 @@ namespace macoro
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
 			enable_if_t<!std::is_void<RESULT>::value, int> = 0>
-			when_all_task<RESULT> make_when_all_task(AWAITABLE a)
+		when_all_task<RESULT> make_when_all_task(AWAITABLE a)
 		{
 			MC_BEGIN(when_all_task<RESULT>, awaitable = std::move(a));
 			MC_YIELD_AWAIT(static_cast<AWAITABLE&&>(awaitable));
@@ -338,7 +332,7 @@ namespace macoro
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&&>::await_result_t,
 			enable_if_t<std::is_void<RESULT>::value, int> = 0>
-			when_all_task<void> make_when_all_task(AWAITABLE a)
+		when_all_task<void> make_when_all_task(AWAITABLE a)
 		{
 			MC_BEGIN(when_all_task<void>, awaitable = std::move(a));
 			MC_AWAIT(static_cast<AWAITABLE&&>(awaitable));
@@ -349,7 +343,7 @@ namespace macoro
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&>::await_result_t,
 			enable_if_t<!std::is_void<RESULT>::value, int> = 0>
-			when_all_task<RESULT> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
+		when_all_task<RESULT> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
 		{
 
 			MC_BEGIN(when_all_task<RESULT>, awaitable);
@@ -362,7 +356,7 @@ namespace macoro
 			typename AWAITABLE,
 			typename RESULT = typename awaitable_traits<AWAITABLE&>::await_result_t,
 			enable_if_t<std::is_void<RESULT>::value, int> = 0>
-			when_all_task<void> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
+		when_all_task<void> make_when_all_task(std::reference_wrapper<AWAITABLE> awaitable)
 		{
 			MC_BEGIN(when_all_task<void>, awaitable);
 			MC_AWAIT(awaitable.get());

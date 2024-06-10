@@ -42,24 +42,13 @@ namespace macoro
 				: m_awaiter(get_awaiter(std::forward<Awaitable>(a)))
 			{
 				//std::cout << "blocking_promise" << std::endl;
-				std::cout << "blocking_promise " << (size_t)this << std::endl;
-				{
-
-					std::lock_guard<std::mutex> lock(this->m_mutex);
-					std::cout << "lock1 " << (size_t)this << std::endl;
-				}
 				set_parent(nullptr, loc);
-				{
-
-					std::lock_guard<std::mutex> lock(this->m_mutex);
-					std::cout << "lock2 " << (size_t)this << std::endl;
-				}
 			}
 
-			~blocking_promise()
-			{
-				std::cout << "~blocking_promise " << (size_t)this << std::endl;
-			}
+			//~blocking_promise()
+			//{
+			//	std::cout << "~blocking_promise " << (size_t)this << std::endl;
+			//}
 
 			using inner_awaiter = decltype(get_awaiter(std::declval<Awaitable&&>()));
 
@@ -86,14 +75,10 @@ namespace macoro
 			// notify the caller.
 			void set()
 			{
-				std::cout << "set " << (size_t)this << std::endl;
 				assert(m_is_set == false);
 				std::lock_guard<std::mutex> lock(this->m_mutex);
-				std::cout << "lock " << (size_t)this << std::endl;
 				this->m_is_set = true;
-				std::cout << "notify " << (size_t)this << std::endl;
 				this->m_cv.notify_all();
-				std::cout << "done" << (size_t)this << std::endl;
 			}
 
 			void return_void() {}
@@ -222,15 +207,13 @@ namespace macoro
 	{
 		if constexpr (std::is_reference_v<Awaitable>)
 		{
-			auto b = make_blocking<std::remove_reference_t<Awaitable>&>(
-				std::forward<Awaitable>(awaitable), loc);
-			return b.get();
+			return make_blocking<std::remove_reference_t<Awaitable>&>(
+				std::forward<Awaitable>(awaitable), loc).get();
 		}
 		else
 		{
-			auto b = make_blocking<std::remove_reference_t<Awaitable>&&>(
-				std::forward<Awaitable>(awaitable), loc);
-			return b.get();
+			return make_blocking<std::remove_reference_t<Awaitable>&&>(
+				std::forward<Awaitable>(awaitable), loc).get();
 		}
 	}
 

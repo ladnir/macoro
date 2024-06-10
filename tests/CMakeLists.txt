@@ -20,7 +20,6 @@ target_link_libraries(macoroTests macoro)
 
 
 if(MSVC)
-
     target_compile_options( macoroTests PRIVATE
         $<$<COMPILE_LANGUAGE:CXX>:/std:c++${MACORO_CPP_VER}>
     )
@@ -32,3 +31,5 @@ else()
         $<$<COMPILE_LANGUAGE:CXX>:-std=c++${MACORO_CPP_VER}>
     )
 endif()
+
+target_compile_definitions(macoro PUBLIC ${MACORO_COMPILER_DEFINES})

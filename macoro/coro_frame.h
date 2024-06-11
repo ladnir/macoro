@@ -745,7 +745,7 @@ namespace macoro
 	// makes a Proto from the given lambda. The lambda
 	// should take as input a FrameBase<ReturnType>* 
 	template<typename Promise, typename LambdaType>
-	inline Frame<LambdaType, Promise>* makeFrame(LambdaType&& l)
+	inline auto makeFrame(LambdaType&& l)
 	{
 		return new Frame<LambdaType, Promise>(std::forward<LambdaType>(l));
 	}

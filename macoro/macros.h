@@ -57,7 +57,7 @@
 // It defines a suspension point but does not call await_resume. This should be
 // used with other macros which perform the await_resume call.
 #define IMPL_MC_AWAIT_CORE(EXPRESSION, SUSPEND_IDX)	IMPL_MC_AWAIT_CORE_NS(EXPRESSION, SUSPEND_IDX)				\
-			MACORO_FALLTHROUGH; case ::macoro::SuspensionPoint(SUSPEND_IDX):		
+			MACORO_FALLTHROUGH; case (std::size_t)::macoro::SuspensionPoint(SUSPEND_IDX):		
 
 // a helper macro that defines a basic co_await expression. 
 // RETURN_SLOT can be used to set a variable to the result of the co_await expression.
@@ -121,9 +121,9 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ::macoro::coroutine_trai
 	{																											\
 		try {																									\
 																												\
-			switch (_macoro_frame_->_suspension_idx_)															\
+			switch ((std::size_t)_macoro_frame_->_suspension_idx_)															\
 			{																									\
-			case ::macoro::SuspensionPoint::InitialSuspendBegin:												\
+			case (std::size_t)::macoro::SuspensionPoint::InitialSuspendBegin:												\
 				do {																								\
 					IMPL_MC_AWAIT_CORE(_macoro_frame_->promise.initial_suspend(), MACORO_INITIAL_SUSPEND_IDX)	\
 					_macoro_frame_->_initial_suspend_await_resumed_called_ = true;								\
@@ -195,7 +195,7 @@ do { auto _macoro_frame_ = ::macoro::makeFrame<typename ::macoro::coroutine_trai
 // End the coroutine body.
 #define MC_END()																								\
 				break; 																							\
-			case ::macoro::SuspensionPoint::FinalSuspend:														\
+			case (std::size_t)::macoro::SuspensionPoint::FinalSuspend:														\
 				goto MACORO_FINAL_SUSPEND_RESUME;																\
 			default:																							\
 				std::cout << "coroutine frame corrupted. " <<__FILE__ <<":" <<__LINE__ << std::endl;			\

@@ -40,9 +40,9 @@ endif()
 
 if(APPLE OR UNIX)
     target_compile_options( macoro PRIVATE
-        $<$<COMPILE_LANGUAGE:CXX>:-std=c++${MACORO_CPP_VER} -Wno-error=switch>
+        $<$<COMPILE_LANGUAGE:CXX>:-std=c++${MACORO_CPP_VER}>
     )
-
+    target_compile_options(macoro PUBLIC   $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=switch>)
     if(MACORO_PIC)
         target_compile_options(macoro PUBLIC
             "-fPIC"

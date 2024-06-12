@@ -173,7 +173,6 @@ namespace macoro
 		else
 		{
 			auto hstd = h.std_cast();
-			using promise_type = typename coroutine_handle_traits<decltype(a.await_suspend(hstd))>::promise_type;
 			auto ret = a.await_suspend(hstd);
 			return await_suspend_t<coroutine_handle<void>>{ coroutine_handle<void>(ret), hstd != ret  };
 		}

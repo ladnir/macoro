@@ -200,8 +200,6 @@ namespace macoro
 
             template<typename H>
             void await_suspend(const H& h) {
-                using traits_C = coroutine_handle_traits<H>;
-                using return_type = typename traits_C::template coroutine_handle<void>;
                 mPool->post_after(coroutine_handle<void>(h), mDeadline, std::move(mToken), mReg);
             }
 

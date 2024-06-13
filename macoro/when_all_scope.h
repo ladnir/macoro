@@ -92,7 +92,7 @@ namespace macoro
 			void unhandled_exception() noexcept {
 
 				std::lock_guard<std::mutex> lock(m_scope.m_exception_mutex);
-				m_scope.m_exceptions.push_back(std::move(std::current_exception()));
+				m_scope.m_exceptions.push_back(std::current_exception());
 			}
 
 			void return_void() noexcept {};

@@ -273,7 +273,7 @@ namespace macoro
 
 					try
 					{
-						auto v = sync_wait(std::move(t));
+						sync_wait(std::move(t));
 						throw std::runtime_error("failed");
 					}
 					catch (test_exception& e)

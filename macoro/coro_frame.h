@@ -375,8 +375,10 @@ namespace macoro
 		auto& makeAwaitContext()
 		{
 
+#ifndef NDEBUG
 			for (auto& aa : awaiters)
 				assert(aa.suspend_index != CTX::suspend_index);
+#endif
 
 			awaiters.emplace_back();
 			auto& d = awaiters.back();

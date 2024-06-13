@@ -153,7 +153,7 @@ namespace macoro
 		friend struct scoped_task;
 
 		template<typename T>
-		friend struct detail::scoped_task_promise;
+		friend class detail::scoped_task_promise;
 
 		friend struct when_all_scope;
 

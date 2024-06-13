@@ -18,8 +18,8 @@ namespace macoro
             std::size_t n = 1000;
             struct message
             {
-                int tIdx;
-                int id;
+                size_t tIdx;
+                size_t id;
                 float data;
             };
 
@@ -27,11 +27,11 @@ namespace macoro
             task<void> producer2(
                 mpsc::channel_sender<message>& chl,
                 Scheduler& sched,
-                int tIdx)
+                size_t tIdx)
             {
                 ;
                 MC_BEGIN(task<>, &chl, &sched, tIdx
-                    , i = int{}
+                    , i = size_t{}
                     , slot = std::move(mpsc::channel_sender<message>::push_wrapper{})
                 );
                 for (i = 0; i < n; ++i)
@@ -51,13 +51,13 @@ namespace macoro
 
             template<typename Scheduler>
             task<void> producer(
-                int numThreads,
+                size_t numThreads,
                 mpsc::channel_sender<message>& chl,
                 Scheduler& sched)
             {
                 ;
                 MC_BEGIN(task<>, &chl, &sched, numThreads
-                    , i = int{}
+                    , i = size_t{}
                     , tasks = std::vector<eager_task<>>{}
                 );
                 tasks.resize(numThreads);
@@ -83,12 +83,12 @@ namespace macoro
 
             template<typename Scheduler>
             task<void> consumer(
-                int numProducers,
+                size_t numProducers,
                 mpsc::channel_receiver<message>& chl,
                 Scheduler& sched)
             {
                 MC_BEGIN(task<>, &chl, &sched, numProducers
-                    , i = std::vector<int>( numProducers )
+                    , i = std::vector<size_t>( numProducers )
                     , msg = macoro::result<message>{}
                     , msgPtr = (message*)nullptr
                     , msg2 = std::move(macoro::mpsc::channel<message>::pop_wrapper{})
@@ -101,7 +101,7 @@ namespace macoro
                     MC_AWAIT(transfer_to(sched));
                     if (msg.has_error())
                     {
-                        for (int j = 0; j < numProducers; ++j)
+                        for (size_t j = 0; j < numProducers; ++j)
                         {
 
                             if (i[j] != n)
@@ -142,7 +142,7 @@ namespace macoro
             }
 
             template<typename Scheduler>
-            task<void> example(Scheduler& sched, int numThreads)
+            task<void> example(Scheduler& sched, size_t numThreads)
             {
 
                 auto s_r = mpsc::make_channel<message>(8);
@@ -162,7 +162,7 @@ namespace macoro
         }
         void mpsc_channel_test()
         {
-            int numThreads = 10;
+            size_t numThreads = 10;
             inline_scheduler sched;
             sync_wait(example(sched, numThreads));
         }
@@ -170,7 +170,7 @@ namespace macoro
 
         void mpsc_channel_ex_test()
         {
-            int numThreads = 10;
+            size_t numThreads = 10;
             thread_pool sched;
             auto w = sched.make_work();
             sched.create_threads(numThreads);

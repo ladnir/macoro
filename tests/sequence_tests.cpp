@@ -18,7 +18,7 @@ namespace macoro
 			std::size_t n = 100'000;
 			struct message
 			{
-				int id;
+				size_t id;
 				steady_clock::time_point timestamp;
 				float data;
 			};
@@ -31,7 +31,7 @@ namespace macoro
 				sequence_spsc<size_t>& sequencer)
 			{
 				MC_BEGIN(task<>, &sequencer
-					, i = int{}
+					, i = size_t{}
 					, seq = size_t{}
 					, msg = (message*)nullptr
 				);

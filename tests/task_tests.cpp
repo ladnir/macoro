@@ -274,7 +274,7 @@ namespace macoro
 				st.resume();
 				auto didThrow = false;
 				try {
-					auto v = awaiter.await_resume();
+					awaiter.await_resume();
 				}
 				catch (std::runtime_error& re)
 				{
@@ -295,7 +295,7 @@ namespace macoro
 				st.resume();
 				auto didThrow = false;
 				try {
-					auto v = awaiter.await_resume();
+					awaiter.await_resume();
 				}
 				catch (std::runtime_error& re)
 				{
@@ -314,7 +314,7 @@ namespace macoro
 			//std::cout << "task_blocking_int_test  ";
 #ifdef MACORO_CPP_20
 			{
-				auto l = std::source_location::current();
+
 				task<int> t = taskInt20();
 				int i = sync_wait(t);
 				TEST(i == 42);
@@ -413,7 +413,7 @@ namespace macoro
 				task<int> t = taskThrows20();
 				bool didThrow = false;
 				try {
-					auto v = sync_wait(t);
+					sync_wait(t);
 				}
 				catch (std::runtime_error& re)
 				{
@@ -427,7 +427,7 @@ namespace macoro
 				task<int> t = taskThrows14();
 				bool didThrow = false;
 				try {
-					auto v = sync_wait(t);
+					sync_wait(t);
 				}
 				catch (std::runtime_error& re)
 				{

@@ -101,7 +101,7 @@ namespace macoro
       // the scope exits.
       auto t = [&]()->task<> {
   
-        int q = co_await f();
+        co_await f();
   
         // start a eager scope. All scoped
         // tasks in the when_all_scope will 

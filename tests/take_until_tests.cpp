@@ -41,7 +41,7 @@ namespace macoro
 			auto to = timeout(ex, wait ? 10ms : 100000ms);
 
 			begin = steady_clock::now();
-			auto i = co_await take_until(makeTask(ex, to.get_source(), wait), std::move(to));
+			co_await take_until(makeTask(ex, to.get_source(), wait), std::move(to));
 			end = steady_clock::now();
 		}
 
@@ -58,7 +58,7 @@ namespace macoro
 			sync_wait(use(s, true));
 
 			auto t0 = duration_cast<milliseconds>(end - begin).count();
-			auto w0 = duration_cast<milliseconds>(wake - begin).count();
+			//auto w0 = duration_cast<milliseconds>(wake - begin).count();
 			if (t0 < 10 || t0 > 10 + maxLag)
 			{
 				std::cout << t0 << "ms vs 10  ~ max " << 10 + maxLag << std::endl;
@@ -69,7 +69,7 @@ namespace macoro
 			sync_wait(use(s, false));
 
 			auto t1 = duration_cast<milliseconds>(end - begin).count();
-			auto w1 = duration_cast<milliseconds>(wake - begin).count();
+			//auto w1 = duration_cast<milliseconds>(wake - begin).count();
 			//std::cout << t1 << "ms vs 15 " << std::endl;
 			//std::cout << w1 << "ms " << std::endl;
 			if (t1 < 15 || t1 > 15 + maxLag)
@@ -86,7 +86,7 @@ namespace macoro
 
 		void schedule_after()
 		{
-			auto start = steady_clock::now();
+			//auto start = steady_clock::now();
 			auto maxLag = 30;
 			thread_pool s;
 			auto work = s.make_work();

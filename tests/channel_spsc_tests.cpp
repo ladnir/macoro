@@ -28,7 +28,7 @@ namespace macoro
 			{
 				;
 				MC_BEGIN(task<>, &chl, &sched
-					, i = int{}
+					, i = std::size_t{}
 					, slot = std::move(spsc::channel_sender<message>::push_wrapper{})
 				);
 				for (i = 0; i < n; ++i)
@@ -57,7 +57,7 @@ namespace macoro
 				Scheduler& sched)
 			{
 				MC_BEGIN(task<>, &chl, &sched
-					, i = int{ 0 }
+					, i = std::size_t{ 0 }
 					, msg = macoro::result<message>{}
 					, msg2 = std::move(macoro::spsc::channel<message>::pop_wrapper{})
 				);

@@ -89,11 +89,11 @@ namespace macoro
 			}
 
 
-			void print(std::vector<Rec>& l)
-			{
-				for (size_t i = 0; i < l.size(); ++i)
-					std::cout << "{\"" << l[i].str << "\", " << l[i].i << ", " << l[i].o << "}," << std::endl;
-			}
+			//void print(std::vector<Rec>& l)
+			//{
+			//	for (size_t i = 0; i < l.size(); ++i)
+			//		std::cout << "{\"" << l[i].str << "\", " << l[i].i << ", " << l[i].o << "}," << std::endl;
+			//}
 
 			void print(std::vector<Rec>& l, std::vector<Rec>& r)
 			{

@@ -301,7 +301,7 @@ namespace macoro
 				eager_task<int> t = eager_taskThrows20();
 				bool didThrow = false;
 				try {
-					auto v = sync_wait(t);
+					sync_wait(t);
 				}
 				catch (std::runtime_error& re)
 				{
@@ -315,7 +315,7 @@ namespace macoro
 				eager_task<int> t = eager_taskThrows14();
 				bool didThrow = false;
 				try {
-					auto v = sync_wait(t);
+					sync_wait(t);
 				}
 				catch (std::runtime_error& re)
 				{
@@ -335,7 +335,7 @@ namespace macoro
 			thread_pool pool;
 			auto w = pool.make_work();
 			std::vector<std::thread> thrds(2);
-			for (int i = 0; i < thrds.size(); ++i)
+			for (size_t i = 0; i < thrds.size(); ++i)
 				thrds[i] = std::thread([&, i] {pool.run(); });
 
 
@@ -379,7 +379,7 @@ namespace macoro
 			}
 
 			w.reset();
-			for (int i = 0; i < thrds.size(); ++i)
+			for (size_t i = 0; i < thrds.size(); ++i)
 				thrds[i].join();
 			//std::cout << "passed" << std::endl;
 		}

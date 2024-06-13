@@ -17,7 +17,7 @@ namespace macoro
 			std::size_t n = 100'000;
 			struct message
 			{
-				int id;
+				size_t id;
 				float data;
 			};
 

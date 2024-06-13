@@ -78,7 +78,7 @@ namespace macoro
 					MC_AWAIT_SET(available, sequencer.wait_until_published(nextToRead));
 					do {
 						msg = &buffer[nextToRead & indexMask];
-						if (msg->id == -1)
+						if (msg->id == size_t(-1))
 						{
 							consumerBarrier.publish(nextToRead);
 							//std::cout << "pop done " << nextToRead << std::endl;

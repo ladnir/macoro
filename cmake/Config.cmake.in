@@ -2,7 +2,7 @@
 
 
 if(NOT MACORO_FIND_QUIETLY)
-	message("macoroConfig.cmake : ${CMAKE_CURRENT_LIST_FILE}")
+	message("macoroConfig.cmake: ${CMAKE_CURRENT_LIST_FILE}")
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/macoroTargets.cmake")

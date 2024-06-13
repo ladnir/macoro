@@ -186,6 +186,9 @@ namespace macoro
                 auto await_suspend(coroutine_handle<> h) {
                     return mInner.await_suspend(h);
                 }
+                auto await_suspend(std::coroutine_handle<> h) {
+                    return mInner.await_suspend(coroutine_handle<>(h));
+                }
                 auto await_resume() {
                     auto idx = mInner.await_resume();
                     mChl->mData[idx & mChl->mIndexMask].emplace(std::forward<T>(mT));
@@ -215,6 +218,9 @@ namespace macoro
 
                 auto await_suspend(coroutine_handle<> h) {
                     return mInner.await_suspend(h);
+                }
+                auto await_suspend(std::coroutine_handle<> h) {
+                    return mInner.await_suspend(coroutine_handle<>(h));
                 }
                 auto await_resume() {
                     auto idx = mInner.await_resume();
@@ -247,6 +253,9 @@ namespace macoro
                 auto await_suspend(coroutine_handle<> h) {
                     return mInner.await_suspend(h);
                 }
+                auto await_suspend(std::coroutine_handle<> h) {
+                    return mInner.await_suspend(coroutine_handle<>(h));
+                }
                 auto await_resume() {
                     auto idx = mInner.await_resume();
                     mChl->mSequence.publish(idx);
@@ -270,6 +279,9 @@ namespace macoro
 
             auto await_suspend(coroutine_handle<> h) {
                 return mInner.await_suspend(h);
+            }
+            auto await_suspend(std::coroutine_handle<> h) {
+                return mInner.await_suspend(coroutine_handle<>(h));
             }
         };
 

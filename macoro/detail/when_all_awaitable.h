@@ -86,7 +86,7 @@ namespace macoro
 		// TASK_CONTAINER should be either an std::tuple or vector like 
 		// container that contains when_all_task<T>.
 		template<typename TASK_CONTAINER>
-		class when_all_ready_awaitable : public when_all_ready_awaitable_base
+		class when_all_ready_awaitable final : public when_all_ready_awaitable_base
 		{
 		public:
 

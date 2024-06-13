@@ -8,6 +8,8 @@
 #include "macoro/result.h"
 #include "macoro/transfer_to.h"
 #include "macoro/inline_scheduler.h"
+#include "macoro/wrap.h"
+
 namespace macoro
 {
 	namespace tests
@@ -26,16 +28,13 @@ namespace macoro
 				spsc::channel_sender<message>& chl,
 				Scheduler& sched)
 			{
-				;
-				MC_BEGIN(task<>, &chl, &sched
-					, i = std::size_t{}
-					, slot = std::move(spsc::channel_sender<message>::push_wrapper{})
-				);
+				auto i = std::size_t{};
+				auto slot = spsc::channel_sender<message>::push_wrapper{};
 				for (i = 0; i < n; ++i)
 				{
 					// Wait until a slot is free in the buffer.
-					MC_AWAIT_SET(slot, chl.push());
-					MC_AWAIT(transfer_to(sched));
+					slot  = co_await chl.push();
+					co_await transfer_to(sched);
 
 					//std::cout << "pushing " << i << std::endl;
 					slot = message{ i, 123 };
@@ -44,11 +43,9 @@ namespace macoro
 				}
 
 				// Publish a sentinel
-				MC_AWAIT(chl.close());
-				MC_AWAIT(transfer_to(sched));
+				co_await chl.close();
+				co_await transfer_to(sched);
 				//std::cout << "returning producer" << std::endl;
-
-				MC_END();
 			}
 
 			template<typename Scheduler>
@@ -56,23 +53,29 @@ namespace macoro
 				spsc::channel_receiver<message>& chl,
 				Scheduler& sched)
 			{
-				MC_BEGIN(task<>, &chl, &sched
-					, i = std::size_t{ 0 }
-					, msg = macoro::result<message>{}
-					, msg2 = std::move(macoro::spsc::channel<message>::pop_wrapper{})
-				);
+				auto i = std::size_t{ 0 };
+				auto msg = macoro::result<message>{};
+				auto msg2 = macoro::spsc::channel<message>::pop_wrapper{};
+				
 				while (true)
 				{
 					// Wait until the next message is available
 					// There may be more than one available.
-					MC_AWAIT_TRY(msg, chl.front());
-					MC_AWAIT(transfer_to(sched));
+					try{
+						msg =  Ok(co_await chl.front());
+					}
+					catch (...)
+					{
+						msg = Err(std::current_exception());
+					}
+
+					co_await(transfer_to(sched));
 					if (msg.has_error())
 					{
 						if (i != n)
 							throw MACORO_RTE_LOC;
 						//std::cout << "returning consumer" << std::endl;
-						MC_RETURN_VOID();
+						co_return;
 					}
 					//std::cout << "popping " << i << std::endl;
 
@@ -81,8 +84,8 @@ namespace macoro
 					if (msg.value().data != 123)
 						throw MACORO_RTE_LOC;
 
-					MC_AWAIT_SET(msg2, chl.pop());
-					MC_AWAIT(transfer_to(sched));
+					msg2 = co_await(chl.pop());
+					co_await(transfer_to(sched));
 
 					if (msg.value().id != msg2->id)
 						throw MACORO_RTE_LOC;
@@ -93,7 +96,6 @@ namespace macoro
 
 				}
 
-				MC_END();
 			}
 
 			template<typename Scheduler>

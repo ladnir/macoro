@@ -4,6 +4,7 @@
 #include "macoro/type_traits.h"
 #include <functional>
 #include <cassert>
+#include <utility>
 #ifdef MACORO_CPP_20
 #include <coroutine>
 #endif // MACORO_CPP_20

@@ -274,7 +274,7 @@ namespace macoro
 				TEST(v.v == 42);
 			}
 			{
-				eager_task<move_only>&& f();
+				// eager_task<move_only>&& f();
 				auto v = sync_wait(eager_taskmove20());
 				TEST(v.v == 42);
 			}
@@ -285,7 +285,7 @@ namespace macoro
 				TEST(v.v == 42);
 			}
 			{
-				eager_task<move_only>&& f();
+				// eager_task<move_only>&& f();
 				auto v = sync_wait(eager_taskmove14());
 				TEST(v.v == 42);
 			}
@@ -336,7 +336,7 @@ namespace macoro
 			auto w = pool.make_work();
 			std::vector<std::thread> thrds(2);
 			for (size_t i = 0; i < thrds.size(); ++i)
-				thrds[i] = std::thread([&, i] {pool.run(); });
+				thrds[i] = std::thread([&] {pool.run(); });
 
 
 			std::vector<eager_task<>> ts; ts.reserve(trials);

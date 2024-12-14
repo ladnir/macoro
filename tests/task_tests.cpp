@@ -386,7 +386,6 @@ namespace macoro
 				TEST(v.v == 42);
 			}
 			{
-				task<move_only>&& f();
 				auto v = sync_wait(taskmove20());
 				TEST(v.v == 42);
 			}
@@ -397,7 +396,7 @@ namespace macoro
 				TEST(v.v == 42);
 			}
 			{
-				task<move_only>&& f();
+				// task<move_only>&& f();
 				auto v = sync_wait(taskmove14());
 				TEST(v.v == 42);
 			}

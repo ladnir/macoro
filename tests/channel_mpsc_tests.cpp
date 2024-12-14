@@ -15,6 +15,12 @@ namespace macoro
     {
         namespace
         {
+            template<typename R>
+            R&& move2(R&&r)
+            {
+                return std::move(r);
+            }
+
             std::size_t n = 1000;
             struct message
             {
@@ -32,7 +38,7 @@ namespace macoro
                 ;
                 MC_BEGIN(task<>, &chl, &sched, tIdx
                     , i = size_t{}
-                    , slot = std::move(mpsc::channel_sender<message>::push_wrapper{})
+                    , slot = move2(mpsc::channel_sender<message>::push_wrapper{})
                 );
                 for (i = 0; i < n; ++i)
                 {
@@ -90,8 +96,7 @@ namespace macoro
                 MC_BEGIN(task<>, &chl, &sched, numProducers
                     , i = std::vector<size_t>( numProducers )
                     , msg = macoro::result<message>{}
-                    , msgPtr = (message*)nullptr
-                    , msg2 = std::move(macoro::mpsc::channel<message>::pop_wrapper{})
+                    , msg2 = move2(macoro::mpsc::channel<message>::pop_wrapper{})
                 );
                 while (true)
                 {
@@ -115,7 +120,7 @@ namespace macoro
                     }
                     //std::cout << "popping " << i << std::endl;
 
-                    msgPtr = &msg.value();
+                    //msgPtr = &msg.value();
                     if (msg.value().tIdx > numProducers)
                         throw MACORO_RTE_LOC;
                     if (msg.value().id != i[msg.value().tIdx])

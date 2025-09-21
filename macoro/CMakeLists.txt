@@ -54,7 +54,7 @@ elseif(MSVC)
         $<$<COMPILE_LANGUAGE:CXX>:/std:c++${MACORO_CPP_VER}>
     )
     target_compile_options( macoro PUBLIC
-        "/D_ENABLE_EXTENDED_ALIGNED_STORAGE"
+        $<$<COMPILE_LANGUAGE:CXX>:/D_ENABLE_EXTENDED_ALIGNED_STORAGE>
     )
 
 

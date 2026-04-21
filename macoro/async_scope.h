@@ -193,20 +193,21 @@ namespace macoro
 
 			bool await_ready() const noexcept { return m_barrier.await_ready(); }
 
-			template<typename Promise>
-			coroutine_handle<> await_suspend(
-				coroutine_handle<Promise> awaiting_coroutine,
-				std::source_location loc = std::source_location::current()) noexcept
+			void set_await_location(std::source_location loc) noexcept
 			{
-				return m_barrier.await_suspend(awaiting_coroutine, loc);
+				m_barrier.set_await_location(loc);
 			}
 
 			template<typename Promise>
-			std::coroutine_handle<> await_suspend(
-				std::coroutine_handle<Promise> awaiting_coroutine,
-				std::source_location loc = std::source_location::current()) noexcept
+			coroutine_handle<> await_suspend(coroutine_handle<Promise> awaiting_coroutine) noexcept
 			{
-				return m_barrier.await_suspend(awaiting_coroutine, loc);
+				return m_barrier.await_suspend(awaiting_coroutine);
+			}
+
+			template<typename Promise>
+			std::coroutine_handle<> await_suspend(std::coroutine_handle<Promise> awaiting_coroutine) noexcept
+			{
+				return m_barrier.await_suspend(awaiting_coroutine);
 			}
 
 			void await_resume()

@@ -108,6 +108,19 @@ namespace macoro
 				coroutine_handle_t::from_promise(*this, m_type).resume();
 			}
 
+			template<typename A>
+			auto await_transform(A&& a) noexcept
+				requires detail::has_traced_awaiter<A&&>
+			{
+				return detail::get_awaiter_with_location(std::forward<A>(a), std::source_location::current());
+			}
+
+			template<typename A>
+			decltype(auto) await_transform(A&& a) noexcept
+			{
+				return std::forward<A>(a);
+			}
+
 			RESULT& result()&
 			{
 				rethrow_if_exception();
@@ -210,6 +223,19 @@ namespace macoro
 			{
 				m_awaitable = &awaitable;
 				coroutine_handle_t::from_promise(*this, m_type).resume();
+			}
+
+			template<typename A>
+			auto await_transform(A&& a) noexcept
+				requires detail::has_traced_awaiter<A&&>
+			{
+				return detail::get_awaiter_with_location(std::forward<A>(a), std::source_location::current());
+			}
+
+			template<typename A>
+			decltype(auto) await_transform(A&& a) noexcept
+			{
+				return std::forward<A>(a);
 			}
 
 			void result()

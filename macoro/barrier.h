@@ -14,6 +14,7 @@ namespace macoro
 	class barrier_awaiter : basic_traceable
 	{
 		barrier& m_barrier;
+		std::source_location m_loc{};
 
 	public:
 
@@ -23,17 +24,18 @@ namespace macoro
 
 		bool await_ready() const noexcept { return false; }
 
-		template <typename Promise>
-		coroutine_handle<> await_suspend(
-			coroutine_handle<Promise> continuation,
-			std::source_location loc = std::source_location::current()) noexcept;
+		void set_await_location(std::source_location loc) noexcept
+		{
+			m_loc = loc;
+		}
 
 		template <typename Promise>
-		std::coroutine_handle<> await_suspend(
-			std::coroutine_handle<Promise> continuation,
-			std::source_location loc = std::source_location::current()) noexcept
+		coroutine_handle<> await_suspend(coroutine_handle<Promise> continuation) noexcept;
+
+		template <typename Promise>
+		std::coroutine_handle<> await_suspend(std::coroutine_handle<Promise> continuation) noexcept
 		{
-			return await_suspend(coroutine_handle<Promise>(continuation), loc).std_cast();
+			return await_suspend(coroutine_handle<Promise>(continuation)).std_cast();
 		}
 
 		void await_resume() const noexcept {}
@@ -122,13 +124,12 @@ namespace macoro
 
 	template <typename Promise>
 	coroutine_handle<> barrier_awaiter::await_suspend(
-		coroutine_handle<Promise> continuation,
-		std::source_location loc) noexcept
+		coroutine_handle<Promise> continuation) noexcept
 	{
 		coroutine_handle<> ret = continuation;
 		if (m_barrier.increment() > 1)
 		{
-			set_parent(get_traceable(continuation), loc);
+			set_parent(get_traceable(continuation), m_loc);
 			assert(m_barrier.m_continuation == nullptr);
 			m_barrier.m_continuation = std::exchange(ret, noop_coroutine());
 		}

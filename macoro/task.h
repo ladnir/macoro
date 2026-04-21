@@ -299,6 +299,13 @@ namespace macoro
 
 
 			template<typename A>
+			auto await_transform(A&& a) noexcept
+				requires detail::has_traced_awaiter<A&&>
+			{
+				return detail::get_awaiter_with_location(std::forward<A>(a), std::source_location::current());
+			}
+
+			template<typename A>
 			decltype(auto) await_transform(A&&a) noexcept
 			{
 				return std::forward<A>(a);
@@ -356,6 +363,13 @@ namespace macoro
 
 
 			template<typename A>
+			auto await_transform(A&& a) noexcept
+				requires detail::has_traced_awaiter<A&&>
+			{
+				return detail::get_awaiter_with_location(std::forward<A>(a), std::source_location::current());
+			}
+
+			template<typename A>
 			decltype(auto) await_transform(A&& a) noexcept
 			{
 				return std::forward<A>(a);
@@ -407,6 +421,13 @@ namespace macoro
 			}
 
 			template<typename A>
+			auto await_transform(A&& a) noexcept
+				requires detail::has_traced_awaiter<A&&>
+			{
+				return detail::get_awaiter_with_location(std::forward<A>(a), std::source_location::current());
+			}
+
+			template<typename A>
 			decltype(auto) await_transform(A&& a) noexcept
 			{
 				return std::forward<A>(a);
@@ -425,6 +446,7 @@ namespace macoro
 		{
 			using promise_type = task_promise<T, true>;
 			coroutine_handle<promise_type> m_coroutine;
+			std::source_location m_loc{};
 #ifdef MACORO_CPP_20
 			task_awaitable_base(std::coroutine_handle<promise_type> coroutine) noexcept
 				: m_coroutine(coroutine_handle<promise_type>(coroutine))
@@ -434,6 +456,11 @@ namespace macoro
 				: m_coroutine(coroutine)
 			{}
 
+			void set_await_location(std::source_location loc) noexcept
+			{
+				m_loc = loc;
+			}
+
 			bool await_ready() const noexcept
 			{
 				return !m_coroutine || m_coroutine.done();
@@ -442,20 +469,18 @@ namespace macoro
 #ifdef MACORO_CPP_20
 			template<typename Promise>
 			std::coroutine_handle<> await_suspend(
-				std::coroutine_handle<Promise> awaitingCoroutine,
-				std::source_location l = std::source_location::current()) noexcept
+				std::coroutine_handle<Promise> awaitingCoroutine) noexcept
 			{
 				auto& prom = m_coroutine.promise();
-				prom.set_continuation(awaitingCoroutine, l);
+				prom.set_continuation(awaitingCoroutine, m_loc);
 				return m_coroutine.std_cast();
 			}
 #endif
 			template<typename Promise>
 			coroutine_handle<> await_suspend(
-				coroutine_handle<Promise> awaitingCoroutine, 
-				std::source_location l = std::source_location::current()) noexcept
+				coroutine_handle<Promise> awaitingCoroutine) noexcept
 			{
-				m_coroutine.promise().set_continuation(awaitingCoroutine, l);
+				m_coroutine.promise().set_continuation(awaitingCoroutine, m_loc);
 				return m_coroutine;
 			}
 		};
@@ -772,4 +797,3 @@ namespace macoro
 	}
 
 }
-

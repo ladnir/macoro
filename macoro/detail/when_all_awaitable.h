@@ -121,6 +121,11 @@ namespace macoro
 					: m_awaitable(awaitable)
 				{}
 
+				void set_await_location(std::source_location loc) noexcept
+				{
+					m_loc = loc;
+				}
+
 				bool await_ready() const noexcept
 				{
 					return m_awaitable.is_ready();
@@ -128,17 +133,17 @@ namespace macoro
 
 #ifdef MACORO_CPP_20
 				template<typename Promise>
-				bool await_suspend(std::coroutine_handle<Promise> awaitingCoroutine, std::source_location loc = std::source_location::current()) noexcept
+				bool await_suspend(std::coroutine_handle<Promise> awaitingCoroutine) noexcept
 				{
-					m_awaitable.set_parent(get_traceable(awaitingCoroutine), loc);
-					return await_suspend(coroutine_handle<>(awaitingCoroutine), loc);
+					m_awaitable.set_parent(get_traceable(awaitingCoroutine), m_loc);
+					return await_suspend(coroutine_handle<>(awaitingCoroutine));
 				}
 #endif
 				template<typename Promise>
-				bool await_suspend(coroutine_handle<Promise> awaitingCoroutine, std::source_location loc = std::source_location::current()) noexcept
+				bool await_suspend(coroutine_handle<Promise> awaitingCoroutine) noexcept
 				{
-					m_awaitable.set_parent(get_traceable(awaitingCoroutine), loc);
-					return m_awaitable.try_await(awaitingCoroutine, loc);
+					m_awaitable.set_parent(get_traceable(awaitingCoroutine), m_loc);
+					return m_awaitable.try_await(awaitingCoroutine);
 				}
 
 				TASK_CONTAINER& await_resume() noexcept
@@ -149,6 +154,7 @@ namespace macoro
 			private:
 
 				when_all_ready_awaitable& m_awaitable;
+				std::source_location m_loc{};
 
 			};
 
@@ -166,6 +172,11 @@ namespace macoro
 					: m_awaitable(awaitable)
 				{}
 
+				void set_await_location(std::source_location loc) noexcept
+				{
+					m_loc = loc;
+				}
+
 				bool await_ready() const noexcept
 				{
 					return m_awaitable.is_ready();
@@ -173,18 +184,16 @@ namespace macoro
 
 #ifdef MACORO_CPP_20
 				template<typename Promise>
-				bool await_suspend(std::coroutine_handle<Promise> awaitingCoroutine, std::source_location loc = std::source_location::current()) noexcept
+				bool await_suspend(std::coroutine_handle<Promise> awaitingCoroutine) noexcept
 				{
-					m_awaitable.set_parent(get_traceable(awaitingCoroutine), loc);
+					m_awaitable.set_parent(get_traceable(awaitingCoroutine), m_loc);
 					return m_awaitable.try_await(coroutine_handle<>(awaitingCoroutine));
-
-					//return await_suspend(coroutine_handle<>(awaitingCoroutine), loc);
 				}
 #endif
 				template<typename Promise>
-				bool await_suspend(coroutine_handle<Promise> awaitingCoroutine, std::source_location loc = std::source_location::current()) noexcept
+				bool await_suspend(coroutine_handle<Promise> awaitingCoroutine) noexcept
 				{
-					m_awaitable.set_parent(get_traceable(awaitingCoroutine), loc);
+					m_awaitable.set_parent(get_traceable(awaitingCoroutine), m_loc);
 					return m_awaitable.try_await(awaitingCoroutine);
 				}
 
@@ -196,6 +205,7 @@ namespace macoro
 			private:
 
 				when_all_ready_awaitable& m_awaitable;
+				std::source_location m_loc{};
 
 			};
 
@@ -257,4 +267,3 @@ namespace macoro
 		};
 	}
 }
-

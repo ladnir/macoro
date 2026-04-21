@@ -1,5 +1,6 @@
 import os
 import platform
+import subprocess
 import sys
 import multiprocessing
 
@@ -92,17 +93,33 @@ def Build(projectName, argv, install, par, sudo, noConfig):
             print(InstallCmd)
     print("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n\n")
 
+    def run(cmd):
+        return subprocess.call(cmd, shell=True)
+
+    status = 0
+
     if not noConfig:
-        os.system(mkDirCmd)
-        os.system(CMakeCmd)
+        status = run(mkDirCmd)
+        if status:
+            return status
+        status = run(CMakeCmd)
+        if status:
+            return status
 
     if not setup:
-        os.system(BuildCmd)
+        status = run(BuildCmd)
+        if status:
+            return status
 
         if len(sudo) > 0:
             print("installing "+projectName+": {0}\n".format(InstallCmd))
 
-        os.system(InstallCmd)
+        if InstallCmd:
+            status = run(InstallCmd)
+            if status:
+                return status
+
+    return 0
 
 
 
@@ -172,8 +189,8 @@ def main(projectName, argv):
     argv = replace(argv, "--nc", "")
 
 
-    Build(projectName, argv, install, par, sudo, noConfig)
+    return Build(projectName, argv, install, par, sudo, noConfig)
 
 if __name__ == "__main__":
 
-    main("macoro", sys.argv[1:])
+    sys.exit(main("macoro", sys.argv[1:]))

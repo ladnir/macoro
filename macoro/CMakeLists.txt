@@ -17,6 +17,7 @@ if(MSVC)
 endif()
 
 add_library(macoro STATIC ${SRC} "trace.h" "barrier.h" )
+add_library(macoro::macoro ALIAS macoro)
 
 
 
@@ -153,4 +154,3 @@ install(EXPORT macoroTargets
        FILE "${CMAKE_CURRENT_BINARY_DIR}/macoroTargets.cmake"
        NAMESPACE macoro::
 )
-

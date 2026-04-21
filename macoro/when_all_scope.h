@@ -98,6 +98,13 @@ namespace macoro
 			void return_void() noexcept {};
 
 			template<typename A>
+			auto await_transform(A&& a) noexcept
+				requires detail::has_traced_awaiter<A&&>
+			{
+				return detail::get_awaiter_with_location(std::forward<A>(a), std::source_location::current());
+			}
+
+			template<typename A>
 			decltype(auto) await_transform(A&& a) noexcept
 			{
 				return std::forward<A>(a);
@@ -136,15 +143,20 @@ namespace macoro
 		{
 			coroutine_handle<promise_type> m_handle;
 			async_scope::join_awaiter m_join;
+			std::source_location m_loc{};
 
 			bool await_ready() { return m_join.await_ready(); }
 
-			template<typename promise>
-			std::coroutine_handle<> await_suspend(
-				std::coroutine_handle<promise> p, 
-				std::source_location loc = std::source_location::current())
+			void set_await_location(std::source_location loc) noexcept
 			{
-				m_handle.promise().m_scope.set_parent(get_traceable(p.promise()), loc);
+				m_loc = loc;
+				m_join.set_await_location(loc);
+			}
+
+			template<typename promise>
+			std::coroutine_handle<> await_suspend(std::coroutine_handle<promise> p)
+			{
+				m_handle.promise().m_scope.set_parent(get_traceable(p.promise()), m_loc);
 				m_handle.resume();
 				return m_join.await_suspend(p);
 			}

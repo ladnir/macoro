@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include "macoro/coroutine_handle.h"
+#include "macoro/type_traits.h"
 #include <source_location>
 #include <mutex>
 
@@ -124,6 +125,36 @@ namespace macoro
 			else
 				return nullptr;
 
+		}
+
+		template<typename Awaiter>
+		void set_await_location(Awaiter& awaiter, std::source_location loc) noexcept
+		{
+			if constexpr (requires(Awaiter& a) { a.set_await_location(loc); })
+			{
+				awaiter.set_await_location(loc);
+			}
+			else
+			{
+				(void)awaiter;
+				(void)loc;
+			}
+		}
+
+		template<typename Awaitable>
+		concept has_traced_awaiter =
+			requires(Awaitable&& awaitable, std::source_location loc)
+			{
+				{ get_awaiter(static_cast<Awaitable&&>(awaitable)) };
+				{ get_awaiter(static_cast<Awaitable&&>(awaitable)).set_await_location(loc) };
+			};
+
+		template<typename Awaitable>
+		auto get_awaiter_with_location(Awaitable&& awaitable, std::source_location loc)
+		{
+			auto awaiter = get_awaiter(static_cast<Awaitable&&>(awaitable));
+			set_await_location(awaiter, loc);
+			return awaiter;
 		}
 	}
 

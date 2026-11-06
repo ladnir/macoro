@@ -189,7 +189,7 @@ namespace macoro
 		struct join_awaiter
 		{
 			barrier_awaiter m_barrier;
-			std::vector<std::exception_ptr> m_exceptions;
+			async_scope& m_scope;
 
 			bool await_ready() const noexcept { return m_barrier.await_ready(); }
 
@@ -213,8 +213,15 @@ namespace macoro
 			void await_resume()
 			{
 				m_barrier.await_resume();
-				if (m_exceptions.size())
-					throw async_scope_exception(std::move(m_exceptions));
+				// Children publish errors before signalling the barrier. Collect
+				// only after the join, including errors raised while suspended.
+				std::vector<std::exception_ptr> exceptions;
+				{
+					std::lock_guard<std::mutex> lock(m_scope.m_exception_mutex);
+					exceptions.swap(m_scope.m_exceptions);
+				}
+				if (!exceptions.empty())
+					throw async_scope_exception(std::move(exceptions));
 			}
 		};
 
@@ -230,7 +237,7 @@ namespace macoro
 		// until all added awaitables have been completed.
 		join_awaiter MACORO_OPERATOR_COAWAIT() & noexcept
 		{
-			return { m_barrier.MACORO_OPERATOR_COAWAIT(), std::move(m_exceptions) };
+			return { m_barrier.MACORO_OPERATOR_COAWAIT(), *this };
 		}
 
 	private:
@@ -260,69 +267,48 @@ namespace macoro
 
 
 		template<typename T>
-		bool scoped_task_promise<T>::final_awaitable::await_ready() noexcept
+		coroutine_handle<> scoped_task_promise<T>::final_awaitable::await_suspend(
+			coroutine_handle<scoped_task_promise> coro) noexcept
 		{
-			scoped_task_promise& promise = m_promise;
-			async_scope* scope = promise.m_scope;
-			bool done = false;
+			auto& promise = coro.promise();
+			auto* scope = promise.m_scope;
+			coroutine_handle<> continuation = noop_coroutine();
 
-			// race to see if we need to call the completion handle
-			// it might not have been set yet (or ever).
-			// release our result. acquire their continuation (if they beat us).
-			completion_state b = promise.completion_state_fetch_or(
-				completion_state::has_completed,
-				std::memory_order_acq_rel);
-
-			// if b, then we have finished after the continuation was set. 
-			if (b == completion_state::has_continuation_or_dropped)
+			// The frame is suspended before publishing completion. An owner
+			// that observes has_completed may immediately consume/destroy it.
+			auto state = promise.completion_state_fetch_or(
+				completion_state::has_completed, std::memory_order_acq_rel);
+			if (state == completion_state::has_continuation_or_dropped)
 			{
-				// if we dont have a continuation, that means the 
-				// scoped_task has been dropped. Therefore, no one
-				// wants the result and we can destroy the coro.
-				//
-				// if we do have a continuation, that means we have 
-				// a scoped_task::awaiter somewhere and they will
-				// call destroy for us, once the continuation consumes
-				// the return value. 
 				if (promise.m_continuation)
 				{
-					m_run_continutation = true;
-					done = false;
+					// The explicit consumer owns the frame until it takes the result.
+					continuation = promise.m_continuation;
 				}
 				else
 				{
 					if (promise.m_result_type == result_type::exception)
 					{
-						// todo, replace vector by a lock free linked list, either to the full
-						// coro frame (no allocations) or to the execptions (node allocations).
-						// for now, locking on expcetions should be fine.
-						std::lock_guard<std::mutex> lock(promise.m_scope->m_exception_mutex);
-						promise.m_scope->m_exceptions.push_back(std::move(promise.m_exception));
+						std::lock_guard<std::mutex> lock(scope->m_exception_mutex);
+						scope->m_exceptions.push_back(std::move(promise.m_exception));
 					}
-
-					// destroy the coro.
-					// this is the same as coro.destroy()
-					// but there is a msvc bug if you do that.
-					done = true;
+					// Finish parameter/result destruction before the join can resume
+					// and release resources borrowed by those destructors.
+					coro.destroy();
 				}
 			}
 			else
 			{
-				// the handle is still alive and the user might set 
-				// a continuation. If they set a continuation, the 
-				// awaiter will destroy the coro once the continuation
-				// constumes the result.
-				// 
-				// If a continuation is never set, then the scoped_task
-				// will destroy the coro in its distructor. 
-				assert(b == completion_state::inprogress);
-				done = false;
+				assert(state == completion_state::inprogress);
+				// The handle is still owned elsewhere. Do not touch the promise:
+				// that owner may already have destroyed it on another thread.
 			}
 
-			// notify the scope that we are done.
+			// This can destroy the scope too. Only local copies are used below.
 			scope->m_barrier.decrement();
-			return done;
+			return continuation;
 		}
+
 	}
 
 

@@ -139,6 +139,19 @@ namespace macoro
 			: m_handle(h)
 		{}
 
+		when_all_scope(const when_all_scope&) = delete;
+		when_all_scope& operator=(const when_all_scope&) = delete;
+		when_all_scope(when_all_scope&& other) noexcept
+			: m_handle(std::exchange(other.m_handle, nullptr))
+		{}
+		when_all_scope& operator=(when_all_scope&&) = delete;
+		~when_all_scope()
+		{
+			// Own the frame even when never started. Once started, structured
+			// lifetime requires awaiting the scope and its children before destruction.
+			if (m_handle) m_handle.destroy();
+		}
+
 		struct awaiter
 		{
 			coroutine_handle<promise_type> m_handle;

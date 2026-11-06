@@ -262,39 +262,22 @@ namespace macoro
 			// the status of the value/exception storage.
 			result_type m_result_type = result_type::empty;
 
-			// this final awaiter runs the suspend logic in await_ready
-			// due to a bug un msvc. Using symetric transfer and called
-			// destroy when done = true causes a segfault. This alternative
-			// implementation implicitly destroys the coro by returning
-			// true from await_ready.
+			// Publish completion only after suspension: the owner may immediately
+			// destroy the frame. Dropped tasks destroy it before releasing the join.
 			struct final_awaitable
 			{
-				scoped_task_promise& m_promise;
-
-				// a variable used to remember if we need to call the continuation.
-				bool m_run_continutation = false;
-
-				bool await_ready() noexcept;
+				bool await_ready() noexcept { return false; }
 
 #ifdef MACORO_CPP_20
 				std::coroutine_handle<> await_suspend(
 					std::coroutine_handle<scoped_task_promise> coro) noexcept
 				{
-					if (m_run_continutation)
-						return m_promise.m_continuation.std_cast();
-					else
-						return std::noop_coroutine();
+					return await_suspend(coroutine_handle<scoped_task_promise>(coro)).std_cast();
 				}
 #endif
 
 				coroutine_handle<> await_suspend(
-					coroutine_handle<scoped_task_promise> coro) noexcept
-				{
-					if (m_run_continutation)
-						return m_promise.m_continuation;
-					else
-						return noop_coroutine();
-				}
+					coroutine_handle<scoped_task_promise> coro) noexcept;
 
 				void await_resume() noexcept {
 				}
@@ -311,7 +294,7 @@ namespace macoro
 			}
 
 			suspend_never initial_suspend() noexcept { return {}; }
-			final_awaitable final_suspend() noexcept { return { *this }; }
+			final_awaitable final_suspend() noexcept { return {}; }
 
 #ifdef MACORO_CPP_20
 			completion_state try_set_continuation(std::coroutine_handle<> continuation) noexcept

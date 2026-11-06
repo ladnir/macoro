@@ -298,6 +298,8 @@ namespace macoro
 
 		t.add("when_all_basic_tests               ", when_all_basic_tests);
 		t.add("when_all_scope_test                ", when_all_scope_test);
+		t.add("when_all_scope_error_join_test     ", when_all_scope_error_join_test);
+		t.add("when_all_scope_cleanup_test        ", when_all_scope_cleanup_test);
 		
 		t.add("schedule_after_test                ", schedule_after);
 		t.add("take_until_tests                   ", take_until_tests);

@@ -7,6 +7,7 @@
 
 #include "macoro/coroutine_handle.h"
 #include "macoro/awaiter.h"
+#include "macoro/work_item.h"
 #include "stop.h"
 #include <algorithm>
 #include <sstream>
@@ -17,6 +18,27 @@ namespace macoro
 {
     namespace detail
     {
+        // Caller holds the queue lock. Kept independent of its allocator so the
+        // strong publication guarantee also applies to allocation failure.
+        template<class Queue>
+        void append_work_batch(Queue& queue, const work_item* items, std::size_t count)
+        {
+            const auto previous = queue.size();
+            try
+            {
+                for (std::size_t i = 0; i < count; ++i)
+                {
+                    assert(items[i]);
+                    queue.push_back(items[i]);
+                }
+            }
+            catch (...)
+            {
+                while (queue.size() != previous) queue.pop_back();
+                throw;
+            }
+        }
+
         using thread_pool_clock = std::chrono::steady_clock;
         using thread_pool_time_point = std::chrono::time_point<thread_pool_clock>;
         struct thread_pool_delay_op
@@ -51,7 +73,7 @@ namespace macoro
             std::size_t mWork = 0;
             static thread_local thread_pool_state* mCurrentExecutor;
 
-            std::deque<coroutine_handle<void>> mDeque;
+            std::deque<work_item> mDeque;
             //struct LE
             //{
             //	LE(const char* s, thread_pool_time_point t)
@@ -72,7 +94,7 @@ namespace macoro
             std::size_t mDelayOpIdx = 0;
             std::vector<std::thread> mThreads;
 
-            void post(coroutine_handle<void> fn)
+            void post(work_item fn)
             {
                 //log("post");
                 assert(fn);
@@ -81,6 +103,26 @@ namespace macoro
                     mDeque.push_back(std::move(fn));
                 }
                 mCondition.notify_one();
+            }
+
+            void post(coroutine_handle<void> fn)
+            {
+                assert(fn);
+                post(work_item::resume(fn));
+            }
+
+            // Publish the whole batch or none of it. Workers cannot observe the
+            // inserted prefix while the mutex is held, including during rollback.
+            void post_batch(const work_item* items, std::size_t count)
+            {
+                if (!count) return;
+                assert(items);
+                {
+                    std::lock_guard<std::mutex> lock(mMutex);
+                    append_work_batch(mDeque, items, count);
+                }
+                if (count == 1) mCondition.notify_one();
+                else mCondition.notify_all();
             }
 
             MACORO_NODISCARD
@@ -93,7 +135,7 @@ namespace macoro
                 {
                     {
                         std::lock_guard<std::mutex> lock(mMutex);
-                        mDeque.push_back(std::move(fn));
+                        mDeque.push_back(work_item::resume(fn));
                     }
 
                     mCondition.notify_one();
@@ -308,6 +350,17 @@ namespace macoro
             mState->post(fn);
         };
 
+        // The caller retains each context until its execution has completed.
+        void post(work_item item)
+        {
+            mState->post(item);
+        }
+
+        void post_batch(const work_item* items, std::size_t count)
+        {
+            mState->post_batch(items, count);
+        }
+
         coroutine_handle<void> dispatch(coroutine_handle<void> fn)
         {
             if (mState->try_dispatch(fn))
@@ -384,7 +437,7 @@ namespace macoro
                 throw std::runtime_error("calling run() on a thread that is already controlled by a thread_pool is not supported. ");
             detail::thread_pool_state::mCurrentExecutor = state;
 
-            coroutine_handle<void> fn;
+            work_item fn;
 
             {
                 std::unique_lock<std::mutex> lock(state->mMutex);
@@ -420,7 +473,7 @@ namespace macoro
                     {
                         //state->log("run::pop-delay");
 
-                        fn = state->mDelayHeap.front().handle;
+                        fn = work_item::resume(state->mDelayHeap.front().handle);
                         std::pop_heap(state->mDelayHeap.begin(), state->mDelayHeap.end());
                         state->mDelayHeap.pop_back();
                     }
@@ -435,7 +488,7 @@ namespace macoro
                     {
                         lock.unlock();
 
-                        fn.resume();
+                        fn();
                         fn = {};
 
                         lock.lock();

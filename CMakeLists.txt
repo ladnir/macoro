@@ -7,6 +7,10 @@ include(cmake/macoroFindDeps.cmake)
 add_subdirectory(macoro)
 
 if(MACORO_TESTS)
+    enable_testing()
 	add_subdirectory(tests)
 	add_subdirectory(frontend)
+    add_test(NAME macoro_bulk COMMAND macoroFrontend -u
+        bulk thread_pool schedule_after when_all_basic when_all_scope)
+    set_tests_properties(macoro_bulk PROPERTIES TIMEOUT 30)
 endif()

@@ -2,6 +2,7 @@
 
 
 add_library(macoroTests 
+	"bulk_tests.cpp"
 	"tests.cpp"
 	"CLP.cpp"
 	"task_tests.cpp"

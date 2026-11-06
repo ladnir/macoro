@@ -10,6 +10,7 @@
 #include "channel_spsc_tests.h"
 #include "channel_mpsc_tests.h"
 #include "async_scope_tests.h"
+#include "bulk_tests.h"
 
 #ifdef _MSC_VER
 #include <windows.h>
@@ -280,6 +281,14 @@ namespace macoro
 
 	TestCollection testCollection([](TestCollection& t) {
 		using namespace tests;
+
+        t.add("thread_pool_work_items_test", thread_pool_work_items_test);
+        t.add("thread_pool_batch_failure_test", thread_pool_batch_failure_test);
+        t.add("bulk_coverage_test", bulk_coverage_test);
+        t.add("bulk_inline_submission_test", bulk_inline_submission_test);
+        t.add("bulk_exception_join_test", bulk_exception_join_test);
+        t.add("bulk_composition_test", bulk_composition_test);
+        t.add("bulk_alignment_test", bulk_alignment_test);
 
 		t.add("task_int_test                      ", task_int_test);
 		t.add("task_void_test                     ", task_void_test);

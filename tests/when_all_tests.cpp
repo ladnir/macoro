@@ -73,9 +73,9 @@ namespace macoro
 				>>
 			{
 				co_return co_await when_all_ready(std::move(ff), h());
-			}();
+			};
 
-			auto r2 = sync_wait(std::move(t));
+			auto r2 = sync_wait(t());
 
 			detail::when_all_task<int> r0 = std::move(std::get<0>(r2));
 			detail::when_all_task<bool&> r1 = std::move(std::get<1>(r2));

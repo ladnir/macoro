@@ -90,7 +90,7 @@ namespace macoro
 		{
 		public:
 
-			size_t tasks_size(TASK_CONTAINER& tasks)
+			static size_t tasks_size(const TASK_CONTAINER& tasks)
 			{
 				if constexpr (is_tuple<TASK_CONTAINER>::value)
 					return std::tuple_size<TASK_CONTAINER>::value;

@@ -1,3 +1,4 @@
+#include "all_of_tests.h"
 
 #include "tests.h"
 #include "await_lifetime_tests.h"
@@ -282,6 +283,15 @@ namespace macoro
 	TestCollection testCollection([](TestCollection& t) {
 		using namespace tests;
 
+#ifdef MACORO_CPP_20
+        t.add("all_of_coverage_test", all_of_coverage_test);
+        t.add("all_of_async_test", all_of_async_test);
+        t.add("all_of_stop_join_test", all_of_stop_join_test);
+        t.add("all_of_ownership_test", all_of_ownership_test);
+        t.add("all_of_submission_failure_test", all_of_submission_failure_test);
+        t.add("all_of_adapter_test", all_of_adapter_test);
+        t.add("all_of_allocation_test", all_of_allocation_test);
+#endif
         t.add("thread_pool_work_items_test", thread_pool_work_items_test);
         t.add("thread_pool_batch_failure_test", thread_pool_batch_failure_test);
         t.add("bulk_coverage_test", bulk_coverage_test);

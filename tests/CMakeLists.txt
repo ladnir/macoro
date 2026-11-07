@@ -1,7 +1,8 @@
 
 
 
-add_library(macoroTests 
+add_library(macoroTests
+    "all_of_tests.cpp"
 	"bulk_tests.cpp"
 	"tests.cpp"
 	"CLP.cpp"

@@ -13,4 +13,9 @@ if(MACORO_TESTS)
     add_test(NAME macoro_bulk COMMAND macoroFrontend -u
         bulk thread_pool schedule_after when_all_basic when_all_scope)
     set_tests_properties(macoro_bulk PROPERTIES TIMEOUT 30)
+    if(MACORO_CPP_20)
+        add_test(NAME macoro_all_of COMMAND macoroFrontend -u all_of)
+        set_tests_properties(macoro_all_of PROPERTIES TIMEOUT 30
+            PASS_REGULAR_EXPRESSION "All Passed \\(7\\)")
+    endif()
 endif()

@@ -299,6 +299,8 @@ namespace macoro
         t.add("bulk_exception_join_test", bulk_exception_join_test);
         t.add("bulk_composition_test", bulk_composition_test);
         t.add("bulk_alignment_test", bulk_alignment_test);
+        t.add("bulk_chunked_test", bulk_chunked_test);
+        t.add("bulk_chunked_alignment_test", bulk_chunked_alignment_test);
 
 		t.add("task_int_test                      ", task_int_test);
 		t.add("task_void_test                     ", task_void_test);

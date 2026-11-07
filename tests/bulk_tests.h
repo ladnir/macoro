@@ -8,4 +8,6 @@ namespace macoro::tests
     void bulk_exception_join_test();
     void bulk_composition_test();
     void bulk_alignment_test();
+    void bulk_chunked_test();
+    void bulk_chunked_alignment_test();
 }

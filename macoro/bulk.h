@@ -21,7 +21,7 @@ namespace macoro
     namespace detail
     {
         template<class Executor, class Local, class Fn>
-        class bulk_awaitable
+        class bulk_chunked_awaitable
         {
             // The awaitable can live in a coroutine frame whose allocation does
             // not support extended alignment. Only over-aligned callables need
@@ -46,7 +46,7 @@ namespace macoro
 
             struct partition
             {
-                bulk_awaitable* owner = nullptr;
+                bulk_chunked_awaitable* owner = nullptr;
                 std::size_t index = 0;
                 std::exception_ptr error;
             };
@@ -86,7 +86,7 @@ namespace macoro
                 {
                     auto& local = self.mLocals[part.index];
                     auto& fn = self.function();
-                    for (auto i = begin; i < end; ++i) fn(i, local);
+                    fn(begin, end, local);
                 }
                 catch (...) { part.error = std::current_exception(); }
 
@@ -98,7 +98,7 @@ namespace macoro
 
         public:
             template<class F>
-            bulk_awaitable(Executor& executor, std::size_t count, Local* locals,
+            bulk_chunked_awaitable(Executor& executor, std::size_t count, Local* locals,
                 std::size_t localCount, F&& fn)
                 : mExecutor(executor), mCount(count), mLocals(locals),
                   mFunction(storeFunction(std::forward<F>(fn))),
@@ -106,17 +106,17 @@ namespace macoro
                   mItems(mPartitions.size())
             {
                 static_assert(std::is_same<decltype(std::declval<Fn&>()(
-                    std::size_t{}, std::declval<Local&>())), void>::value,
-                    "bulk callbacks must be synchronous and return void");
+                    std::size_t{}, std::size_t{}, std::declval<Local&>())), void>::value,
+                    "bulk_chunked callbacks must be synchronous and return void");
             }
 
-            bulk_awaitable(const bulk_awaitable&) = delete;
-            bulk_awaitable& operator=(const bulk_awaitable&) = delete;
-            bulk_awaitable& operator=(bulk_awaitable&&) = delete;
+            bulk_chunked_awaitable(const bulk_chunked_awaitable&) = delete;
+            bulk_chunked_awaitable& operator=(const bulk_chunked_awaitable&) = delete;
+            bulk_chunked_awaitable& operator=(bulk_chunked_awaitable&&) = delete;
 
             // Macoro's awaiter adapters may move an unstarted operation. Bind
             // partition pointers only in await_suspend, at its final address.
-            bulk_awaitable(bulk_awaitable&& other)
+            bulk_chunked_awaitable(bulk_chunked_awaitable&& other)
                 noexcept(std::is_nothrow_move_constructible<function_storage>::value)
                 : mExecutor(other.mExecutor), mCount(other.mCount), mLocals(other.mLocals),
                   mFunction(std::move(other.mFunction)),
@@ -125,7 +125,7 @@ namespace macoro
                 assert(!other.mStarted);
             }
 
-            ~bulk_awaitable()
+            ~bulk_chunked_awaitable()
             {
                 // Structured lifetime: a started operation must finish before
                 // its awaiter or the coroutine containing it is destroyed.
@@ -179,25 +179,64 @@ namespace macoro
         };
     }
 
-    // Lazy, single-use parallel loop. Executor::post_batch must copy the work
+    // Lazy, single-use chunked parallel loop. Executor::post_batch must copy
     // descriptors and publish all or none on failure; execution may be inline.
     // Nonempty work uses min(count, localCount) balanced contiguous partitions.
-    // Each exclusively borrows locals[partition] and calls fn(index, local)
-    // sequentially. The callable is owned, shared by partitions, and must permit
-    // concurrent calls. No OS-thread affinity is implied. On success every index
-    // runs once. On failure all started partitions finish before rethrowing the
-    // lowest-index partition's exception; that partition skips its remaining indices.
+    // Each exclusively borrows locals[partition] and invokes fn(begin, end, local)
+    // once for its nonempty half-open range. Zero work invokes no callbacks.
+    // The callable is owned, shared by partitions, and must permit concurrent
+    // calls. No OS-thread affinity is implied. All callback scopes finish before
+    // completion, including on failure, which rethrows the lowest-index
+    // partition's exception. Other partitions still execute their callbacks.
     // Executor, locals and anything borrowed by fn must outlive completion.
     // A started operation must be awaited to completion, never dropped while active.
+    template<class Executor, class Local, class Fn>
+    MACORO_NODISCARD auto bulk_chunked(Executor& executor, std::size_t count,
+        Local* locals, std::size_t localCount, Fn&& fn)
+    {
+        return detail::bulk_chunked_awaitable<Executor, Local, typename std::decay<Fn>::type>(
+            executor, count, locals, localCount, std::forward<Fn>(fn));
+    }
+
+    namespace detail
+    {
+        // Like stdexec's item-to-chunk adapter: no separate execution engine.
+        // Storing Fn as a member preserves its alignment for the awaitable's
+        // indirect-storage decision, including move-only over-aligned functors.
+        template<class Fn>
+        struct bulk_item_function
+        {
+            Fn fn;
+            template<class Local>
+            void operator()(std::size_t begin, std::size_t end, Local& local)
+                noexcept(noexcept(fn(begin, local)))
+            {
+                static_assert(std::is_same<decltype(fn(begin, local)), void>::value,
+                    "bulk callbacks must be synchronous and return void");
+                for (auto i = begin; i != end; ++i) fn(i, local);
+            }
+        };
+    }
+
+    // Per-item convenience form of bulk_chunked. On success every index runs
+    // once. A throwing item skips the remaining items of that partition;
+    // every other partition finishes before the error propagates.
     template<class Executor, class Local, class Fn>
     MACORO_NODISCARD auto bulk(Executor& executor, std::size_t count,
         Local* locals, std::size_t localCount, Fn&& fn)
     {
-        return detail::bulk_awaitable<Executor, Local, typename std::decay<Fn>::type>(
-            executor, count, locals, localCount, std::forward<Fn>(fn));
+        return bulk_chunked(executor, count, locals, localCount,
+            detail::bulk_item_function<typename std::decay<Fn>::type>{std::forward<Fn>(fn)});
     }
 
 #ifdef MACORO_CPP_20
+    template<class Executor, class Local, std::size_t Extent, class Fn>
+    MACORO_NODISCARD auto bulk_chunked(Executor& executor, std::size_t count,
+        std::span<Local, Extent> locals, Fn&& fn)
+    {
+        return bulk_chunked(executor, count, locals.data(), locals.size(), std::forward<Fn>(fn));
+    }
+
     template<class Executor, class Local, std::size_t Extent, class Fn>
     MACORO_NODISCARD auto bulk(Executor& executor, std::size_t count,
         std::span<Local, Extent> locals, Fn&& fn)

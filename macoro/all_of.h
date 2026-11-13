@@ -23,16 +23,19 @@ namespace macoro
             { ::operator delete(ptr, std::align_val_t(alignment)); }
         };
 
-        template<class Executor, class Local, class Fn, class Allocation = all_of_allocation>
+        template<class Executor, class Buffers, class Fn, class Allocation = all_of_allocation>
         class all_of_operation
         {
+            using indexed = decltype(std::declval<Buffers&>()[std::size_t{}]);
+            using stored_local = std::conditional_t<std::is_lvalue_reference_v<indexed>, indexed, std::remove_cvref_t<indexed>>;
+            using Local = std::remove_reference_t<stored_local>;
             using result = std::invoke_result_t<Fn&, std::size_t, Local&>;
             static constexpr bool async = requires { get_awaiter(std::declval<result>()).await_resume(); };
             struct state;
             struct partition : predicate_storage<result, async>
             {
                 state* owner = nullptr;
-                Local* local = nullptr;
+                await_storage<stored_local> local;
                 std::size_t next = 0, end = 0;
                 std::exception_ptr error;
 
@@ -42,6 +45,7 @@ namespace macoro
                     // The callback coroutine suspends before entering the driver,
                     // so it can be destroyed here, before publishing completion.
                     if constexpr (async) this->continuation.reset();
+                    local.reset();
                     // No access to this partition or its owner after publication.
                     if (s->remaining.fetch_sub(1, std::memory_order_acq_rel) == 1)
                         s->continuation.resume();
@@ -67,14 +71,14 @@ namespace macoro
                         {
                             if constexpr (!async)
                             {
-                                if (!static_cast<bool>(std::invoke(owner->fn, next, *local)))
+                                if (!static_cast<bool>(std::invoke(owner->fn, next, local.value())))
                                 { reject(); break; }
                                 ++next;
                             }
                             else
                             {
                                 this->expression.construct([&]() -> decltype(auto) {
-                                    return std::invoke(owner->fn, next, *local);
+                                    return std::invoke(owner->fn, next, local.value());
                                 });
                                 this->awaiter.construct([&]() -> decltype(auto) {
                                     return get_awaiter(this->expression.get());
@@ -140,6 +144,7 @@ namespace macoro
             struct state
             {
                 Executor& executor;
+                Buffers buffers;
                 Fn fn;
                 std::size_t count;
                 partition* partitions;
@@ -148,8 +153,8 @@ namespace macoro
                 std::atomic<std::size_t> remaining{0};
                 coroutine_handle<> continuation;
                 bool started = false;
-                template<class F> state(Executor& e, F&& f, std::size_t n)
-                    : executor(e), fn(std::forward<F>(f)), count(n) {}
+                template<class B, class F> state(Executor& e, B&& b, F&& f, std::size_t n)
+                    : executor(e), buffers(std::forward<B>(b)), fn(std::forward<F>(f)), count(n) {}
             };
 
             static constexpr std::size_t alignment = std::max({alignof(state), alignof(partition), alignof(work_item)});
@@ -167,14 +172,15 @@ namespace macoro
             }
 
         public:
-            template<class F>
-            all_of_operation(Executor& executor, std::size_t count, Local* locals,
-                std::size_t localCount, F&& fn, Allocation allocation = {})
+            template<class B, class F>
+            all_of_operation(Executor& executor, std::size_t count, B&& buffers,
+                F&& fn, Allocation allocation = {})
                 : mAllocation(std::move(allocation))
             {
                 static_assert(std::is_nothrow_default_constructible_v<partition>);
                 static_assert(std::is_nothrow_move_constructible_v<Allocation>);
-                if (count && (!locals || !localCount))
+                const auto localCount = static_cast<std::size_t>(buffers.size());
+                if (count && !localCount)
                     throw std::invalid_argument("all_of requires local storage for nonempty work");
                 const auto n = std::min(count, localCount);
                 if (n == std::numeric_limits<std::size_t>::max())
@@ -183,7 +189,7 @@ namespace macoro
                 auto partsOffset = reserve(bytes, alignof(partition), n, sizeof(partition));
                 auto itemsOffset = reserve(bytes, alignof(work_item), n, sizeof(work_item));
                 auto* storage = static_cast<std::byte*>(mAllocation.allocate(bytes, alignment));
-                try { mState = ::new (storage) state(executor, std::forward<F>(fn), n); }
+                try { mState = ::new (storage) state(executor, std::forward<B>(buffers), std::forward<F>(fn), n); }
                 catch (...) { mAllocation.deallocate(storage, alignment); throw; }
                 mState->partitions = reinterpret_cast<partition*>(storage + partsOffset);
                 mState->items = reinterpret_cast<work_item*>(storage + itemsOffset);
@@ -195,7 +201,7 @@ namespace macoro
                         auto& p = *::new (mState->partitions + i) partition;
                         ++constructed;
                         p.owner = mState;
-                        p.local = locals + i;
+                        p.local.construct([&]() -> decltype(auto) { return mState->buffers[i]; });
                         auto width = count / n, extra = count % n;
                         p.next = i * width + std::min(i, extra);
                         p.end = p.next + width + (i < extra);
@@ -262,24 +268,29 @@ namespace macoro
     // partitions and submission descriptors. Async predicates additionally use
     // one real coroutine frame per partition, reused across its items.
     // Executor::post_batch must copy descriptors and publish all or none on failure.
-    // Each partition exclusively borrows one local and walks a balanced contiguous
+    // An lvalue buffers object is accessed only during construction; an rvalue
+    // is owned/moved into the operation. Neither copies underlying span resources.
+    // A borrowed view header need not survive construction. size() determines the maximum
+    // partition count. Each used buffers[i] is evaluated once during construction.
+    // Lvalue results are borrowed; value/proxy results are materialized in aligned
+    // partition storage and passed as stable lvalues, including across suspension.
+    // Indexed referents (including proxy referents) must remain alive until
+    // completion. Materialized values are destroyed
+    // before publishing partition completion. No data() or contiguous storage is required.
+    // Each partition exclusively uses one local and walks a balanced contiguous
     // range. One partition runs inline. False requests stopping between items;
     // started predicates finish. Exceptions take precedence over false, and the
     // lowest failing partition wins. Child storage is cleaned before completion.
-    // The callable is shared and must support concurrent calls. Executor, locals,
+    // The callable is shared and must support concurrent calls. Executor, borrowed locals,
     // and callable referents are borrowed until completion; no thread affinity is
     // promised. Started operations must finish before destruction. Predicate and
     // executor allocations are separate from the shared block and bridge frames.
-    template<class Executor, class Local, class Fn>
+    template<class Executor, class Buffers, class Fn>
     MACORO_NODISCARD auto all_of(Executor& executor, std::size_t count,
-        Local* locals, std::size_t localCount, Fn&& fn)
+        Buffers&& buffers, Fn&& fn)
     {
-        return detail::all_of_operation<Executor, Local, std::decay_t<Fn>>(
-            executor, count, locals, localCount, std::forward<Fn>(fn));
+        return detail::all_of_operation<Executor, Buffers, std::decay_t<Fn>>(
+            executor, count, std::forward<Buffers>(buffers), std::forward<Fn>(fn));
     }
-    template<class Executor, class Local, std::size_t Extent, class Fn>
-    MACORO_NODISCARD auto all_of(Executor& executor, std::size_t count,
-        std::span<Local, Extent> locals, Fn&& fn)
-    { return all_of(executor, count, locals.data(), locals.size(), std::forward<Fn>(fn)); }
 }
 #endif

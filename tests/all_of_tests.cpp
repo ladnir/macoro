@@ -130,9 +130,9 @@ namespace macoro::tests
             AwaitCounts counts;
             AllocationCounts allocations;
             auto predicate = [&](std::size_t, Local&) { return Immediate<Mode>(counts); };
-            using Operation = detail::all_of_operation<inline_scheduler, Local, decltype(predicate), CountAllocation>;
+            using Operation = detail::all_of_operation<inline_scheduler, std::span<Local>, decltype(predicate), CountAllocation>;
             {
-                Operation op(executor, 4096, locals.data(), locals.size(), predicate, CountAllocation{&allocations});
+                Operation op(executor, 4096, std::span(locals), predicate, CountAllocation{&allocations});
                 check(allocations.allocated == 1 && allocations.freed == 0 && counts.alive == 0);
                 int caught = 0;
                 try { check(sync_wait(std::move(op))); }
@@ -142,6 +142,117 @@ namespace macoro::tests
                 check(counts.calls == (Mode >= 4 ? 0 : 4096));
             }
             check(allocations.allocated == 1 && allocations.freed == 1);
+        }
+        struct EmptyResource {};
+        struct CountOnly
+        {
+            std::size_t count;
+            std::size_t size() const { return count; }
+            EmptyResource operator[](std::size_t) const { return {}; }
+        };
+        struct IndirectLocals
+        {
+            std::array<Local*, 3> locals;
+            std::size_t size() const { return locals.size(); }
+            Local& operator[](std::size_t i) const { return *locals[i]; }
+        };
+        struct alignas(256) OwnedResource
+        {
+            unsigned* alive;
+            const unsigned* viewAlive;
+            unsigned calls = 0;
+            OwnedResource(unsigned& a, const unsigned& v) : alive(&a), viewAlive(&v) { ++*alive; }
+            OwnedResource(OwnedResource&&) = delete;
+            ~OwnedResource() { --*alive; }
+        };
+        struct OwningView
+        {
+            unsigned* alive;
+            std::shared_ptr<unsigned> owner = std::make_shared<unsigned>(42);
+            std::size_t throwAt = 3;
+            std::size_t size() const { return 3; }
+            OwnedResource operator[](std::size_t i)
+            {
+                if (i == throwAt) throw 19;
+                return OwnedResource(*alive, *owner);
+            }
+        };
+        task<bool> borrowResource(async_manual_reset_event& gate, OwnedResource& resource)
+        {
+            co_await gate;
+            check(reinterpret_cast<std::uintptr_t>(&resource) % alignof(OwnedResource) == 0);
+            check(*resource.viewAlive == 42 && *resource.alive != 0);
+            ++resource.calls;
+            co_return true;
+        }
+        void checkIndexedResources()
+        {
+            inline_scheduler executor;
+            AllocationCounts allocations;
+            unsigned calls = 0;
+            auto predicate = [&](std::size_t, EmptyResource&) { ++calls; return true; };
+            using Operation = detail::all_of_operation<inline_scheduler, CountOnly,
+                decltype(predicate), CountAllocation>;
+            {
+                Operation operation(executor, 37, CountOnly{3}, predicate, CountAllocation{&allocations});
+                check(calls == 0 && allocations.allocated == 1);
+                check(sync_wait(std::move(operation)) && calls == 37);
+            }
+            check(allocations.freed == 1);
+            Local first, second, third;
+            check(sync_wait(all_of(executor, 8, IndirectLocals{{&third, &first, &second}},
+                [](std::size_t, Local& local) { ++local.calls; return true; })));
+            check(third.calls == 3 && first.calls == 3 && second.calls == 2);
+
+            // The span header is only needed while partition references bind.
+            std::array<Local, 3> backing;
+            auto fromLocalSpan = [&]() {
+                auto view = std::span(backing);
+                return all_of(executor, 7, view,
+                    [](std::size_t, Local& local) { ++local.calls; return true; });
+            };
+            check(sync_wait(fromLocalSpan()));
+            check(backing[0].calls == 3 && backing[1].calls == 2 && backing[2].calls == 2);
+
+            unsigned alive = 0;
+            std::weak_ptr<unsigned> weak;
+            auto makeOperation = [&](async_manual_reset_event& gate) {
+                OwningView view{&alive};
+                weak = view.owner;
+                return all_of(executor, 7, std::move(view),
+                    [&](std::size_t, OwnedResource& local) { return borrowResource(gate, local); });
+            };
+            async_manual_reset_event gate;
+            {
+                auto operation = makeOperation(gate);
+                check(alive == 3 && !weak.expired());
+                bool finished = false;
+                auto controller = [&]() -> task<> {
+                    check(co_await std::move(operation));
+                    check(alive == 0); // materialized arguments die before parent completion
+                    finished = true;
+                };
+                auto running = make_eager(controller());
+                check(!finished && alive == 3 && !weak.expired());
+                gate.set();
+                sync_wait(running);
+                check(finished && alive == 0);
+            }
+            check(weak.expired());
+            { auto unstarted = makeOperation(gate); check(alive == 3); }
+            check(alive == 0 && weak.expired());
+            allocations = {};
+            auto ownedPredicate = [](std::size_t, OwnedResource&) { return true; };
+            using ThrowingOperation = detail::all_of_operation<inline_scheduler, OwningView,
+                decltype(ownedPredicate), CountAllocation>;
+            int caught = 0;
+            try
+            {
+                ThrowingOperation operation(executor, 7, OwningView{&alive, std::make_shared<unsigned>(42), 1},
+                    ownedPredicate, CountAllocation{&allocations});
+            }
+            catch (int value) { caught = value; }
+            check(caught == 19 && alive == 0 && allocations.allocated == 1 && allocations.freed == 1);
         }
         // A move-only coroutine parameter, whose destruction tests frame cleanup
         // rather than merely block-local scope cleanup.
@@ -206,10 +317,10 @@ namespace macoro::tests
             check(executor.submissions == (count <= 1 ? 0 : std::min(count, locals.size())));
             executor.submissions = 0;
         }
-        check(sync_wait(all_of(executor, 0, static_cast<Local*>(nullptr), 0,
+        check(sync_wait(all_of(executor, 0, std::span<Local>{},
             [](std::size_t, Local&) { throw 99; return true; })));
         bool rejected = false;
-        try { auto bad = all_of(executor, 1, static_cast<Local*>(nullptr), 0,
+        try { auto bad = all_of(executor, 1, std::span<Local>{},
             [](std::size_t, Local&) { return true; }); }
         catch (const std::invalid_argument&) { rejected = true; }
         check(rejected);
@@ -287,6 +398,7 @@ namespace macoro::tests
 
     void all_of_ownership_test()
     {
+        checkIndexedResources();
         inline_scheduler executor;
         std::array<Local, 3> locals;
         std::weak_ptr<int> weak;
@@ -425,9 +537,9 @@ namespace macoro::tests
         {
             AllocationCounts counts;
             auto predicate = [](std::size_t, Local& local) { ++local.calls; return true; };
-            using Operation = detail::all_of_operation<inline_scheduler, Local, decltype(predicate), CountAllocation>;
+            using Operation = detail::all_of_operation<inline_scheduler, std::span<Local>, decltype(predicate), CountAllocation>;
             {
-                Operation op(executor, n, locals.data(), locals.size(), predicate, CountAllocation{&counts});
+                Operation op(executor, n, std::span(locals), predicate, CountAllocation{&counts});
                 check(counts.allocated == 1 && counts.freed == 0);
                 check(sync_wait(std::move(op)));
             }
@@ -453,10 +565,10 @@ namespace macoro::tests
         std::array<BridgeUse, 3> bridges;
         AllocationCounts shared;
         auto asyncPredicate = [](std::size_t, BridgeUse& use) { return ObserveBridge{use}; };
-        using AsyncOperation = detail::all_of_operation<inline_scheduler, BridgeUse,
+        using AsyncOperation = detail::all_of_operation<inline_scheduler, std::span<BridgeUse>,
             decltype(asyncPredicate), CountAllocation>;
         {
-            AsyncOperation op(executor, 37, bridges.data(), bridges.size(),
+            AsyncOperation op(executor, 37, std::span(bridges),
                 asyncPredicate, CountAllocation{&shared});
             check(shared.allocated == 1 && shared.freed == 0);
             check(sync_wait(std::move(op)));
@@ -472,9 +584,9 @@ namespace macoro::tests
             ThrowOnMove(ThrowOnMove&&) { throw 42; }
             bool operator()(std::size_t, Local&) { return true; }
         } fn;
-        using Operation = detail::all_of_operation<inline_scheduler, Local, ThrowOnMove, CountAllocation>;
+        using Operation = detail::all_of_operation<inline_scheduler, std::span<Local>, ThrowOnMove, CountAllocation>;
         int caught = 0;
-        try { Operation op(executor, 7, locals.data(), locals.size(), std::move(fn), CountAllocation{&counts}); }
+        try { Operation op(executor, 7, std::span(locals), std::move(fn), CountAllocation{&counts}); }
         catch (int value) { caught = value; }
         check(caught == 42 && counts.allocated == 1 && counts.freed == 1);
     }

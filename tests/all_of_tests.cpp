@@ -457,6 +457,26 @@ namespace macoro::tests
         check(finished && !destroyed);
         sync_wait(operation);
         check(finished);
+
+        // A named operation survives the failed await. Child resources must
+        // already be gone in the parent's catch, for both predicate modes.
+        auto checkRetained = [&](auto retainedPredicate) {
+            unsigned alive = 0;
+            auto retained = all_of(executor, 3, OwningView{&alive}, retainedPredicate);
+            check(alive == 3);
+            bool caught = false;
+            auto awaitRetained = [&]() -> task<> {
+                try { co_await retained; }
+                catch (int value) { check(value == 7 && alive == 0); caught = true; }
+                check(caught && alive == 0);
+            };
+            sync_wait(awaitRetained());
+            check(caught && alive == 0);
+        };
+        unsigned calls = 0;
+        checkRetained([&](std::size_t, OwnedResource&) { ++calls; return true; });
+        checkRetained([&](std::size_t, OwnedResource&) -> task<bool> { ++calls; co_return true; });
+        check(calls == 0);
     }
 
     void all_of_adapter_test()

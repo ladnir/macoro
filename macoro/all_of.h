@@ -247,6 +247,14 @@ namespace macoro
                 catch (...)
                 {
                     // post_batch must publish all descriptors or none on failure.
+                    // No predicate started. Release child storage before the
+                    // exception reaches the parent, even for a retained operation.
+                    for (std::size_t i = 0; i != s.count; ++i)
+                    {
+                        auto& p = s.partitions[i];
+                        if constexpr (async) p.continuation.reset();
+                        p.local.reset();
+                    }
                     s.remaining.store(0, std::memory_order_relaxed);
                     throw;
                 }

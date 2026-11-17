@@ -160,7 +160,7 @@ namespace macoro
 				bool await_ready() { return false; }
 #ifdef MACORO_CPP_20
 				template<typename T>
-				std::coroutine_handle<void> await_suspend(const std::coroutine_handle<T>& c)
+				std::coroutine_handle<void> await_suspend(std::coroutine_handle<T> c)
 				{
 					return std::noop_coroutine();
 				}
@@ -182,7 +182,7 @@ namespace macoro
 
 #ifdef MACORO_CPP_20
 				template<typename T>
-				void await_suspend(const std::coroutine_handle<T>& c) { }
+				void await_suspend(std::coroutine_handle<T> c) { }
 #endif
 				template<typename T>
 				void await_suspend(const coroutine_handle<T>& c) { }
@@ -479,7 +479,7 @@ namespace macoro
 
 #ifdef MACORO_CPP_20
 					template<typename TT>
-					std::coroutine_handle<void> await_suspend(const std::coroutine_handle<TT>& c)
+					std::coroutine_handle<void> await_suspend(std::coroutine_handle<TT> c)
 					{
 						h.promise().cont = coroutine_handle<TT>(c);
 						return h.std_cast();

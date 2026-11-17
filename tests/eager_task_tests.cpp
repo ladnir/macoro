@@ -14,9 +14,7 @@ namespace macoro
 			//TEST(0);
 			auto foo = []() -> task<int>
 			{
-				MC_BEGIN(task<int>);
-				MC_RETURN(42);
-				MC_END();
+				co_return 42;
 			};
 
 			auto t = foo();

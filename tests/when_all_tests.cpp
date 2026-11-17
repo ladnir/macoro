@@ -18,16 +18,12 @@ namespace macoro
 
 
 		auto g = []() -> task<bool> {
-			MC_BEGIN(task<bool>);
-			MC_RETURN(true);
-			MC_END();
+			co_return true;
 			};
 
 		bool b = true;
 		auto h = []() -> task<bool&> {
-			MC_BEGIN(task<bool&>);
-			MC_RETURN(b);
-			MC_END();
+			co_return b;
 			};
 
 		void when_all_basic_tests()

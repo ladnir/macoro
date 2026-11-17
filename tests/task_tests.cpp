@@ -319,12 +319,13 @@ namespace macoro
 				int i = sync_wait(t);
 				TEST(i == 42);
 			}
-#endif
+#else
 			{
 				task<int> t = taskInt14();
 				int i = sync_wait(t);
 				TEST(i == 42);
 			}
+#endif
 			//std::cout << "passed" << std::endl;
 		}
 
@@ -339,13 +340,14 @@ namespace macoro
 				sync_wait(t);
 				TEST(taskVoid_called);
 			}
-#endif
+#else
 			{
 				taskVoid_called = false;
 				task<void> t = taskVoid14();
 				sync_wait(t);
 				TEST(taskVoid_called);
 			}
+#endif
 			//std::cout << "passed" << std::endl;
 		}
 
@@ -361,7 +363,7 @@ namespace macoro
 				++taskRef_val;
 				TEST(i == 43);
 			}
-#endif
+#else
 			{
 				taskRef_val = 42;
 				task<int&> t = taskRef14();
@@ -370,6 +372,7 @@ namespace macoro
 				++taskRef_val;
 				TEST(i == 43);
 			}
+#endif
 			//std::cout << "passed" << std::endl;
 		}
 
@@ -389,7 +392,7 @@ namespace macoro
 				auto v = sync_wait(taskmove20());
 				TEST(v.v == 42);
 			}
-#endif
+#else
 			{
 				task<move_only> t = taskmove14();
 				auto v = std::move(sync_wait(t));
@@ -400,6 +403,7 @@ namespace macoro
 				auto v = sync_wait(taskmove14());
 				TEST(v.v == 42);
 			}
+#endif
 			//std::cout << "passed" << std::endl;
 		}
 
@@ -421,7 +425,7 @@ namespace macoro
 				}
 				TEST(didThrow);
 			}
-#endif
+#else
 			{
 				task<int> t = taskThrows14();
 				bool didThrow = false;
@@ -435,6 +439,7 @@ namespace macoro
 				}
 				TEST(didThrow);
 			}
+#endif
 			//std::cout << "passed" << std::endl;
 		}
 		void task_blocking_cancel_test()

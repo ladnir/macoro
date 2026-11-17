@@ -179,7 +179,7 @@ namespace macoro
             bool await_ready() const noexcept { return false; }
 
             template<typename H>
-            auto await_suspend(const H& h)const {
+            auto await_suspend(H h)const {
                 using traits_C = coroutine_handle_traits<H>;
                 using return_type = typename traits_C::template coroutine_handle<void>;
                 if (pool->try_dispatch(coroutine_handle<void>(h)))
@@ -201,7 +201,7 @@ namespace macoro
             bool await_ready() const noexcept { return false; }
 
             template<typename H>
-            void await_suspend(const H& h) {
+            void await_suspend(H h) {
                 mPool->post_after(coroutine_handle<void>(h), mDeadline, std::move(mToken), mReg);
             }
 
